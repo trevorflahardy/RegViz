@@ -1,4 +1,4 @@
-use cot_4210_final_proj::core::{lexer, nfa, parser};
+use regviz::core::{lexer, nfa, parser};
 
 #[test]
 fn test_nfa_simple() {

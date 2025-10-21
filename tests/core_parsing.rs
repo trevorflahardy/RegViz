@@ -1,6 +1,6 @@
 //! Comprehensive tests for core parsing systems (lexer, parser, nfa, dfa, min, sim)
 
-use cot_4210_final_proj::core::{ast, dfa, lexer, min, nfa, parser, sim, tokens};
+use regviz::core::{ast, dfa, lexer, min, nfa, parser, sim, tokens};
 
 #[test]
 fn test_lexer_basic() {

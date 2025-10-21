@@ -665,15 +665,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cot_4210_final_proj"
-version = "0.1.0"
-dependencies = [
- "iced",
- "indexmap",
- "thiserror",
-]
-
-[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2659,6 +2650,15 @@ checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
  "getrandom 0.2.16",
  "libredox",
+ "thiserror",
+]
+
+[[package]]
+name = "regviz"
+version = "0.1.0"
+dependencies = [
+ "iced",
+ "indexmap",
  "thiserror",
 ]
 

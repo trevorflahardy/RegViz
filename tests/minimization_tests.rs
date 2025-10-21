@@ -1,4 +1,4 @@
-use cot_4210_final_proj::core::{dfa, lexer, min, nfa, parser};
+use regviz::core::{dfa, lexer, min, nfa, parser};
 
 #[test]
 fn test_minimize_simple() {
