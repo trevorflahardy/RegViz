@@ -1,0 +1,16 @@
+# Fdb version 4
+["pdflatex"] 1761057168 "01_project_summary.tex" "build/01_project_summary.pdf" "01_project_summary" 1761057168 2
+  "/usr/local/texlive/2023/texmf-dist/tex/latex/import/import.sty" 1586645574 6201 0ad8b5da8e12f60a88d546b2198a56f2 ""
+  "/usr/local/texlive/2023/texmf-dist/tex/latex/subfiles/subfiles.cls" 1605478891 1507 57de335d88fde4e5c924dfed577fdb74 ""
+  "/usr/local/texlive/2023/texmf-dist/web2c/texmf.cnf" 1677365944 40745 87bb86a62d462f93a1efc6b0c65c872e ""
+  "/usr/local/texlive/2023/texmf-var/web2c/pdftex/pdflatex.fmt" 1708970060 7883464 1d18a99aac82207d65d51617505cdd06 ""
+  "/usr/local/texlive/2023/texmf.cnf" 1678822455 577 1b2b1af17af2508fb20dd85783af4050 ""
+  "00_project_proposal.tex" 0 -1 0 ""
+  "01_project_summary.tex" 1761057168 284 066ba7a111f3665a34a4d2f7670da144 ""
+  "build/tmp/00_project_proposal.tex" 0 -1 0 ""
+  "build/tmp/01_project_summary.aux" 1761057094 32 3985256e7290058c681f74d7a3565a19 "pdflatex"
+  (generated)
+  "build/01_project_summary.pdf"
+  "build/tmp/01_project_summary.aux"
+  "build/tmp/01_project_summary.log"
+  (rewritten before read)

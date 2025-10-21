@@ -1,0 +1,48 @@
+\documentclass[00_project_proposal.tex]{subfiles}
+
+\begin{document}
+
+\resetSectionPageNumber{Project Summary: Regular Expression Visualizer}
+\section{Project Summary}
+
+\subsection{Overview}
+
+\textbf{Problem Statement:}
+Although tools exist that visualize regular expressions and automata, most are outdated or limited in functionality.
+Students often learn the equivalence between regular expressions and finite automata only in theory, without a modern, hands-on way to observe how one transforms into the other.
+This project addresses that gap by developing a transparent, from-scratch system that reveals each step of the conversion process and provides real-time interaction with the resulting automaton.
+
+\textbf{Project Description:}
+The proposed project, titled \textbf{Regular Expression Visualizer}, implements a Rust-based application that parses regular expressions and constructs their equivalent finite automata representations.
+It demonstrates the theoretical equivalence between regular expressions, nondeterministic finite automata (NFAs), and deterministic finite automata (DFAs)—a central topic in Automata Theory.
+Users will input a regular expression, view its $\varepsilon$-NFA, optionally convert it to a DFA, and test string membership interactively.
+The goal is to modernize and extend prior visualization concepts with improved clarity, interactivity, and maintainability.
+
+\subsection{Goals and Purpose}
+
+\begin{itemize}
+    \item Implement a manual lexer, parser, and automata generator for regular expressions without built-in regex or parser libraries.
+    \item Apply Thompson's construction for \(RE \rightarrow NFA\) and subset construction for optional \(NFA \rightarrow DFA\) conversion.
+    \item Create an interactive GUI using the \textbf{iced} framework for visualizing automata and testing strings in real time.
+\end{itemize}
+
+This project functions as both an educational demonstration of formal language theory and a usable teaching aid for exploring automata behavior.
+
+\subsection{Implementation Details}
+
+Developed entirely in \textbf{Rust}, the project emphasizes performance and safety.
+It consists of three core components:
+\begin{enumerate}
+    \item \textbf{Core Engine:} Tokenizer and recursive-descent parser for regular expressions, constructing $\varepsilon$-NFAs and optionally DFAs.
+    \item \textbf{Simulation:} Implements $\varepsilon$-closure and transition functions to test if input strings are accepted.
+    \item \textbf{Visualization:} GUI for entering expressions, rendering state diagrams, and showing acceptance results through iced's canvas system.
+\end{enumerate}
+
+\subsection{Evaluation and Expected Results}
+
+Evaluation will focus on correctness of automata construction, clarity of visualization, and accuracy across benchmark inputs such as $(a|b)^*abb$ and $(ab)^*|c$.
+Metrics including state counts, transition accuracy, and acceptance verification will support analysis.
+The final submission will include full Rust source code, performance discussion, and a live in-class demonstration.
+
+\clearpage
+\end{document}
