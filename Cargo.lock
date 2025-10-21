@@ -645,6 +645,7 @@ name = "cot_4210_final_proj"
 version = "0.1.0"
 dependencies = [
  "iced",
+ "thiserror",
 ]
 
 [[package]]
