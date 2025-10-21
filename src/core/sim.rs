@@ -1,6 +1,9 @@
-// DFA simulation: returns true if input is accepted by DFA
-use crate::core::dfa::Dfa;
+use std::collections::HashSet;
 
+use crate::core::dfa::Dfa;
+use crate::core::nfa::{EdgeLabel, Nfa, StateId};
+
+/// Simulates a DFA and reports whether it accepts the provided input.
 pub fn simulate_dfa(dfa: &Dfa, alphabet: &[char], input: &str) -> bool {
     let mut state = dfa.start;
     for ch in input.chars() {
@@ -15,10 +18,8 @@ pub fn simulate_dfa(dfa: &Dfa, alphabet: &[char], input: &str) -> bool {
     }
     dfa.accepts.contains(&state)
 }
-use std::collections::HashSet;
 
-use crate::core::nfa::{EdgeLabel, Nfa, StateId};
-
+/// Computes the epsilon-closure of a state set in an NFA using DFS.
 pub fn epsilon_closure(seed: &HashSet<StateId>, nfa: &Nfa) -> HashSet<StateId> {
     let mut closure = seed.clone();
     let mut stack: Vec<StateId> = seed.iter().copied().collect();
@@ -32,6 +33,7 @@ pub fn epsilon_closure(seed: &HashSet<StateId>, nfa: &Nfa) -> HashSet<StateId> {
     closure
 }
 
+/// Advances the frontier one step on a symbol, without taking epsilon-closures.
 pub fn move_on(states: &HashSet<StateId>, symbol: char, nfa: &Nfa) -> HashSet<StateId> {
     let mut frontier = HashSet::new();
     for state in states {
@@ -44,6 +46,7 @@ pub fn move_on(states: &HashSet<StateId>, symbol: char, nfa: &Nfa) -> HashSet<St
     frontier
 }
 
+/// Simulates an NFA using the standard powerset traversal.
 pub fn nfa_accepts(nfa: &Nfa, input: &str) -> bool {
     let mut current = HashSet::new();
     current.insert(nfa.start);
