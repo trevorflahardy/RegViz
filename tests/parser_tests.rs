@@ -1,4 +1,4 @@
-use cot_4210_final_proj::core::{ast, lexer, parser};
+use regviz::core::{ast, lexer, parser};
 
 #[test]
 fn test_parser_simple() {

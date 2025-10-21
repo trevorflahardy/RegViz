@@ -2,41 +2,60 @@ use std::collections::HashSet;
 
 use crate::core::ast::Ast;
 
+/// Identifier type for NFA states.
 pub type StateId = u32;
 
+/// Labels describing the kind of transition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EdgeLabel {
+    /// Epsilon transition that consumes no input.
     Eps,
+    /// Consumes a specific symbol.
     Sym(char),
 }
 
+/// A flattened representation of a transition, useful for visualization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Edge {
+    /// Origin state.
     pub from: StateId,
+    /// Destination state.
     pub to: StateId,
+    /// Transition label.
     pub label: EdgeLabel,
 }
 
+/// Transition stored in adjacency lists.
 #[derive(Debug, Clone)]
 pub struct Transition {
+    /// Destination state.
     pub to: StateId,
+    /// Transition label.
     pub label: EdgeLabel,
 }
 
+/// Thompson-constructed nondeterministic finite automaton.
 #[derive(Debug, Clone)]
 pub struct Nfa {
+    /// All known states.
     pub states: Vec<StateId>,
+    /// Start state.
     pub start: StateId,
+    /// Accepting states.
     pub accepts: Vec<StateId>,
+    /// Flattened edge list.
     pub edges: Vec<Edge>,
+    /// Adjacency lists for efficient traversal.
     pub adjacency: Vec<Vec<Transition>>,
 }
 
 impl Nfa {
+    /// Returns the outgoing transitions from a given state.
     pub fn transitions(&self, state: StateId) -> &[Transition] {
         &self.adjacency[state as usize]
     }
 
+    /// Computes the sorted alphabet recognized by this automaton.
     pub fn alphabet(&self) -> Vec<char> {
         let mut chars: HashSet<char> = HashSet::new();
         for row in &self.adjacency {
@@ -52,6 +71,7 @@ impl Nfa {
     }
 }
 
+/// Builds an [`Nfa`] using Thompson's construction algorithm.
 pub fn build_nfa(ast: &Ast) -> Nfa {
     let mut builder = Builder::default();
     let fragment = builder.build(ast.clone());
@@ -83,75 +103,11 @@ impl Builder {
     fn build(&mut self, ast: Ast) -> Fragment {
         match ast {
             Ast::Char(c) => self.build_char(c),
-            Ast::Concat(lhs, rhs) => {
-                let left = self.build(*lhs);
-                let right = self.build(*rhs);
-                for accept in &left.accepts {
-                    self.add_edge(*accept, right.start, EdgeLabel::Eps);
-                }
-                Fragment {
-                    start: left.start,
-                    accepts: right.accepts,
-                }
-            }
-            Ast::Alt(lhs, rhs) => {
-                let left = self.build(*lhs);
-                let right = self.build(*rhs);
-                let start = self.new_state();
-                let accept = self.new_state();
-                self.add_edge(start, left.start, EdgeLabel::Eps);
-                self.add_edge(start, right.start, EdgeLabel::Eps);
-                for state in left.accepts.iter().chain(right.accepts.iter()) {
-                    self.add_edge(*state, accept, EdgeLabel::Eps);
-                }
-                Fragment {
-                    start,
-                    accepts: vec![accept],
-                }
-            }
-            Ast::Star(inner) => {
-                let frag = self.build(*inner);
-                let start = self.new_state();
-                let accept = self.new_state();
-                self.add_edge(start, frag.start, EdgeLabel::Eps);
-                self.add_edge(start, accept, EdgeLabel::Eps);
-                for state in frag.accepts {
-                    self.add_edge(state, frag.start, EdgeLabel::Eps);
-                    self.add_edge(state, accept, EdgeLabel::Eps);
-                }
-                Fragment {
-                    start,
-                    accepts: vec![accept],
-                }
-            }
-            Ast::Plus(inner) => {
-                let frag = self.build(*inner);
-                let start = self.new_state();
-                let accept = self.new_state();
-                self.add_edge(start, frag.start, EdgeLabel::Eps);
-                for state in &frag.accepts {
-                    self.add_edge(*state, frag.start, EdgeLabel::Eps);
-                    self.add_edge(*state, accept, EdgeLabel::Eps);
-                }
-                Fragment {
-                    start,
-                    accepts: vec![accept],
-                }
-            }
-            Ast::Opt(inner) => {
-                let frag = self.build(*inner);
-                let start = self.new_state();
-                let accept = self.new_state();
-                self.add_edge(start, frag.start, EdgeLabel::Eps);
-                self.add_edge(start, accept, EdgeLabel::Eps);
-                for state in frag.accepts {
-                    self.add_edge(state, accept, EdgeLabel::Eps);
-                }
-                Fragment {
-                    start,
-                    accepts: vec![accept],
-                }
-            }
+            Ast::Concat(lhs, rhs) => self.build_concat(*lhs, *rhs),
+            Ast::Alt(lhs, rhs) => self.build_alternation(*lhs, *rhs),
+            Ast::Star(inner) => self.build_star(*inner),
+            Ast::Plus(inner) => self.build_plus(*inner),
+            Ast::Opt(inner) => self.build_optional(*inner),
         }
     }
 
@@ -159,6 +115,80 @@ impl Builder {
         let start = self.new_state();
         let accept = self.new_state();
         self.add_edge(start, accept, EdgeLabel::Sym(ch));
+        Fragment {
+            start,
+            accepts: vec![accept],
+        }
+    }
+
+    fn build_concat(&mut self, lhs: Ast, rhs: Ast) -> Fragment {
+        let left = self.build(lhs);
+        let right = self.build(rhs);
+        for accept in &left.accepts {
+            self.add_edge(*accept, right.start, EdgeLabel::Eps);
+        }
+        Fragment {
+            start: left.start,
+            accepts: right.accepts,
+        }
+    }
+
+    fn build_alternation(&mut self, lhs: Ast, rhs: Ast) -> Fragment {
+        let left = self.build(lhs);
+        let right = self.build(rhs);
+        let start = self.new_state();
+        let accept = self.new_state();
+        self.add_edge(start, left.start, EdgeLabel::Eps);
+        self.add_edge(start, right.start, EdgeLabel::Eps);
+        for state in left.accepts.iter().chain(right.accepts.iter()) {
+            self.add_edge(*state, accept, EdgeLabel::Eps);
+        }
+        Fragment {
+            start,
+            accepts: vec![accept],
+        }
+    }
+
+    fn build_star(&mut self, inner: Ast) -> Fragment {
+        let frag = self.build(inner);
+        let start = self.new_state();
+        let accept = self.new_state();
+        self.add_edge(start, frag.start, EdgeLabel::Eps);
+        self.add_edge(start, accept, EdgeLabel::Eps);
+        for state in frag.accepts {
+            self.add_edge(state, frag.start, EdgeLabel::Eps);
+            self.add_edge(state, accept, EdgeLabel::Eps);
+        }
+        Fragment {
+            start,
+            accepts: vec![accept],
+        }
+    }
+
+    fn build_plus(&mut self, inner: Ast) -> Fragment {
+        let frag = self.build(inner);
+        let start = self.new_state();
+        let accept = self.new_state();
+        self.add_edge(start, frag.start, EdgeLabel::Eps);
+        for state in &frag.accepts {
+            self.add_edge(*state, frag.start, EdgeLabel::Eps);
+            self.add_edge(*state, accept, EdgeLabel::Eps);
+        }
+        Fragment {
+            start,
+            accepts: vec![accept],
+        }
+    }
+
+    fn build_optional(&mut self, inner: Ast) -> Fragment {
+        let frag = self.build(inner);
+        let start = self.new_state();
+        let accept = self.new_state();
+        self.add_edge(start, frag.start, EdgeLabel::Eps);
+        self.add_edge(start, accept, EdgeLabel::Eps);
+        for state in frag.accepts {
+            self.add_edge(state, accept, EdgeLabel::Eps);
+        }
         Fragment {
             start,
             accepts: vec![accept],

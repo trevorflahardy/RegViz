@@ -1,4 +1,4 @@
-use cot_4210_final_proj::core::{dfa, lexer, min, nfa, parser, sim};
+use regviz::core::{dfa, lexer, min, nfa, parser, sim};
 
 #[test]
 fn test_dfa_simple() {

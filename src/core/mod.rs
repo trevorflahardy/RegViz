@@ -11,16 +11,25 @@ use self::ast::Ast;
 use self::dfa::Dfa;
 use self::nfa::Nfa;
 
+/// Aggregates the intermediate products generated while building automata
+/// from a regular expression.
 #[derive(Debug, Clone)]
 pub struct BuildArtifacts {
+    /// The parsed regular-expression abstract syntax tree.
     pub ast: Ast,
+    /// The Thompson-constructed nondeterministic automaton.
     pub nfa: Nfa,
+    /// The alphabet recognized by the NFA (and derived DFAs).
     pub alphabet: Vec<char>,
+    /// A lazily computed DFA generated via subset construction.
     pub dfa: Option<Dfa>,
+    /// A lazily computed minimal DFA.
     pub min_dfa: Option<Dfa>,
 }
 
 impl BuildArtifacts {
+    /// Creates a new container for build artifacts.
+    #[must_use]
     pub fn new(ast: Ast, nfa: Nfa, alphabet: Vec<char>) -> Self {
         Self {
             ast,

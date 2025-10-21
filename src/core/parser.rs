@@ -2,6 +2,8 @@ use crate::core::ast::Ast;
 use crate::core::tokens::{Token, TokenKind};
 use crate::errors::{ParseError, ParseErrorKind};
 
+/// Converts a token stream into an [`Ast`] using a Pratt-style recursive-descent
+/// parser for regular expressions.
 pub fn parse(tokens: &[Token]) -> Result<Ast, ParseError> {
     let mut parser = Parser { tokens, pos: 0 };
     let ast = parser.parse_regex()?;
@@ -9,16 +11,19 @@ pub fn parse(tokens: &[Token]) -> Result<Ast, ParseError> {
     Ok(ast)
 }
 
+/// Stateful parser over a token slice.
 struct Parser<'a> {
     tokens: &'a [Token],
     pos: usize,
 }
 
 impl<'a> Parser<'a> {
+    /// Parses a full regular expression, covering alternation and concatenation.
     fn parse_regex(&mut self) -> Result<Ast, ParseError> {
         self.parse_alt()
     }
 
+    /// Parses an alternation (`lhs | rhs`).
     fn parse_alt(&mut self) -> Result<Ast, ParseError> {
         let mut node = self.parse_concat()?;
         while self.matches(TokenKind::Or) {
@@ -28,44 +33,46 @@ impl<'a> Parser<'a> {
         Ok(node)
     }
 
+    /// Parses implicit concatenation of atoms.
     fn parse_concat(&mut self) -> Result<Ast, ParseError> {
         let mut nodes = Vec::new();
         while self.can_start_atom() {
             nodes.push(self.parse_repeat()?);
         }
         match nodes.len() {
-            0 => Err(self.error_here(ParseErrorKind::EmptyAlternative)),
-            1 => Ok(nodes.remove(0)),
-            _ => {
-                let mut it = nodes.into_iter();
-                let mut acc = it.next().expect("checked len");
-                for node in it {
-                    acc = Ast::concat(acc, node);
+            0 => {
+                if matches!(
+                    self.peek_kind(),
+                    Some(TokenKind::Star | TokenKind::Plus | TokenKind::QMark)
+                ) {
+                    Err(self.error_here(ParseErrorKind::MisplacedPostfix))
+                } else {
+                    Err(self.error_here(ParseErrorKind::EmptyAlternative))
                 }
-                Ok(acc)
             }
+            1 => Ok(nodes.remove(0)),
+            _ => Ok(chain_concat(nodes)),
         }
     }
 
+    /// Parses unary postfix operators (`*`, `+`, `?`).
     fn parse_repeat(&mut self) -> Result<Ast, ParseError> {
         let mut node = self.parse_atom()?;
-        loop {
-            let apply_fn: Option<fn(Ast) -> Ast> = match self.peek_kind() {
-                Some(TokenKind::Star) => Some(Ast::star),
-                Some(TokenKind::Plus) => Some(Ast::plus),
-                Some(TokenKind::QMark) => Some(Ast::opt),
-                _ => None,
-            };
-            if let Some(apply) = apply_fn {
-                self.pos += 1;
-                node = apply(node);
-            } else {
-                break;
-            }
+        while let Some(apply) = self.next_repetition()? {
+            node = apply(node);
         }
         Ok(node)
     }
 
+    /// Determines whether the current token may begin an atom.
+    fn can_start_atom(&self) -> bool {
+        matches!(
+            self.peek_kind(),
+            Some(TokenKind::Char(_)) | Some(TokenKind::LParen)
+        )
+    }
+
+    /// Parses a single atom (literal or grouped sub-expression).
     fn parse_atom(&mut self) -> Result<Ast, ParseError> {
         match self.peek_kind() {
             Some(TokenKind::Char(c)) => {
@@ -89,13 +96,25 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn can_start_atom(&self) -> bool {
-        matches!(
-            self.peek_kind(),
-            Some(TokenKind::Char(_)) | Some(TokenKind::LParen)
-        )
+    /// Returns and consumes the next repetition operator, if any.
+    fn next_repetition(&mut self) -> Result<Option<fn(Ast) -> Ast>, ParseError> {
+        let kind = match self.peek_kind() {
+            Some(kind @ (TokenKind::Star | TokenKind::Plus | TokenKind::QMark)) => kind,
+            Some(TokenKind::RParen | TokenKind::Or | TokenKind::Eos) | None => return Ok(None),
+            Some(TokenKind::Char(_) | TokenKind::LParen) => return Ok(None),
+        };
+
+        self.advance();
+        let apply = match kind {
+            TokenKind::Star => Ast::star,
+            TokenKind::Plus => Ast::plus,
+            TokenKind::QMark => Ast::opt,
+            _ => unreachable!("filtered above"),
+        };
+        Ok(Some(apply))
     }
 
+    /// Consumes the next token if it matches the provided kind.
     fn matches(&mut self, kind: TokenKind) -> bool {
         if self.peek_kind() == Some(kind) {
             self.pos += 1;
@@ -105,21 +124,25 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Consumes the next token or reports a detailed error.
     fn expect(&mut self, kind: TokenKind) -> Result<(), ParseError> {
         if self.peek_kind() == Some(kind) {
             self.pos += 1;
             Ok(())
         } else {
-            let err = match self.peek() {
-                Some(tok) => ParseError::new(
-                    tok.pos,
-                    ParseErrorKind::UnexpectedToken {
-                        found: tok.kind.to_string(),
-                    },
-                ),
-                None => ParseError::new(self.last_column(), ParseErrorKind::UnexpectedEos),
-            };
-            Err(err)
+            Err(self.unexpected_token_error())
+        }
+    }
+
+    fn unexpected_token_error(&self) -> ParseError {
+        match self.peek() {
+            Some(tok) => ParseError::new(
+                tok.pos,
+                ParseErrorKind::UnexpectedToken {
+                    found: tok.kind.to_string(),
+                },
+            ),
+            None => ParseError::new(self.last_column(), ParseErrorKind::UnexpectedEos),
         }
     }
 
@@ -148,10 +171,15 @@ impl<'a> Parser<'a> {
     }
 
     fn last_column(&self) -> usize {
-        if let Some(last) = self.tokens.last() {
-            last.pos
-        } else {
-            0
-        }
+        self.tokens.last().map(|tok| tok.pos).unwrap_or_default()
     }
+}
+
+fn chain_concat(nodes: Vec<Ast>) -> Ast {
+    let mut it = nodes.into_iter();
+    let mut acc = it.next().expect("chain_concat requires a non-empty vector");
+    for node in it {
+        acc = Ast::concat(acc, node);
+    }
+    acc
 }

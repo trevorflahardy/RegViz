@@ -1,4 +1,4 @@
-use cot_4210_final_proj::core::{lexer, tokens};
+use regviz::core::{lexer, tokens};
 
 #[test]
 fn test_lexer_simple() {
