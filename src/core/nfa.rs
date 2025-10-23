@@ -34,7 +34,7 @@ pub struct Transition {
     pub label: EdgeLabel,
 }
 
-/// Thompson-constructed nondeterministic finite automaton.
+/// Represents a Thompson-constructed nondeterministic finite automaton.
 #[derive(Debug, Clone)]
 pub struct Nfa {
     /// All known states.
@@ -50,12 +50,23 @@ pub struct Nfa {
 }
 
 impl Nfa {
-    /// Returns the outgoing transitions from a given state.
+    ///
+    /// # Arguments
+    ///
+    /// - `state` (`StateId`) - The state whose transitions are to be retrieved.
+    ///
+    /// # Returns
+    ///
+    /// - `&[Transition]` - The outgoing transitions from the specified state.
     pub fn transitions(&self, state: StateId) -> &[Transition] {
         &self.adjacency[state as usize]
     }
 
-    /// Computes the sorted alphabet recognized by this automaton.
+    /// Computes the alphabet used in this NFA, sorted by character.
+    ///
+    /// # Returns
+    ///
+    /// - `Vec<char>` - The sorted alphabet recognized by this automaton.
     pub fn alphabet(&self) -> Vec<char> {
         let mut chars: HashSet<char> = HashSet::new();
         for row in &self.adjacency {
@@ -72,6 +83,14 @@ impl Nfa {
 }
 
 /// Builds an [`Nfa`] using Thompson's construction algorithm.
+///
+/// # Arguments
+///
+/// - `ast` (`&Ast`) - The abstract syntax tree representing the regular expression. Will be cloned.
+///
+/// # Returns
+///
+/// - `Nfa` - The constructed nondeterministic finite automaton.
 pub fn build_nfa(ast: &Ast) -> Nfa {
     let mut builder = Builder::default();
     let fragment = builder.build(ast.clone());
