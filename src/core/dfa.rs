@@ -18,20 +18,54 @@ pub struct Dfa {
     pub trans: Vec<Vec<Option<u32>>>,
 }
 
-/// Executes subset construction on an [`Nfa`], returning the DFA and alphabet.
+/// A helper function to determinize an NFA into a DFA using subset construction.
+///
+/// # Arguments
+///
+/// - `nfa` (`&Nfa`) - The NFA to be determinized.
+///
+/// # Returns
+///
+/// - `(Dfa, Vec<char>)` - A tuple containing the resulting DFA and its alphabet.
 pub fn determinize(nfa: &Nfa) -> (Dfa, Vec<char>) {
     Determinizer::new(nfa).run()
 }
 
+fn set_to_key(set: HashSet<StateId>) -> Vec<StateId> {
+    let mut vec: Vec<StateId> = set.into_iter().collect();
+    vec.sort_unstable();
+    vec
+}
+
+/// Represents a Determinizer performing subset construction.
+/// When run, transforms the given NFA into an equivalent DFA.
 struct Determinizer<'a> {
+    /// The underlying NFA being determinized.
     nfa: &'a Nfa,
+
+    /// The alphabet of symbols used in the NFA.
     alphabet: Vec<char>,
+
+    /// Mapping from NFA state subsets to DFA state IDs.
     map: IndexMap<Vec<StateId>, u32>,
+
+    /// Queue of NFA state subsets to process.
     queue: VecDeque<Vec<StateId>>,
+
+    /// Array of DFA transitions being built.
     transitions: Vec<Vec<Option<u32>>>,
 }
 
 impl<'a> Determinizer<'a> {
+    /// Creates a new [`Determinizer`] for the given NFA.
+    ///
+    /// # Arguments
+    ///
+    /// - `nfa` (`&'a Nfa`) - The NFA to be determinized.
+    ///
+    /// # Returns
+    ///
+    /// - `Self` - A new instance of `Determinizer`.
     fn new(nfa: &'a Nfa) -> Self {
         let alphabet = nfa.alphabet();
         let mut map = IndexMap::new();
@@ -78,21 +112,50 @@ impl<'a> Determinizer<'a> {
         (dfa, self.alphabet)
     }
 
-    fn ensure_capacity(&mut self, len: usize) {
+    /// Ensures the transitions vector has at least `len` elements.
+    ///
+    /// # Arguments
+    ///
+    /// - `len` (`usize`) - The minimum length to ensure for the transitions vector.
+    ///
+    /// # Returns
+    ///
+    /// - `()` - This function does not return a value.
+    fn ensure_capacity(&mut self, len: usize) -> () {
         while self.transitions.len() < len {
             self.transitions.push(vec![None; self.alphabet.len()]);
         }
     }
 
+    /// Gets the next DFA state for a given NFA state subset and input symbol.
+    ///
+    /// # Arguments
+    ///
+    /// - `subset` (`&HashSet<StateId>`) - The current subset of NFA states.
+    /// - `symbol` (`char`) - The input symbol to advance on.
+    ///
+    /// # Returns
+    ///
+    /// - `Option<u32>` - The next DFA state ID, or `None` if there is no transition.
     fn advance_subset(&mut self, subset: &HashSet<StateId>, symbol: char) -> Option<u32> {
         let moved = sim::move_on(subset, symbol, self.nfa);
         if moved.is_empty() {
             return None;
         }
+
         let closure = sim::epsilon_closure(&moved, self.nfa);
         Some(self.lookup_or_insert(closure))
     }
 
+    /// Looks up or inserts a set of DFA states into the underlying map and queue.
+    ///
+    /// # Arguments
+    ///
+    /// - `subset` (`HashSet<StateId>`) - The subset of NFA states to look up or insert.
+    ///
+    /// # Returns
+    ///
+    /// - `u32` - The DFA state ID corresponding to the subset.
     fn lookup_or_insert(&mut self, subset: HashSet<StateId>) -> u32 {
         let key = set_to_key(subset);
         if let Some(id) = self.map.get(&key) {
@@ -105,6 +168,11 @@ impl<'a> Determinizer<'a> {
         }
     }
 
+    /// Collects the list of underlying accepting state IDS.
+    ///
+    /// # Returns
+    ///
+    /// - `Vec<u32>` - A vector of DFA state IDs that are accepting states.
     fn collect_accepting(&self) -> Vec<u32> {
         self.map
             .iter()
@@ -114,10 +182,4 @@ impl<'a> Determinizer<'a> {
             })
             .collect()
     }
-}
-
-fn set_to_key(set: HashSet<StateId>) -> Vec<StateId> {
-    let mut vec: Vec<StateId> = set.into_iter().collect();
-    vec.sort_unstable();
-    vec
 }
