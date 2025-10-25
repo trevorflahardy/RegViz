@@ -1,7 +1,34 @@
 use crate::core::tokens::{Token, TokenKind};
 use crate::errors::LexError;
 
-/// Converts a regular-expression source string into a sequence of tokens.
+/// Lexical analysis on a given input string to a list of valid regex tokens.
+///
+/// # Arguments
+///
+/// - `input` (`&str`) - The input regular expression string.
+///
+/// # Returns
+///
+/// - `Result<Vec<Token>, LexError>` - A result containing a vector of tokens or a lexical error.
+///
+/// # Errors
+///
+/// Returns a `LexError` if the input contains invalid or unexpected characters.
+///
+/// # Examples
+///
+/// ```
+/// use regviz::core::lexer::lex;
+/// use regviz::core::tokens::{TokenKind, Token};
+///
+/// let input = "ab";
+/// let output = lex(input);
+/// assert!(output.unwrap() == vec![
+///     Token::new(TokenKind::Char('a'), 1),
+///     Token::new(TokenKind::Char('b'), 2),
+///     Token::new(TokenKind::Eos, 3),
+/// ]);
+/// ```
 pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     let mut tokens = Vec::new();
     let mut iter = input.char_indices().peekable();
@@ -16,6 +43,17 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     Ok(tokens)
 }
 
+/// Inner helper function to make a token from a given character.
+///
+/// # Arguments
+///
+/// - `ch` (`char`) - The character to tokenize.
+/// - `column` (`usize`) - The column position of the character.
+/// - `iter` (`&mut I`) - The iterator over the input characters. Used if lookahead is needed.
+///
+/// # Returns
+///
+/// - `Result<Token, LexError> where I: Iterator<Item = (usize, char)>,` - The resulting token or a lexical error.
 fn make_token<'a, I>(ch: char, column: usize, iter: &mut I) -> Result<Token, LexError>
 where
     I: Iterator<Item = (usize, char)>,
