@@ -1,4 +1,4 @@
-use regviz::core::{lexer, tokens};
+use regviz_core::core::{lexer, tokens};
 
 #[test]
 fn test_lexer_simple() {

@@ -1,4 +1,4 @@
-use regviz::core::{lexer, nfa, parser};
+use regviz_core::core::{lexer, nfa, parser};
 
 #[test]
 fn test_nfa_simple() {

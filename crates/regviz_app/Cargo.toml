@@ -1,0 +1,13 @@
+[package]
+name = "regviz_app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+iced = { version = "0.13.1", features = ["tokio", "canvas"] }
+regviz_core = { path = "../regviz_core" }
+
+
+[[bin]]
+name = "regviz_app"
+path = "main.rs"
