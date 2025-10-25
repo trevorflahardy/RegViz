@@ -18,8 +18,8 @@ use crate::errors::LexError;
 /// # Examples
 ///
 /// ```
-/// use regviz::core::lexer::lex;
-/// use regviz::core::tokens::{TokenKind, Token};
+/// use regviz_core::core::lexer::lex;
+/// use regviz_core::core::tokens::{TokenKind, Token};
 ///
 /// let input = "ab";
 /// let output = lex(input);
