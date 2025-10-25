@@ -25,7 +25,7 @@ fn main() {
                     println!("AST: {:?}", ast);
 
                     // Build NFA
-                    let nfa = nfa::build_nfa(ast);
+                    let nfa = nfa::build_nfa(&ast);
                     println!(
                         "NFA: states={} start={} accepts={} edges={}",
                         nfa.states.len(),

@@ -5,7 +5,7 @@ use crate::errors::{ParseError, ParseErrorKind};
 /// Converts a token stream into an [`Ast`] using a Pratt-style recursive-descent
 /// parser for regular expressions.
 pub fn parse(tokens: &[Token]) -> Result<Ast, ParseError> {
-    let mut parser = Parser { tokens, pos: 0 };
+    let mut parser = Parser::new(tokens);
     let ast = parser.parse_regex()?;
     parser.expect(TokenKind::Eos)?;
     Ok(ast)
@@ -18,6 +18,10 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    pub fn new(tokens: &'a [Token]) -> Self {
+        Self { tokens, pos: 0 }
+    }
+
     /// Parses a full regular expression, covering alternation and concatenation.
     fn parse_regex(&mut self) -> Result<Ast, ParseError> {
         self.parse_alt()
