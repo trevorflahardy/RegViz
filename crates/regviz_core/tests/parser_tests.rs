@@ -1,4 +1,4 @@
-use regviz::core::{ast, lexer, parser};
+use regviz_core::core::{ast, lexer, parser};
 
 #[test]
 fn test_parser_simple() {

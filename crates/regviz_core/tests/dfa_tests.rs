@@ -1,4 +1,4 @@
-use regviz::core::{dfa, lexer, min, nfa, parser, sim};
+use regviz_core::core::{dfa, lexer, min, nfa, parser, sim};
 
 #[test]
 fn test_dfa_simple() {

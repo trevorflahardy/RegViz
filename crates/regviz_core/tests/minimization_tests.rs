@@ -1,4 +1,4 @@
-use regviz::core::{dfa, lexer, min, nfa, parser};
+use regviz_core::core::{dfa, lexer, min, nfa, parser};
 
 #[test]
 fn test_minimize_simple() {

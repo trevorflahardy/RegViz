@@ -1,6 +1,6 @@
 use std::env;
 
-use regviz::core::{dfa, lexer, nfa, parser, sim};
+use regviz_core::core::{dfa, lexer, nfa, parser, sim};
 
 fn main() {
     let mut args = env::args().skip(1);
