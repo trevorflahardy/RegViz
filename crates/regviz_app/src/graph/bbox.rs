@@ -1,5 +1,6 @@
 use iced::{
     Color, Point, Rectangle,
+    border::Radius,
     widget::canvas::{Frame, Path, Stroke, Text},
 };
 use iced_graphics::geometry::Renderer;
@@ -56,12 +57,13 @@ impl Drawable for PositionedBox {
             self.rect.y + self.rect.height,
         ));
 
-        let rect = Path::rectangle(
+        let rect = Path::rounded_rectangle(
             top_left,
             iced::Size::new(
                 (bottom_right.x - top_left.x).abs(),
                 (bottom_right.y - top_left.y).abs(),
             ),
+            Radius::from(12.0),
         );
 
         frame.fill(&rect, self.color);

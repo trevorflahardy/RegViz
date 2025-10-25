@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::{Point, Rectangle};
-use regviz_core::core::automaton::{BoxId, StateId};
+use regviz_core::core::automaton::{BoxId, BoxKind, StateId};
 
 use super::{Graph, GraphBox, bbox::PositionedBox, edge::PositionedEdge, node::PositionedNode};
 
@@ -23,6 +23,8 @@ const LEVEL_SPACING_Y: f32 = 140.0;
 const NODE_RADIUS: f32 = 32.0;
 const BOX_PADDING_X: f32 = 60.0;
 const BOX_PADDING_Y: f32 = 70.0;
+const INLINE_GAP_X: f32 = NODE_SPACING_X * 0.4;
+const BRANCH_GAP_Y: f32 = LEVEL_SPACING_Y * 0.6;
 
 /// Computes a deterministic layout for the provided graph.
 #[must_use]
@@ -31,31 +33,58 @@ pub fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
     let edges = graph.edges();
     let boxes = graph.boxes();
 
-    let box_depths = compute_box_depths(&boxes);
-
     let mut positioned_nodes = Vec::with_capacity(nodes.len());
-    let mut state_positions = HashMap::new();
+    let mut state_positions: HashMap<StateId, Point> = HashMap::new();
     let mut min_x = f32::INFINITY;
     let mut min_y = f32::INFINITY;
     let mut max_x = f32::NEG_INFINITY;
     let mut max_y = f32::NEG_INFINITY;
 
-    for (index, node) in nodes.iter().enumerate() {
-        let depth = node
-            .box_id
-            .and_then(|id| box_depths.get(&id).copied())
-            .unwrap_or(0);
-        let position = Point::new(
-            index as f32 * NODE_SPACING_X,
-            depth as f32 * LEVEL_SPACING_Y,
-        );
-        positioned_nodes.push(PositionedNode::new(node.clone(), position, NODE_RADIUS));
-        state_positions.insert(node.id, position);
+    // Prepare quick lookups for traversing the bounding box hierarchy.
+    let box_map: HashMap<_, _> = boxes.iter().map(|b| (b.id, b.clone())).collect();
+    let mut children: HashMap<BoxId, Vec<BoxId>> = HashMap::new();
+    for bbox in &boxes {
+        if let Some(parent) = bbox.parent {
+            children.entry(parent).or_default().push(bbox.id);
+        }
+    }
 
-        min_x = min_x.min(position.x - NODE_RADIUS);
-        max_x = max_x.max(position.x + NODE_RADIUS);
-        min_y = min_y.min(position.y - NODE_RADIUS);
-        max_y = max_y.max(position.y + NODE_RADIUS);
+    // Layout every root bounding box and stack them vertically if necessary.
+    let mut vertical_offset = 0.0;
+    for root in boxes.iter().filter(|b| b.parent.is_none()) {
+        if let Some(layout) = box_map
+            .get(&root.id)
+            .map(|bbox| compute_box_layout(bbox, &box_map, &children))
+        {
+            for (state, pos) in layout.positions {
+                let absolute = Point::new(pos.x, pos.y + vertical_offset);
+                state_positions.insert(state, absolute);
+            }
+            vertical_offset += layout.height + LEVEL_SPACING_Y;
+        }
+    }
+
+    // Provide a fallback arrangement for states that were not covered by a box.
+    let mut fallback_index = 0usize;
+    for node in &nodes {
+        state_positions.entry(node.id).or_insert_with(|| {
+            let position = Point::new(
+                fallback_index as f32 * NODE_SPACING_X,
+                vertical_offset + LEVEL_SPACING_Y,
+            );
+            fallback_index += 1;
+            position
+        });
+    }
+
+    for node in nodes {
+        if let Some(position) = state_positions.get(&node.id).copied() {
+            min_x = min_x.min(position.x - NODE_RADIUS);
+            max_x = max_x.max(position.x + NODE_RADIUS);
+            min_y = min_y.min(position.y - NODE_RADIUS);
+            max_y = max_y.max(position.y + NODE_RADIUS);
+            positioned_nodes.push(PositionedNode::new(node, position, NODE_RADIUS));
+        }
     }
 
     let positioned_edges = edges
@@ -102,31 +131,271 @@ pub fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
     }
 }
 
-fn compute_box_depths(boxes: &[GraphBox]) -> HashMap<BoxId, usize> {
-    let mut memo = HashMap::new();
-    let map: HashMap<_, _> = boxes.iter().map(|b| (b.id, b)).collect();
+/// Recursively computes positions for the states contained within the provided bounding box.
+fn compute_box_layout(
+    bbox: &GraphBox,
+    boxes: &HashMap<BoxId, GraphBox>,
+    children: &HashMap<BoxId, Vec<BoxId>>,
+) -> BoxLayoutResult {
+    let child_layouts = children
+        .get(&bbox.id)
+        .into_iter()
+        .flat_map(|ids| {
+            ids.iter()
+                .filter_map(|child_id| boxes.get(child_id))
+                .map(|child| compute_box_layout(child, boxes, children))
+        })
+        .collect::<Vec<_>>();
 
-    for bbox in boxes {
-        depth_for_box(bbox.id, &map, &mut memo);
-    }
-    memo
+    let mut layout = match bbox.kind {
+        BoxKind::Literal => layout_literal_box(bbox),
+        BoxKind::Concat => layout_concat_box(child_layouts),
+        BoxKind::Alternation => layout_alternation_box(bbox, child_layouts),
+        BoxKind::KleeneStar | BoxKind::KleenePlus | BoxKind::Optional => {
+            layout_unary_box(bbox, child_layouts)
+        }
+    };
+
+    normalize_layout(&mut layout);
+    layout
 }
 
-fn depth_for_box<'a>(
-    id: BoxId,
-    boxes: &HashMap<BoxId, &'a GraphBox>,
-    memo: &mut HashMap<BoxId, usize>,
-) -> usize {
-    if let Some(depth) = memo.get(&id) {
-        return *depth;
+/// Intermediate layout information for a single bounding box.
+#[derive(Debug, Clone)]
+struct BoxLayoutResult {
+    width: f32,
+    height: f32,
+    entry: Point,
+    exit: Point,
+    positions: HashMap<StateId, Point>,
+}
+
+/// Arranges the two states that form a literal fragment.
+fn layout_literal_box(bbox: &GraphBox) -> BoxLayoutResult {
+    let mut positions = HashMap::new();
+    if let Some((&start, rest)) = bbox.states.split_first() {
+        let start_pos = Point::new(0.0, LEVEL_SPACING_Y * 0.5);
+        positions.insert(start, start_pos);
+        if let Some(&accept) = rest.last() {
+            let accept_pos = Point::new(NODE_SPACING_X, LEVEL_SPACING_Y * 0.5);
+            positions.insert(accept, accept_pos);
+        }
     }
-    let depth = boxes
-        .get(&id)
-        .and_then(|bbox| bbox.parent)
-        .map(|parent| depth_for_box(parent, boxes, memo) + 1)
-        .unwrap_or(0);
-    memo.insert(id, depth);
-    depth
+
+    BoxLayoutResult {
+        width: NODE_SPACING_X,
+        height: LEVEL_SPACING_Y,
+        entry: Point::new(0.0, LEVEL_SPACING_Y * 0.5),
+        exit: Point::new(NODE_SPACING_X, LEVEL_SPACING_Y * 0.5),
+        positions,
+    }
+}
+
+/// Places child fragments of a concatenation next to each other on a shared baseline.
+fn layout_concat_box(child_layouts: Vec<BoxLayoutResult>) -> BoxLayoutResult {
+    if child_layouts.is_empty() {
+        return BoxLayoutResult {
+            width: NODE_SPACING_X,
+            height: LEVEL_SPACING_Y,
+            entry: Point::new(0.0, LEVEL_SPACING_Y * 0.5),
+            exit: Point::new(NODE_SPACING_X, LEVEL_SPACING_Y * 0.5),
+            positions: HashMap::new(),
+        };
+    }
+
+    let baseline = child_layouts
+        .iter()
+        .map(|child| child.entry.y)
+        .fold(0.0, f32::max);
+    let mut positions = HashMap::new();
+    let mut cursor_x = 0.0;
+    let mut max_bottom = baseline;
+    let mut entry = Point::new(0.0, baseline);
+    let mut exit = Point::new(0.0, baseline);
+    let count = child_layouts.len();
+
+    for (index, child) in child_layouts.into_iter().enumerate() {
+        let offset = Point::new(cursor_x, baseline - child.entry.y);
+        merge_positions(&mut positions, child.positions, offset);
+
+        let child_entry = Point::new(child.entry.x + offset.x, child.entry.y + offset.y);
+        let child_exit = Point::new(child.exit.x + offset.x, child.exit.y + offset.y);
+
+        if index == 0 {
+            entry = child_entry;
+        }
+        if index + 1 == count {
+            exit = child_exit;
+        }
+
+        cursor_x += child.width;
+        if index + 1 < count {
+            cursor_x += INLINE_GAP_X;
+        }
+        max_bottom = max_bottom.max(offset.y + child.height);
+    }
+
+    BoxLayoutResult {
+        width: cursor_x,
+        height: max_bottom.max(baseline),
+        entry,
+        exit,
+        positions,
+    }
+}
+
+/// Stacks the branches of an alternation vertically while keeping the entry and exit horizontal.
+fn layout_alternation_box(bbox: &GraphBox, child_layouts: Vec<BoxLayoutResult>) -> BoxLayoutResult {
+    let mut positions = HashMap::new();
+    let mut current_y = 0.0;
+    let mut max_width: f32 = 0.0;
+    let mut entry_samples = Vec::new();
+    let count = child_layouts.len();
+
+    for (index, child) in child_layouts.into_iter().enumerate() {
+        let offset = Point::new(NODE_SPACING_X, current_y);
+        entry_samples.push(child.entry.y + offset.y);
+        max_width = max_width.max(child.width);
+        merge_positions(&mut positions, child.positions, offset);
+
+        current_y += child.height;
+        if index + 1 < count {
+            current_y += BRANCH_GAP_Y;
+        }
+    }
+
+    let entry_y = if entry_samples.is_empty() {
+        LEVEL_SPACING_Y * 0.5
+    } else {
+        entry_samples.iter().copied().sum::<f32>() / entry_samples.len() as f32
+    };
+
+    let entry = Point::new(0.0, entry_y);
+    let exit = Point::new(NODE_SPACING_X + max_width + NODE_SPACING_X, entry_y);
+
+    if let Some(start) = bbox.states.first() {
+        positions.insert(*start, entry);
+    }
+    if let Some(accept) = bbox.states.last() {
+        positions.insert(*accept, exit);
+    }
+
+    BoxLayoutResult {
+        width: exit.x,
+        height: current_y.max(entry_y * 2.0).max(LEVEL_SPACING_Y),
+        entry,
+        exit,
+        positions,
+    }
+}
+
+/// Lays out unary operators such as star, plus and optional by surrounding their operand.
+fn layout_unary_box(bbox: &GraphBox, mut child_layouts: Vec<BoxLayoutResult>) -> BoxLayoutResult {
+    let mut positions = HashMap::new();
+    let child = child_layouts.pop();
+
+    let (child_width, child_height, child_entry, _child_exit, child_positions) =
+        if let Some(child) = child {
+            (
+                child.width,
+                child.height,
+                child.entry,
+                child.exit,
+                child.positions,
+            )
+        } else {
+            (
+                NODE_SPACING_X,
+                LEVEL_SPACING_Y,
+                Point::new(0.0, LEVEL_SPACING_Y * 0.5),
+                Point::new(NODE_SPACING_X, LEVEL_SPACING_Y * 0.5),
+                HashMap::new(),
+            )
+        };
+
+    let offset = Point::new(NODE_SPACING_X, 0.0);
+    merge_positions(&mut positions, child_positions, offset);
+
+    let entry = Point::new(0.0, child_entry.y + offset.y);
+    let exit = Point::new(
+        offset.x + child_width + NODE_SPACING_X,
+        child_entry.y + offset.y,
+    );
+
+    if let Some(start) = bbox.states.first() {
+        positions.insert(*start, entry);
+    }
+    if let Some(accept) = bbox.states.last() {
+        positions.insert(*accept, exit);
+    }
+
+    BoxLayoutResult {
+        width: exit.x,
+        height: child_height.max(LEVEL_SPACING_Y),
+        entry,
+        exit,
+        positions,
+    }
+}
+
+/// Offsets the provided child positions by the given amount.
+fn merge_positions(
+    positions: &mut HashMap<StateId, Point>,
+    child_positions: HashMap<StateId, Point>,
+    offset: Point,
+) {
+    for (state, pos) in child_positions {
+        positions.insert(state, Point::new(pos.x + offset.x, pos.y + offset.y));
+    }
+}
+
+/// Normalises a layout so that all coordinates are expressed relative to its top-left origin.
+fn normalize_layout(layout: &mut BoxLayoutResult) {
+    let mut min_x = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+
+    for pos in layout.positions.values() {
+        min_x = min_x.min(pos.x);
+        max_x = max_x.max(pos.x);
+        min_y = min_y.min(pos.y);
+        max_y = max_y.max(pos.y);
+    }
+
+    min_x = min_x.min(layout.entry.x).min(layout.exit.x);
+    max_x = max_x.max(layout.entry.x).max(layout.exit.x);
+    min_y = min_y.min(layout.entry.y).min(layout.exit.y);
+    max_y = max_y.max(layout.entry.y).max(layout.exit.y);
+
+    if !min_x.is_finite() || !min_y.is_finite() {
+        layout.width = NODE_SPACING_X;
+        layout.height = LEVEL_SPACING_Y;
+        layout.entry = Point::new(0.0, LEVEL_SPACING_Y * 0.5);
+        layout.exit = Point::new(NODE_SPACING_X, LEVEL_SPACING_Y * 0.5);
+        layout.positions.clear();
+        return;
+    }
+
+    let shift_x = -min_x;
+    let shift_y = -min_y;
+
+    if shift_x.abs() > f32::EPSILON || shift_y.abs() > f32::EPSILON {
+        for pos in layout.positions.values_mut() {
+            pos.x += shift_x;
+            pos.y += shift_y;
+        }
+        layout.entry.x += shift_x;
+        layout.entry.y += shift_y;
+        layout.exit.x += shift_x;
+        layout.exit.y += shift_y;
+
+        max_x += shift_x;
+        max_y += shift_y;
+    }
+
+    layout.width = (max_x - 0.0).max(NODE_SPACING_X * 0.5);
+    layout.height = (max_y - 0.0).max(LEVEL_SPACING_Y * 0.5);
 }
 
 fn layout_boxes(

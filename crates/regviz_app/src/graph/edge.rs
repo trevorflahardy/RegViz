@@ -40,10 +40,23 @@ pub struct PositionedEdge {
 }
 
 impl PositionedEdge {
-    /// Creates a new positioned edge from metadata and coordinates.
+    /// Creates a new positioned edge from metadata and coordinates, keeping the label legible
+    /// by offsetting it away from the rendered segment.
     #[must_use]
     pub fn new(data: GraphEdge, from: Point, to: Point) -> Self {
-        let label_position = Point::new((from.x + to.x) * 0.5, (from.y + to.y) * 0.5 - 12.0);
+        let mid = Point::new((from.x + to.x) * 0.5, (from.y + to.y) * 0.5);
+        let direction = Vector::new(to.x - from.x, to.y - from.y);
+        let length = (direction.x * direction.x + direction.y * direction.y).sqrt();
+        let label_position = if length > f32::EPSILON {
+            let mut normal = Vector::new(-direction.y / length, direction.x / length);
+            if normal.y > 0.0 {
+                normal = Vector::new(-normal.x, -normal.y);
+            }
+            let offset = 18.0;
+            Point::new(mid.x + normal.x * offset, mid.y + normal.y * offset)
+        } else {
+            Point::new(mid.x, mid.y - 18.0)
+        };
         Self {
             data,
             from,
