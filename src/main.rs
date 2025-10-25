@@ -59,7 +59,7 @@ impl App {
             self.build_artifacts = None;
             return;
         }
-        match lexer::lex(&self.input) {
+        match lexer::lex(self.input.trim()) {
             Ok(tokens) => match parser::parse(&tokens) {
                 Ok(ast) => {
                     let nfa = nfa::build_nfa(&ast);
