@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 thiserror = "2.0.17"
 indexmap = "2.6"
+
+[[bin]]
+name = "regviz_cli"
+path = "bin/cli.rs"
