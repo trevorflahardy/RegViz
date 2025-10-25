@@ -24,7 +24,7 @@ pub struct GraphNode {
     pub is_accept: bool,
 }
 
-impl<R: Renderer> GraphNode {
+impl GraphNode {
     /// Creates a new GraphNode with default size and position at origin.
     #[must_use]
     pub fn new(id: NodeId, label: String, is_start: bool, is_accept: bool) -> Self {
@@ -39,7 +39,7 @@ impl<R: Renderer> GraphNode {
     }
 
     /// Creates the node geometry
-    fn draw(&self, at: Point, frame: &mut Frame<R>) -> () {
+    fn draw<R: Renderer>(&self, at: Point, frame: &mut Frame<R>) -> () {
         let radius = self.size.x.max(14.0);
 
         // If this node is a start, draw an incoming arrow
@@ -111,8 +111,8 @@ impl Graph for Nfa {
                 GraphNode::new(
                     *state_id as NodeId,
                     format!("{}", state_id),
-                    self.start_state == *state_id,
-                    self.accept_states.contains(state_id),
+                    self.start == *state_id,
+                    self.accepts.contains(state_id),
                 )
             })
             .collect()
