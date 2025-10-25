@@ -1,9 +1,8 @@
 use iced::{
-    widget::{column, text, text_input},
     Element,
+    widget::{column, text, text_input},
 };
-use regviz_core::core::BuildArtifacts;
-use regviz_core::core::{lexer, nfa, parser};
+use regviz_core::core::{BuildArtifacts, lexer, nfa, parser};
 
 #[derive(Default)]
 struct App {
