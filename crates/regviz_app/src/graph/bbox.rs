@@ -1,5 +1,6 @@
+use iced::widget::canvas::{Path, Stroke, Text};
 use iced::{Color, Point, Rectangle};
-use regviz_core::core::automaton::{BoxId, BoxKind, StateId};
+use regviz_core::core::automaton::{self, BoxId, BoxKind, StateId};
 
 use super::{DrawContext, Drawable, color_for_box};
 
@@ -50,8 +51,6 @@ impl Drawable for PositionedBox {
         frame: &mut iced::widget::canvas::Frame<R>,
         ctx: &DrawContext,
     ) {
-        use iced::widget::canvas::{Path, Stroke, Text};
-
         let top_left = ctx.transform_point(Point::new(self.rect.x, self.rect.y));
         let bottom_right = ctx.transform_point(Point::new(
             self.rect.x + self.rect.width,
@@ -84,8 +83,8 @@ impl Drawable for PositionedBox {
     }
 }
 
-impl From<regviz_core::core::automaton::BoundingBox> for GraphBox {
-    fn from(value: regviz_core::core::automaton::BoundingBox) -> Self {
+impl From<automaton::BoundingBox> for GraphBox {
+    fn from(value: automaton::BoundingBox) -> Self {
         Self {
             id: value.id,
             kind: value.kind,
