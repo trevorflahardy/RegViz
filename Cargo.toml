@@ -1,10 +1,4 @@
-[package]
-name = "regviz"
-version = "0.1.0"
-edition = "2024"
-default-run = "regviz"
-
-[dependencies]
-iced = { version = "0.13.1", features = ["canvas", "tokio"] }
-thiserror = "2.0.17"
-indexmap = "2.6"
+[workspace]
+members = ["crates/regviz_core", "crates/regviz_app"]
+edition = "2021"
+resolver = "3"
