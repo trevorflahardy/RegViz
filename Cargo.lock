@@ -2597,6 +2597,7 @@ name = "regviz_app"
 version = "0.1.0"
 dependencies = [
  "iced",
+ "iced_graphics",
  "regviz_core",
 ]
 

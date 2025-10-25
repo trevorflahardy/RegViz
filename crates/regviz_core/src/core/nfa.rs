@@ -13,6 +13,15 @@ pub enum EdgeLabel {
     Sym(char),
 }
 
+impl Into<String> for EdgeLabel {
+    fn into(self) -> String {
+        match self {
+            EdgeLabel::Eps => "ε".to_string(),
+            EdgeLabel::Sym(c) => c.to_string(),
+        }
+    }
+}
+
 /// A flattened representation of a transition, useful for visualization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Edge {

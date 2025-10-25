@@ -4,10 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced = { version = "0.13.1", features = ["tokio", "canvas"] }
+iced = { version = "0.13.1", features = [
+    "tokio",
+    "canvas",
+    "advanced",
+    "geometry",
+] }
+iced_graphics = "0.13.0"
 regviz_core = { path = "../regviz_core" }
 
 
 [[bin]]
 name = "regviz_app"
-path = "main.rs"
+path = "src/main.rs"
