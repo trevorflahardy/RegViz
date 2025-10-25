@@ -26,7 +26,7 @@ pub enum TokenKind {
 pub struct Token {
     /// The kind of token that was found.
     pub kind: TokenKind,
-    /// The (1-indexed) column at which the token begins.
+    /// The (0-indexed) column at which the token begins.
     pub pos: usize,
 }
 

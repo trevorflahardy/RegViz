@@ -1,26 +1,21 @@
-use std::fmt::{self, Display, Formatter};
-
 use thiserror::Error;
 
 /// Error emitted by the lexer with a message and column position.
 #[derive(Debug, Error, Clone)]
-#[error("{message} at column {column}")]
+#[error("{kind} at index {at}")]
 pub struct LexError {
-    /// Column at which the error occurred (1-indexed).
-    pub column: usize,
-    /// Human-readable error message.
-    pub message: String,
+    /// Position of the character (0-indexed) in the input where the error occurred.
+    pub at: usize,
+    /// Detailed categorization of the error.
+    pub kind: LexErrorKind,
 }
 
-impl LexError {
-    /// Creates a new [`LexError`].
-    #[must_use]
-    pub fn new(column: usize, message: impl Into<String>) -> Self {
-        Self {
-            column,
-            message: message.into(),
-        }
-    }
+#[derive(Debug, Error, Clone)]
+pub enum LexErrorKind {
+    #[error("dangling escape character")]
+    DanglingEscape,
+    #[error("invalid character")]
+    InvalidChar,
 }
 
 #[derive(Debug, Error, Clone)]
@@ -38,21 +33,14 @@ pub enum ParseErrorKind {
 }
 
 /// Parser error annotated with the offending column and kind.
-#[derive(Debug, Clone)]
+#[derive(Debug, Error, Clone)]
+#[error("{kind} at column {column}")]
 pub struct ParseError {
     /// Column at which the parser reported the error.
     pub column: usize,
     /// Detailed categorization of the error.
     pub kind: ParseErrorKind,
 }
-
-impl Display for ParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} at column {}", self.kind, self.column)
-    }
-}
-
-impl std::error::Error for ParseError {}
 
 impl ParseError {
     /// Creates a new [`ParseError`].
