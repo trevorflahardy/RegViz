@@ -1,5 +1,7 @@
-use iced::widget::canvas::{Frame, Path, Stroke, Text};
-use iced::{Point, Vector};
+use iced::{
+    Point, Vector,
+    widget::canvas::{Frame, Path, Stroke, Text},
+};
 use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::StateId;
 

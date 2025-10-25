@@ -1,5 +1,4 @@
-use iced::widget::canvas::Frame;
-use iced::{Point, Vector};
+use iced::{Point, Vector, widget::canvas::Frame};
 use iced_graphics::geometry::Renderer;
 
 /// Shared drawing context containing the active transform parameters.
