@@ -2,20 +2,21 @@ use std::collections::{HashSet, VecDeque};
 
 use indexmap::IndexMap;
 
-use crate::core::nfa::{Nfa, StateId};
+use crate::core::automaton::StateId;
+use crate::core::nfa::Nfa;
 use crate::core::sim;
 
 /// Deterministic finite automaton produced from subset construction.
 #[derive(Debug, Clone)]
 pub struct Dfa {
     /// All DFA state identifiers.
-    pub states: Vec<u32>,
+    pub states: Vec<StateId>,
     /// Start state identifier.
-    pub start: u32,
+    pub start: StateId,
     /// Accepting state identifiers.
-    pub accepts: Vec<u32>,
+    pub accepts: Vec<StateId>,
     /// Transition table indexed by state then alphabet symbol.
-    pub trans: Vec<Vec<Option<u32>>>,
+    pub trans: Vec<Vec<Option<StateId>>>,
 }
 
 /// A helper function to determinize an NFA into a DFA using subset construction.
@@ -47,13 +48,13 @@ struct Determinizer<'a> {
     alphabet: Vec<char>,
 
     /// Mapping from NFA state subsets to DFA state IDs.
-    map: IndexMap<Vec<StateId>, u32>,
+    map: IndexMap<Vec<StateId>, StateId>,
 
     /// Queue of NFA state subsets to process.
     queue: VecDeque<Vec<StateId>>,
 
     /// Array of DFA transitions being built.
-    transitions: Vec<Vec<Option<u32>>>,
+    transitions: Vec<Vec<Option<StateId>>>,
 }
 
 impl<'a> Determinizer<'a> {
@@ -76,7 +77,8 @@ impl<'a> Determinizer<'a> {
         let closure = sim::epsilon_closure(&seed, nfa);
         let start_key = set_to_key(closure);
 
-        map.insert(start_key.clone(), 0);
+        let start_id: StateId = 0;
+        map.insert(start_key.clone(), start_id);
         queue.push_back(start_key);
 
         Self {
@@ -102,7 +104,7 @@ impl<'a> Determinizer<'a> {
         }
 
         let accepts = self.collect_accepting();
-        let states: Vec<u32> = (0..self.map.len()).map(|i| i as u32).collect();
+        let states: Vec<StateId> = (0..self.map.len()).map(|i| i as StateId).collect();
         let dfa = Dfa {
             states,
             start: 0,
@@ -136,8 +138,8 @@ impl<'a> Determinizer<'a> {
     ///
     /// # Returns
     ///
-    /// - `Option<u32>` - The next DFA state ID, or `None` if there is no transition.
-    fn advance_subset(&mut self, subset: &HashSet<StateId>, symbol: char) -> Option<u32> {
+    /// - `Option<StateId>` - The next DFA state ID, or `None` if there is no transition.
+    fn advance_subset(&mut self, subset: &HashSet<StateId>, symbol: char) -> Option<StateId> {
         let moved = sim::move_on(subset, symbol, self.nfa);
         if moved.is_empty() {
             return None;
@@ -155,13 +157,13 @@ impl<'a> Determinizer<'a> {
     ///
     /// # Returns
     ///
-    /// - `u32` - The DFA state ID corresponding to the subset.
-    fn lookup_or_insert(&mut self, subset: HashSet<StateId>) -> u32 {
+    /// - `StateId` - The DFA state ID corresponding to the subset.
+    fn lookup_or_insert(&mut self, subset: HashSet<StateId>) -> StateId {
         let key = set_to_key(subset);
         if let Some(id) = self.map.get(&key) {
             *id
         } else {
-            let new_id = self.map.len() as u32;
+            let new_id = self.map.len() as StateId;
             self.map.insert(key.clone(), new_id);
             self.queue.push_back(key);
             new_id
@@ -172,8 +174,8 @@ impl<'a> Determinizer<'a> {
     ///
     /// # Returns
     ///
-    /// - `Vec<u32>` - A vector of DFA state IDs that are accepting states.
-    fn collect_accepting(&self) -> Vec<u32> {
+    /// - `Vec<StateId>` - A vector of DFA state IDs that are accepting states.
+    fn collect_accepting(&self) -> Vec<StateId> {
         self.map
             .iter()
             .filter_map(|(subset, id)| {

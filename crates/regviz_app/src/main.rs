@@ -21,7 +21,7 @@ enum Message {
 }
 
 impl App {
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<'_, Message> {
         let status_text = match &self.error {
             Some(err) => text(format!("Error: {}", err)),
             None => match &self.build_artifacts {

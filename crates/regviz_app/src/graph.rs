@@ -2,6 +2,7 @@ use iced::widget::canvas::Program;
 use iced::widget::canvas::{self, Frame, Path, Stroke, Text as CText};
 use iced::{Color, Point, Rectangle, Vector, mouse};
 use iced_graphics::geometry::Renderer;
+use regviz_core::core::automaton::StateId;
 use regviz_core::core::nfa::Nfa;
 use std::collections::HashMap;
 
@@ -107,12 +108,13 @@ impl Graph for Nfa {
     fn nodes(&self) -> Vec<GraphNode> {
         self.states
             .iter()
-            .map(|state_id| {
+            .map(|state| {
+                let node_id = state.id as NodeId;
                 GraphNode::new(
-                    *state_id as NodeId,
-                    format!("{}", state_id),
-                    self.start == *state_id,
-                    self.accepts.contains(state_id),
+                    node_id,
+                    state.id.to_string(),
+                    self.start == state.id,
+                    self.accepts.contains(&state.id),
                 )
             })
             .collect()
@@ -121,14 +123,14 @@ impl Graph for Nfa {
     fn edges(&self) -> Vec<GraphEdge> {
         // For each state in our NFA, get its transitions and create GraphEdges
         let mut edges = Vec::new();
-        for state_id in &self.states {
-            let transitions = self.transitions(*state_id);
+        for state in &self.states {
+            let transitions = self.transitions(state.id);
 
             transitions.iter().for_each(|transition| {
                 let label: String = transition.label.clone().into();
                 edges.push(GraphEdge {
                     id: edges.len(),
-                    from: *state_id as NodeId,
+                    from: state.id as NodeId,
                     to: transition.to as NodeId,
                     label,
                 });
@@ -139,7 +141,7 @@ impl Graph for Nfa {
     }
 
     fn outgoing_edges(&self, node_id: NodeId) -> Vec<GraphEdge> {
-        let transitions = self.transitions(node_id as u32);
+        let transitions = self.transitions(node_id as StateId);
         transitions
             .iter()
             .enumerate()
@@ -157,14 +159,14 @@ impl Graph for Nfa {
 
     fn incoming_edges(&self, node_id: NodeId) -> Vec<GraphEdge> {
         let mut incoming = Vec::new();
-        for state_id in &self.states {
-            let transitions = self.transitions(*state_id);
+        for state in &self.states {
+            let transitions = self.transitions(state.id);
             for (idx, transition) in transitions.iter().enumerate() {
                 if transition.to as NodeId == node_id {
                     let label: String = transition.label.clone().into();
                     incoming.push(GraphEdge {
                         id: idx,
-                        from: *state_id as NodeId,
+                        from: state.id as NodeId,
                         to: node_id,
                         label,
                     });

@@ -1,5 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
+use crate::core::automaton::StateId;
 use crate::core::dfa::Dfa;
 
 /// Minimizes a DFA using Hopcroft's partition refinement algorithm.
@@ -17,17 +18,17 @@ struct PartitionRefinement<'a> {
     partitions: Vec<Vec<usize>>,
     state_class: Vec<usize>,
     worklist: VecDeque<(usize, usize)>,
-    accepting: HashSet<u32>,
+    accepting: HashSet<StateId>,
 }
 
 impl<'a> PartitionRefinement<'a> {
     fn new(dfa: &'a Dfa, alphabet: &'a [char]) -> Self {
-        let accepting: HashSet<u32> = dfa.accepts.iter().copied().collect();
+        let accepting: HashSet<StateId> = dfa.accepts.iter().copied().collect();
         let mut partitions = Vec::new();
         let mut accepting_block = Vec::new();
         let mut rejecting_block = Vec::new();
         for state in 0..dfa.trans.len() {
-            if accepting.contains(&(state as u32)) {
+            if accepting.contains(&(state as StateId)) {
                 accepting_block.push(state);
             } else {
                 rejecting_block.push(state);
@@ -159,7 +160,8 @@ impl<'a> PartitionRefinement<'a> {
             let repr = block[0];
             for (symbol_idx, dest) in self.dfa.trans[repr].iter().enumerate() {
                 if let Some(dst) = dest {
-                    new_trans[class_idx][symbol_idx] = Some(self.state_class[*dst as usize] as u32);
+                    new_trans[class_idx][symbol_idx] =
+                        Some(self.state_class[*dst as usize] as StateId);
                 }
             }
         }
@@ -168,14 +170,14 @@ impl<'a> PartitionRefinement<'a> {
         for (idx, block) in self.partitions.iter().enumerate() {
             if block
                 .iter()
-                .any(|state| self.accepting.contains(&(*state as u32)))
+                .any(|state| self.accepting.contains(&(*state as StateId)))
             {
-                new_accepts.push(idx as u32);
+                new_accepts.push(idx as StateId);
             }
         }
 
-        let new_states: Vec<u32> = (0..self.partitions.len()).map(|i| i as u32).collect();
-        let start = self.state_class[self.dfa.start as usize] as u32;
+        let new_states: Vec<StateId> = (0..self.partitions.len()).map(|i| i as StateId).collect();
+        let start = self.state_class[self.dfa.start as usize] as StateId;
 
         Dfa {
             states: new_states,

@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
+use crate::core::automaton::{EdgeLabel, StateId};
 use crate::core::dfa::Dfa;
-use crate::core::nfa::{EdgeLabel, Nfa, StateId};
+use crate::core::nfa::Nfa;
 
 /// Simulates a DFA and reports whether it accepts the provided input.
 pub fn simulate_dfa(dfa: &Dfa, alphabet: &[char], input: &str) -> bool {

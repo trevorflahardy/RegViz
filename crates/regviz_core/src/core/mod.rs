@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod automaton;
 pub mod dfa;
 pub mod lexer;
 pub mod min;

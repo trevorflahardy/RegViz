@@ -1,6 +1,7 @@
 use iced::Point;
 
-use crate::core::nfa::{Nfa, StateId};
+use crate::core::automaton::StateId;
+use crate::core::nfa::Nfa;
 
 pub fn layout_states(nfa: &Nfa, width: f32, height: f32) -> Vec<(StateId, Point)> {
     let count = nfa.states.len();
@@ -19,7 +20,7 @@ pub fn layout_states(nfa: &Nfa, width: f32, height: f32) -> Vec<(StateId, Point)
             let angle = (idx as f32 / count as f32) * std::f32::consts::TAU;
             let x = center.x + radius * angle.cos();
             let y = center.y + radius * angle.sin();
-            (*state, Point::new(x, y))
+            (state.id, Point::new(x, y))
         })
         .collect()
 }

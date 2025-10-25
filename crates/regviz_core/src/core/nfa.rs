@@ -1,52 +1,14 @@
 use crate::core::ast::Ast;
+use crate::core::automaton::{
+    BoundingBox, BoxId, BoxKind, Edge, EdgeLabel, State, StateId, Transition,
+};
 use std::collections::HashSet;
-
-/// Identifier type for NFA states.
-pub type StateId = u32;
-
-/// Labels describing the kind of transition.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum EdgeLabel {
-    /// Epsilon transition that consumes no input.
-    Eps,
-    /// Consumes a specific symbol.
-    Sym(char),
-}
-
-impl Into<String> for EdgeLabel {
-    fn into(self) -> String {
-        match self {
-            EdgeLabel::Eps => "ε".to_string(),
-            EdgeLabel::Sym(c) => c.to_string(),
-        }
-    }
-}
-
-/// A flattened representation of a transition, useful for visualization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Edge {
-    /// Origin state.
-    pub from: StateId,
-    /// Destination state.
-    pub to: StateId,
-    /// Transition label.
-    pub label: EdgeLabel,
-}
-
-/// Transition stored in adjacency lists.
-#[derive(Debug, Clone)]
-pub struct Transition {
-    /// Destination state.
-    pub to: StateId,
-    /// Transition label.
-    pub label: EdgeLabel,
-}
 
 /// Represents a Thompson-constructed nondeterministic finite automaton.
 #[derive(Debug, Clone)]
 pub struct Nfa {
     /// All known states.
-    pub states: Vec<StateId>,
+    pub states: Vec<State>,
     /// Start state.
     pub start: StateId,
     /// Accepting states.
@@ -55,6 +17,8 @@ pub struct Nfa {
     pub edges: Vec<Edge>,
     /// Adjacency lists for efficient traversal.
     pub adjacency: Vec<Vec<Transition>>,
+    /// Bounding boxes describing the AST nesting this NFA was built from.
+    pub boxes: Vec<BoundingBox>,
 }
 
 impl Nfa {
@@ -111,6 +75,12 @@ pub fn build_nfa(ast: &Ast) -> Nfa {
 struct Builder {
     /// A list of adjacency lists for each state, where each list contains outgoing transitions.
     adjacency: Vec<Vec<Transition>>,
+    /// Metadata for each state allocated so far.
+    states: Vec<State>,
+    /// Bounding boxes describing AST structure during construction.
+    boxes: Vec<BoundingBox>,
+    /// Stack tracking the current bounding box hierarchy.
+    box_stack: Vec<BoxId>,
 }
 
 /// Represents a fragment of an NFA with a start state and accepting states.
@@ -124,6 +94,32 @@ struct Fragment {
 }
 
 impl Builder {
+    fn with_box<F>(&mut self, kind: BoxKind, f: F) -> Fragment
+    where
+        F: FnOnce(&mut Self) -> Fragment,
+    {
+        self.begin_box(kind);
+        let fragment = f(self);
+        self.end_box();
+        fragment
+    }
+
+    fn begin_box(&mut self, kind: BoxKind) {
+        let id = self.boxes.len() as BoxId;
+        let parent = self.box_stack.last().copied();
+        self.boxes.push(BoundingBox {
+            id,
+            kind,
+            parent,
+            states: Vec::new(),
+        });
+        self.box_stack.push(id);
+    }
+
+    fn end_box(&mut self) {
+        self.box_stack.pop();
+    }
+
     /// Adds a new, empty state to this NFA with no outgoing or incoming transitions.
     ///
     /// # Returns
@@ -132,6 +128,13 @@ impl Builder {
     fn new_state(&mut self) -> StateId {
         let id = self.adjacency.len() as StateId;
         self.adjacency.push(Vec::new());
+        let box_id = self.box_stack.last().copied();
+        if let Some(current) = box_id {
+            if let Some(bbox) = self.boxes.get_mut(current as usize) {
+                bbox.states.push(id);
+            }
+        }
+        self.states.push(State { id, box_id });
         id
     }
 
@@ -180,15 +183,17 @@ impl Builder {
     ///
     /// - `Fragment` - The NFA fragment representing the character.
     fn build_char(&mut self, ch: char) -> Fragment {
-        let start = self.new_state();
-        let accept = self.new_state();
+        self.with_box(BoxKind::Literal, move |builder| {
+            let start = builder.new_state();
+            let accept = builder.new_state();
 
-        self.add_edge(start, accept, EdgeLabel::Sym(ch));
+            builder.add_edge(start, accept, EdgeLabel::Sym(ch));
 
-        Fragment {
-            start,
-            accepts: vec![accept],
-        }
+            Fragment {
+                start,
+                accepts: vec![accept],
+            }
+        })
     }
 
     /// Builds both the left hand side (lhs) and right hand side (rhs), connecting the accept states from the
@@ -203,17 +208,28 @@ impl Builder {
     ///
     /// - `Fragment` - The NFA fragment representing the concatenation.
     fn build_concat(&mut self, lhs: Ast, rhs: Ast) -> Fragment {
-        let left = self.build(lhs);
-        let right = self.build(rhs);
+        self.with_box(BoxKind::Concat, move |builder| {
+            let left = builder.build(lhs);
+            let right = builder.build(rhs);
 
-        for accept in &left.accepts {
-            self.add_edge(*accept, right.start, EdgeLabel::Eps);
-        }
+            let Fragment {
+                start: left_start,
+                accepts: left_accepts,
+            } = left;
+            let Fragment {
+                start: right_start,
+                accepts: right_accepts,
+            } = right;
 
-        Fragment {
-            start: left.start,
-            accepts: right.accepts,
-        }
+            for accept in &left_accepts {
+                builder.add_edge(*accept, right_start, EdgeLabel::Eps);
+            }
+
+            Fragment {
+                start: left_start,
+                accepts: right_accepts,
+            }
+        })
     }
 
     /// Converts the alteration (or OR) '|' AST into its NFA fragment representation.
@@ -227,26 +243,34 @@ impl Builder {
     ///
     /// - `Fragment` - The NFA fragment representing the alternation.
     fn build_alternation(&mut self, lhs: Ast, rhs: Ast) -> Fragment {
-        let left = self.build(lhs);
-        let right = self.build(rhs);
+        self.with_box(BoxKind::Alternation, move |builder| {
+            let left = builder.build(lhs);
+            let right = builder.build(rhs);
 
-        // New start and accept states sit between the OR operation.
-        let start = self.new_state();
-        let accept = self.new_state();
+            let Fragment {
+                start: left_start,
+                accepts: left_accepts,
+            } = left;
+            let Fragment {
+                start: right_start,
+                accepts: right_accepts,
+            } = right;
 
-        // We can walk as an edge from the new start to either side.
-        self.add_edge(start, left.start, EdgeLabel::Eps);
-        self.add_edge(start, right.start, EdgeLabel::Eps);
+            let start = builder.new_state();
+            let accept = builder.new_state();
 
-        // And for each accept state on either side, we can walk to the new accept.
-        for state in left.accepts.iter().chain(right.accepts.iter()) {
-            self.add_edge(*state, accept, EdgeLabel::Eps);
-        }
+            builder.add_edge(start, left_start, EdgeLabel::Eps);
+            builder.add_edge(start, right_start, EdgeLabel::Eps);
 
-        Fragment {
-            start,
-            accepts: vec![accept],
-        }
+            for state in left_accepts.iter().chain(right_accepts.iter()) {
+                builder.add_edge(*state, accept, EdgeLabel::Eps);
+            }
+
+            Fragment {
+                start,
+                accepts: vec![accept],
+            }
+        })
     }
 
     /// Builds the klnee-star operation from the given inner AST/
@@ -259,31 +283,29 @@ impl Builder {
     ///
     /// - `Fragment` - The NFA fragment representing the kleene star operation.
     fn build_star(&mut self, inner: Ast) -> Fragment {
-        // Build our NFA fragment.
-        let frag = self.build(inner);
+        self.with_box(BoxKind::KleeneStar, move |builder| {
+            let frag = builder.build(inner);
+            let Fragment {
+                start: inner_start,
+                accepts: inner_accepts,
+            } = frag;
 
-        // Create two fresh states: start for the started fragment, and a new accept for the entire star fragment.
-        let start = self.new_state();
-        let accept = self.new_state();
+            let start = builder.new_state();
+            let accept = builder.new_state();
 
-        // Add EPS transitions from the new start to:
-        // - the inner fragment's start (to begin one or more iterations)
-        // - directly to the new accept (to allow zero iterations)
-        self.add_edge(start, frag.start, EdgeLabel::Eps);
-        self.add_edge(start, accept, EdgeLabel::Eps);
+            builder.add_edge(start, inner_start, EdgeLabel::Eps);
+            builder.add_edge(start, accept, EdgeLabel::Eps);
 
-        // For each accept state of the inner fragment, add EPS transitions to:
-        // - Back to the inner fragment's start (to allow repeated iterations)
-        // - The new accept state (to allow exiting the star)
-        for state in frag.accepts {
-            self.add_edge(state, frag.start, EdgeLabel::Eps);
-            self.add_edge(state, accept, EdgeLabel::Eps);
-        }
+            for state in inner_accepts {
+                builder.add_edge(state, inner_start, EdgeLabel::Eps);
+                builder.add_edge(state, accept, EdgeLabel::Eps);
+            }
 
-        Fragment {
-            start,
-            accepts: vec![accept],
-        }
+            Fragment {
+                start,
+                accepts: vec![accept],
+            }
+        })
     }
 
     /// Applies the plus operand (1 or more occurrences) to the inner AST node.
@@ -296,22 +318,28 @@ impl Builder {
     ///
     /// - `Fragment` - The NFA fragment representing the plus operation.
     fn build_plus(&mut self, inner: Ast) -> Fragment {
-        let frag = self.build(inner);
+        self.with_box(BoxKind::KleenePlus, move |builder| {
+            let frag = builder.build(inner);
+            let Fragment {
+                start: inner_start,
+                accepts: inner_accepts,
+            } = frag;
 
-        let start = self.new_state();
-        let accept = self.new_state();
+            let start = builder.new_state();
+            let accept = builder.new_state();
 
-        self.add_edge(start, frag.start, EdgeLabel::Eps);
+            builder.add_edge(start, inner_start, EdgeLabel::Eps);
 
-        for state in &frag.accepts {
-            self.add_edge(*state, frag.start, EdgeLabel::Eps);
-            self.add_edge(*state, accept, EdgeLabel::Eps);
-        }
+            for state in &inner_accepts {
+                builder.add_edge(*state, inner_start, EdgeLabel::Eps);
+                builder.add_edge(*state, accept, EdgeLabel::Eps);
+            }
 
-        Fragment {
-            start,
-            accepts: vec![accept],
-        }
+            Fragment {
+                start,
+                accepts: vec![accept],
+            }
+        })
     }
 
     /// Builds an optional (zero or one occurrence) fragment from the given inner AST.
@@ -324,22 +352,27 @@ impl Builder {
     ///
     /// - `Fragment` - The NFA fragment representing the optional operation.
     fn build_optional(&mut self, inner: Ast) -> Fragment {
-        let frag = self.build(inner);
-        let start = self.new_state();
-        let accept = self.new_state();
+        self.with_box(BoxKind::Optional, move |builder| {
+            let frag = builder.build(inner);
+            let Fragment {
+                start: inner_start,
+                accepts: inner_accepts,
+            } = frag;
+            let start = builder.new_state();
+            let accept = builder.new_state();
 
-        // Simply walk around the inner fragment or go through it.
-        self.add_edge(start, frag.start, EdgeLabel::Eps);
-        self.add_edge(start, accept, EdgeLabel::Eps);
+            builder.add_edge(start, inner_start, EdgeLabel::Eps);
+            builder.add_edge(start, accept, EdgeLabel::Eps);
 
-        for state in frag.accepts {
-            self.add_edge(state, accept, EdgeLabel::Eps);
-        }
+            for state in inner_accepts {
+                builder.add_edge(state, accept, EdgeLabel::Eps);
+            }
 
-        Fragment {
-            start,
-            accepts: vec![accept],
-        }
+            Fragment {
+                start,
+                accepts: vec![accept],
+            }
+        })
     }
 
     /// Finalizes the NFA construction, producing the complete NFA structure.
@@ -353,9 +386,8 @@ impl Builder {
     /// # Returns
     ///
     /// - `Nfa` - The finalized NFA structure.
-    fn finalize(self, start: StateId, accepts: Vec<StateId>) -> Nfa {
+    fn finalize(mut self, start: StateId, accepts: Vec<StateId>) -> Nfa {
         let accepts = unique_sorted(accepts);
-        let states: Vec<StateId> = (0..self.adjacency.len()).map(|i| i as StateId).collect();
         let mut edges = Vec::new();
 
         for (from, row) in self.adjacency.iter().enumerate() {
@@ -371,11 +403,12 @@ impl Builder {
         }
 
         Nfa {
-            states,
+            states: std::mem::take(&mut self.states),
             start,
             accepts,
             edges,
             adjacency: self.adjacency,
+            boxes: self.boxes,
         }
     }
 }

@@ -88,6 +88,7 @@ fn validate_char(ch: char, pos: usize) -> Result<char, LexError> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
