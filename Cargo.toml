@@ -1,4 +1,4 @@
 [workspace]
 members = ["crates/regviz_core", "crates/regviz_app"]
-edition = "2021"
 resolver = "3"
+default-members = ["crates/regviz_app"]
