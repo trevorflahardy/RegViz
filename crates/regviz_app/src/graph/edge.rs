@@ -23,8 +23,7 @@ const CURVED_EDGE_RADIUS_PADDING: f32 = 5.0;
 pub enum EdgeCurve {
     /// Straight line between nodes.
     Straight,
-    /// Curved downward (reserved for future use).
-    #[allow(dead_code)]
+    /// Curved downward.
     CurveDown,
     /// Curved upward (for star closure loop-back: inner_accept → inner_start).
     CurveUp,
