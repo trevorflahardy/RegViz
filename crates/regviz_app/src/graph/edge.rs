@@ -15,8 +15,6 @@ const ARROW_HEAD_LENGTH: f32 = 10.0;
 const ARROW_HEAD_HALF_WIDTH: f32 = ARROW_HEAD_LENGTH * 0.5;
 /// Control point offset for curved edges (as a fraction of distance between nodes).
 const CURVE_CONTROL_OFFSET: f32 = 0.4;
-/// Extra radius padding for curved edges to ensure arrow visibility.
-const CURVED_EDGE_RADIUS_PADDING: f32 = 5.0;
 
 /// Edge curvature style for different types of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -277,14 +275,19 @@ impl PositionedEdge {
         }
 
         let unit = Vector::new(direction.x / length, direction.y / length);
+        
+        // Get perpendicular vector (rotates 90° counterclockwise)
+        // For horizontal edges (left to right), this gives an upward normal
         let normal = perpendicular(unit);
 
         // Control point offset: position it perpendicular to the line between nodes
-        // The sign determines if we curve up or down
+        // Perpendicular gives us "up" for left-to-right edges
+        // For CurveUp (curve_down=false), we want to curve upward, so use positive offset
+        // For CurveDown (curve_down=true), we want to curve downward, so use negative offset
         let control_offset = if curve_down {
-            length * CURVE_CONTROL_OFFSET
+            -length * CURVE_CONTROL_OFFSET  // Negative = downward
         } else {
-            -length * CURVE_CONTROL_OFFSET
+            length * CURVE_CONTROL_OFFSET   // Positive = upward
         };
 
         // Midpoint between nodes
@@ -300,50 +303,33 @@ impl PositionedEdge {
         );
 
         // Find where the curve intersects the node boundaries
-        // For simplicity, we'll use the direction from center to control point
-        // to determine the exit/entry angles
-        let from_to_control = Vector::new(control.x - from_center.x, control.y - from_center.y);
-        let from_to_control_len =
-            (from_to_control.x * from_to_control.x + from_to_control.y * from_to_control.y).sqrt();
-        let from_to_control_unit = if from_to_control_len > f32::EPSILON {
-            Vector::new(
-                from_to_control.x / from_to_control_len,
-                from_to_control.y / from_to_control_len,
-            )
+        // Use the tangent at t=0 for the start point and t=1 for the end point
+        let start_tangent = quadratic_bezier_tangent(from_center, control, to_center, 0.0);
+        let start_tangent_len = (start_tangent.x * start_tangent.x + start_tangent.y * start_tangent.y).sqrt();
+        let start_tangent_unit = if start_tangent_len > f32::EPSILON {
+            Vector::new(start_tangent.x / start_tangent_len, start_tangent.y / start_tangent_len)
         } else {
             unit
         };
 
-        let to_from_control = Vector::new(control.x - to_center.x, control.y - to_center.y);
-        let to_from_control_len =
-            (to_from_control.x * to_from_control.x + to_from_control.y * to_from_control.y).sqrt();
-        let to_from_control_unit = if to_from_control_len > f32::EPSILON {
-            Vector::new(
-                to_from_control.x / to_from_control_len,
-                to_from_control.y / to_from_control_len,
-            )
+        let end_tangent = quadratic_bezier_tangent(from_center, control, to_center, 1.0);
+        let end_tangent_len = (end_tangent.x * end_tangent.x + end_tangent.y * end_tangent.y).sqrt();
+        let end_tangent_unit = if end_tangent_len > f32::EPSILON {
+            Vector::new(end_tangent.x / end_tangent_len, end_tangent.y / end_tangent_len)
         } else {
             Vector::new(-unit.x, -unit.y)
         };
 
         // Start point on the edge of the source node
-        // Add extra padding for curved edges to ensure arrow visibility
         let start = Point::new(
-            from_center.x + from_to_control_unit.x * (from_radius + CURVED_EDGE_RADIUS_PADDING),
-            from_center.y + from_to_control_unit.y * (from_radius + CURVED_EDGE_RADIUS_PADDING),
+            from_center.x + start_tangent_unit.x * from_radius,
+            from_center.y + start_tangent_unit.y * from_radius,
         );
 
-        // End point on the edge of the destination node
-        // Add extra padding for curved edges to ensure arrow visibility
+        // End point on the edge of the destination node (where arrow tip will be)
         let end = Point::new(
-            to_center.x - to_from_control_unit.x * (to_radius + CURVED_EDGE_RADIUS_PADDING),
-            to_center.y - to_from_control_unit.y * (to_radius + CURVED_EDGE_RADIUS_PADDING),
-        );
-
-        // Arrow head should be at the actual node boundary, not the extended end point
-        let arrow_pos = Point::new(
-            to_center.x - to_from_control_unit.x * to_radius,
-            to_center.y - to_from_control_unit.y * to_radius,
+            to_center.x - end_tangent_unit.x * to_radius,
+            to_center.y - end_tangent_unit.y * to_radius,
         );
 
         // Draw the quadratic Bezier curve
@@ -353,17 +339,8 @@ impl PositionedEdge {
         });
         frame.stroke(&curve_path, Stroke::default().with_width(1.3));
 
-        // Calculate the tangent at the end of the curve for the arrow head
-        let tangent = quadratic_bezier_tangent(start, control, end, 1.0);
-        let tangent_len = (tangent.x * tangent.x + tangent.y * tangent.y).sqrt();
-        let tangent_unit = if tangent_len > f32::EPSILON {
-            Vector::new(tangent.x / tangent_len, tangent.y / tangent_len)
-        } else {
-            Vector::new(-to_from_control_unit.x, -to_from_control_unit.y)
-        };
-
-        // Draw arrow head at the node boundary, not the extended end point
-        self.draw_arrow_head(frame, arrow_pos, tangent_unit);
+        // Draw arrow head at the end point with the correct tangent direction
+        self.draw_arrow_head(frame, end, end_tangent_unit);
 
         // Draw label on the curve
         self.draw_label(frame, ctx);
