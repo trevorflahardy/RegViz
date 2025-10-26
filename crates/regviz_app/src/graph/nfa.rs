@@ -56,16 +56,25 @@ impl Graph for Nfa {
 
 /// Determines the curvature style for an edge based on its role in the NFA structure.
 ///
-/// For star closures (and plus/optional), we identify special epsilon transitions:
-/// - Entry → Inner Start: Should curve downward (wraps around bottom)
-/// - Inner Accept → Inner Start: Should curve upward (wraps around top)
-/// - All other edges: Straight
+/// For star closures, Thompson's construction creates:
+/// ```
+///        ┌─────ε (bypass, curve down)─────┐
+///        ↓                                 ↓
+/// START ──→ inner_start ... inner_accept ──→ ACCEPT
+///              ↑                    │
+///              └─────ε (loop up)────┘
+/// ```
 ///
-/// # Algorithm
-/// 1. Check if the edge is an epsilon transition in a star/plus/optional box
-/// 2. Identify the entry and exit states of the box
-/// 3. Determine if this is a "bypass" (entry → inner) or "loop" (inner → inner) edge
-/// 4. Return appropriate curve direction
+/// The star box contains [START, ACCEPT].
+/// The inner fragment is in a child box.
+///
+/// We need to detect:
+/// 1. START → ACCEPT: Curve down (bypass)
+/// 2. inner_accept → inner_start: Curve up (loop back)
+///
+/// To detect (2), we look for edges where:
+/// - The destination is the target of a star/plus/optional START state
+/// - The source has an edge to the star/plus/optional ACCEPT state
 ///
 /// # Arguments
 /// - `from`: Source state ID
@@ -81,68 +90,63 @@ fn determine_edge_curve(
     from: u32,
     to: u32,
     label: &EdgeLabel,
-    from_box_id: Option<u32>,
+    _from_box_id: Option<u32>,
     box_map: &HashMap<u32, &regviz_core::core::automaton::BoundingBox>,
     nfa: &Nfa,
 ) -> EdgeCurve {
-    // Only epsilon transitions in star/plus/optional boxes can be curved
+    // Only epsilon transitions can be curved
     if *label != EdgeLabel::Eps {
         return EdgeCurve::Straight;
     }
 
-    let Some(box_id) = from_box_id else {
-        return EdgeCurve::Straight;
-    };
+    // Check all star/plus/optional boxes to see if this edge matches a pattern
+    for bbox in box_map.values() {
+        // Only apply curves to unary operators
+        if !matches!(
+            bbox.kind,
+            BoxKind::KleeneStar | BoxKind::KleenePlus | BoxKind::Optional
+        ) {
+            continue;
+        }
 
-    let Some(bbox) = box_map.get(&box_id) else {
-        return EdgeCurve::Straight;
-    };
+        // Star box should have exactly 2 states: [start, accept]
+        if bbox.states.len() != 2 {
+            continue;
+        }
 
-    // Only apply curves to unary operators (star, plus, optional)
-    if !matches!(
-        bbox.kind,
-        BoxKind::KleeneStar | BoxKind::KleenePlus | BoxKind::Optional
-    ) {
-        return EdgeCurve::Straight;
-    }
+        let star_start = bbox.states[0];
+        let star_accept = bbox.states[1];
 
-    // For star/plus/optional, the structure is:
-    // states[0] = entry, states[last] = exit, middle states = inner fragment
-    if bbox.states.len() < 2 {
-        return EdgeCurve::Straight;
-    }
+        // Pattern 1: star_start → star_accept (bypass, curve down)
+        if from == star_start && to == star_accept {
+            return EdgeCurve::CurveDown;
+        }
 
-    let entry = bbox.states[0];
-    let exit = *bbox.states.last().unwrap();
+        // Pattern 2: inner_accept → inner_start (loop back, curve up)
+        // To detect this:
+        // - Find what inner_start is (the non-accept target of star_start)
+        // - Check if this edge goes to inner_start from an inner_accept state
 
-    // Get the inner fragment's first state (the target of the entry → inner transition)
-    // This is tricky - we need to look at the children boxes or inner states
-    // For now, we'll use a heuristic: the inner_start is any state that's not entry/exit
-    let inner_states: Vec<_> = bbox
-        .states
-        .iter()
-        .filter(|&&s| s != entry && s != exit)
-        .copied()
-        .collect();
-
-    // Pattern 1: Entry → Inner Start (should curve down)
-    // This is the edge that bypasses zero iterations
-    if from == entry && inner_states.contains(&to) {
-        return EdgeCurve::CurveDown;
-    }
-
-    // Pattern 2: Inner state → Inner Start (loop back, should curve up)
-    // This is the edge that repeats the inner fragment
-    if inner_states.contains(&from) && inner_states.contains(&to) {
-        // Additional check: this should be going backwards (from an accept state)
-        // We can check if 'from' is in the inner_accepts by seeing if it has an edge to exit
-        let has_edge_to_exit = nfa
-            .transitions(from)
+        // Find inner_start: it's the epsilon target of star_start that's NOT star_accept
+        let inner_start = nfa
+            .transitions(star_start)
             .iter()
-            .any(|t| t.to == exit && t.label == EdgeLabel::Eps);
+            .find(|t| t.label == EdgeLabel::Eps && t.to != star_accept)
+            .map(|t| t.to);
 
-        if has_edge_to_exit {
-            return EdgeCurve::CurveUp;
+        if let Some(inner_start_id) = inner_start {
+            // Check if this edge goes TO inner_start
+            if to == inner_start_id {
+                // Check if FROM is an inner_accept (has epsilon edge to star_accept)
+                let from_is_inner_accept = nfa
+                    .transitions(from)
+                    .iter()
+                    .any(|t| t.to == star_accept && t.label == EdgeLabel::Eps);
+
+                if from_is_inner_accept {
+                    return EdgeCurve::CurveUp;
+                }
+            }
         }
     }
 
