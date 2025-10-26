@@ -136,6 +136,18 @@ impl App {
     }
 }
 
+#[cfg(debug_assertions)]
+fn init_tracing() {
+    use tracing_subscriber::EnvFilter;
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .pretty()
+        .try_init()
+        .ok();
+}
+
 fn main() -> iced::Result {
+    init_tracing();
+
     iced::run("RegViz", App::update, App::view)
 }
