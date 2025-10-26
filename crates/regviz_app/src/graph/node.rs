@@ -75,17 +75,19 @@ impl Drawable for PositionedNode {
         frame.stroke(&circle, Stroke::default().with_width(1.5));
 
         if self.data.is_accept {
+            // Accepting states have an inner circle
             let inner = Path::circle(center, radius - 4.0);
             frame.stroke(&inner, Stroke::default().with_width(1.2));
         }
 
         if self.data.is_start {
+            // Start nodes have an arrow pointing to them as a start indicator
             let arrow_start = Point::new(center.x - radius * 1.7, center.y);
             let arrow_end = Point::new(center.x - radius, center.y);
             let arrow = Path::line(arrow_start, arrow_end);
             frame.stroke(&arrow, Stroke::default().with_width(1.3));
 
-            // small arrow head
+            // Arrow head
             let arrow_head = Path::new(|builder| {
                 let offset = Vector::new(6.0, 4.0);
                 builder.move_to(arrow_end);
