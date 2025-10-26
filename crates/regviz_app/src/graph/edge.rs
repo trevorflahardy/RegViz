@@ -44,11 +44,18 @@ pub struct PositionedEdge {
     pub to: Point,
     /// Suggested position for the label.
     pub label_position: Point,
+    /// Radius of the source node (used to adjust edge start point).
+    pub from_radius: f32,
+    /// Radius of the destination node (used to adjust edge end point).
+    pub to_radius: f32,
 }
 
 impl PositionedEdge {
     /// Creates a new positioned edge from metadata and coordinates, keeping the label legible
     /// by offsetting it away from the rendered segment.
+    ///
+    /// Note: The `from` and `to` points represent node centers. The actual edge will be
+    /// drawn from the edge of the source node to the edge of the destination node.
     #[must_use]
     pub fn new(data: GraphEdge, from: Point, to: Point) -> Self {
         let label_position = compute_label_anchor(from, to);
@@ -57,6 +64,32 @@ impl PositionedEdge {
             from,
             to,
             label_position,
+            from_radius: 32.0, // Default node radius
+            to_radius: 32.0,   // Default node radius
+        }
+    }
+
+    /// Creates a new positioned edge with explicit node radii.
+    ///
+    /// This is useful when nodes have different radii (e.g., in different visualization modes).
+    /// ! NOTE: This function is currently unused but kept for potential future use.
+    #[must_use]
+    #[allow(dead_code)]
+    pub fn with_radii(
+        data: GraphEdge,
+        from: Point,
+        to: Point,
+        from_radius: f32,
+        to_radius: f32,
+    ) -> Self {
+        let label_position = compute_label_anchor(from, to);
+        Self {
+            data,
+            from,
+            to,
+            label_position,
+            from_radius,
+            to_radius,
         }
     }
 }
@@ -64,26 +97,55 @@ impl PositionedEdge {
 impl Drawable for PositionedEdge {
     /// Draws a directed edge from one state to another with an arrow head and label.
     ///
-    /// This function performs three main tasks:
-    /// 1. Draws the main line segment connecting the two states
-    /// 2. Draws an arrow head at the destination to show direction
-    /// 3. Renders the transition label near the midpoint of the edge
+    /// This function performs several tasks:
+    /// 1. Adjusts edge endpoints to stop at node boundaries (not centers)
+    /// 2. Draws the main line segment connecting the two states
+    /// 3. Draws an arrow head at the destination to show direction
+    /// 4. Renders the transition label near the midpoint of the edge
+    ///
+    /// The edge is shortened on both ends so it doesn't overlap with the node circles.
     fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
         // Transform logical coordinates to screen coordinates based on zoom/pan
-        let from = ctx.transform_point(self.from);
-        let to = ctx.transform_point(self.to);
+        let from_center = ctx.transform_point(self.from);
+        let to_center = ctx.transform_point(self.to);
 
-        // Draw the main line connecting the two states
+        // Calculate the direction vector from source to destination
+        let direction = Vector::new(to_center.x - from_center.x, to_center.y - from_center.y);
+        let length = (direction.x * direction.x + direction.y * direction.y).sqrt();
+
+        // If nodes are at the same position, don't draw anything
+        if length <= f32::EPSILON {
+            return;
+        }
+
+        // Normalize direction to unit vector
+        let unit = Vector::new(direction.x / length, direction.y / length);
+
+        // Scale node radii by zoom factor
+        let from_radius = self.from_radius * ctx.zoom;
+        let to_radius = self.to_radius * ctx.zoom;
+
+        // Adjust the start point: move from node center outward by the node radius
+        let from = Point::new(
+            from_center.x + unit.x * from_radius,
+            from_center.y + unit.y * from_radius,
+        );
+
+        // Adjust the end point: move from node center inward by the node radius
+        // This ensures the arrow head sits right at the edge of the destination node
+        let to = Point::new(
+            to_center.x - unit.x * to_radius,
+            to_center.y - unit.y * to_radius,
+        );
+
+        // Draw the main line connecting the two states (now shortened to node boundaries)
         let line = Path::line(from, to);
         frame.stroke(&line, Stroke::default().with_width(1.3));
 
-        // Calculate the direction of the edge (unit vector pointing from 'from' to 'to')
-        let unit = normalize_vector(Vector::new(to.x - from.x, to.y - from.y));
         // Calculate the perpendicular vector (rotated 90° counterclockwise) for arrow wings
         let normal = perpendicular(unit);
 
-        // Build the arrow head triangle at the destination point
-        // The arrow points in the direction of the edge (unit vector)
+        // Build the arrow head triangle at the destination point (edge of destination node)
         let tip = to;
 
         // Left wing: move back along the edge direction, then offset perpendicular
@@ -158,26 +220,6 @@ fn compute_label_anchor(from: Point, to: Point) -> Point {
         mid.x + normal.x * LABEL_DISTANCE,
         mid.y + normal.y * LABEL_DISTANCE,
     )
-}
-
-/// Converts a vector into a unit vector (length = 1.0) pointing in the same direction.
-///
-/// This is essential for calculating directions without caring about distance.
-/// For example, if you have a vector (300, 400), the unit vector would be (0.6, 0.8).
-///
-/// # Returns
-/// A vector with length 1.0, or (1.0, 0.0) if the input vector has zero length.
-fn normalize_vector(vector: Vector) -> Vector {
-    // Calculate the length using Pythagorean theorem: √(x² + y²)
-    let length = (vector.x * vector.x + vector.y * vector.y).sqrt();
-
-    // Avoid division by zero - if vector has no length, return a default direction
-    if length <= f32::EPSILON {
-        return Vector::new(1.0, 0.0);
-    }
-
-    // Divide both components by length to get a unit vector
-    Vector::new(vector.x / length, vector.y / length)
 }
 
 /// Returns a vector perpendicular (at 90°) to the input vector.
