@@ -2,31 +2,45 @@ use iced::widget::canvas::{self, Frame, Program};
 use iced::{Rectangle, Size, Vector, mouse};
 use iced_graphics::geometry::Renderer;
 
-use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout, layout_graph};
+use super::layout::LayoutStrategy;
+use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout};
 
 /// Interactive canvas responsible for rendering graphs with zoom support.
+///
+/// The canvas is generic over both the graph type and the layout strategy,
+/// allowing different visualization approaches for different graph types.
 #[derive(Debug)]
-pub struct GraphCanvas<G: Graph> {
+pub struct GraphCanvas<G: Graph, S: LayoutStrategy> {
     graph: G,
     visibility: BoxVisibility,
     zoom_factor: f32,
+    strategy: S,
 }
 
-impl<G: Graph> GraphCanvas<G> {
-    /// Creates a new canvas for the provided graph implementation.
+impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
+    /// Creates a new canvas for the provided graph implementation with a specific layout strategy.
+    ///
+    /// # Arguments
+    ///
+    /// - `graph`: The graph to render
+    /// - `visibility`: Controls which bounding boxes are visible
+    /// - `zoom_factor`: Initial zoom level (1.0 = fit to screen)
+    /// - `strategy`: The layout algorithm to use for positioning nodes
     #[must_use]
-    pub fn new(graph: G, visibility: BoxVisibility, zoom_factor: f32) -> Self {
+    pub fn new(graph: G, visibility: BoxVisibility, zoom_factor: f32, strategy: S) -> Self {
         Self {
             graph,
             visibility,
             zoom_factor,
+            strategy,
         }
     }
 }
 
-impl<G, Message, R> Program<Message, iced::Theme, R> for GraphCanvas<G>
+impl<G, S, Message, R> Program<Message, iced::Theme, R> for GraphCanvas<G, S>
 where
     G: Graph,
+    S: LayoutStrategy,
     R: Renderer,
 {
     type State = ();
@@ -39,7 +53,8 @@ where
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry<R>> {
-        let layout = layout_graph(&self.graph, &self.visibility);
+        // Use the configured layout strategy
+        let layout = self.strategy.compute(&self.graph, &self.visibility);
         let fit_zoom = fit_zoom(bounds.size(), &layout);
         let zoom = fit_zoom * self.zoom_factor;
 

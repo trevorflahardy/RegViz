@@ -1,104 +1,75 @@
-//! Hierarchical layout algorithm for visualizing finite automata.
-//!
-//! This module implements a specialized layout algorithm that arranges automaton states
-//! based on the structure of the original regex. Unlike generic graph layout algorithms,
-//! this approach leverages the hierarchical bounding boxes produced by the regex compiler
-//! to create visually meaningful layouts.
-//!
-//! # High-Level Algorithm
-//!
-//! 1. **Hierarchy Construction**: Build a tree of bounding boxes representing regex operators
-//! 2. **Recursive Layout**: Layout each operator bottom-up using operator-specific rules:
-//!    - Literals: Two states side-by-side
-//!    - Concatenation: Children arranged horizontally in sequence
-//!    - Alternation: Branches stacked vertically with shared entry/exit
-//!    - Unary operators (*, +, ?): Child centered with operator states on sides
-//! 3. **Normalization**: Convert each fragment to positive coordinates with padding
-//! 4. **Composition**: Stack root boxes vertically, merge all state positions
-//! 5. **Rendering**: Compute visual rectangles for boxes, create positioned nodes/edges
-//!
-//! # Example
-//!
-//! For the regex `(a|b)*c`:
-//! - Alternation box contains 'a' and 'b' branches stacked vertically
-//! - Kleene star box wraps the alternation with entry/exit states
-//! - Concatenation places the star result and 'c' horizontally
-//!
-//! # Key Data Structures
-//!
-//! - `BoxHierarchy`: Parent-child relationships between bounding boxes
-//! - `BoxLayoutResult`: Intermediate layout with local coordinates and entry/exit points
-//! - `GraphLayout`: Final positioned elements ready for rendering
-
+/// Hierarchical layout algorithm for visualizing finite automata.
+///
+/// This module implements a specialized layout algorithm that arranges automaton states
+/// based on the structure of the original regex. Unlike generic graph layout algorithms,
+/// this approach leverages the hierarchical bounding boxes produced by the regex compiler
+/// to create visually meaningful layouts.
+///
+/// # High-Level Algorithm
+///
+/// 1. **Hierarchy Construction**: Build a tree of bounding boxes representing regex operators
+/// 2. **Recursive Layout**: Layout each operator bottom-up using operator-specific rules:
+///    - Literals: Two states side-by-side
+///    - Concatenation: Children arranged horizontally in sequence
+///    - Alternation: Branches stacked vertically with shared entry/exit
+///    - Unary operators (*, +, ?): Child centered with operator states on sides
+/// 3. **Normalization**: Convert each fragment to positive coordinates with padding
+/// 4. **Composition**: Stack root boxes vertically, merge all state positions
+/// 5. **Rendering**: Compute visual rectangles for boxes, create positioned nodes/edges
+///
+/// # Example
+///
+/// For the regex `(a|b)*c`:
+/// - Alternation box contains 'a' and 'b' branches stacked vertically
+/// - Kleene star box wraps the alternation with entry/exit states
+/// - Concatenation places the star result and 'c' horizontally
+///
+/// # Key Data Structures
+///
+/// - `BoxHierarchy`: Parent-child relationships between bounding boxes
+/// - `BoxLayoutResult`: Intermediate layout with local coordinates and entry/exit points
+/// - [`GraphLayout`](super::GraphLayout): Final positioned elements ready for rendering
 use std::collections::HashMap;
 
 use iced::{Point, Rectangle};
 use regviz_core::core::automaton::{BoxId, BoxKind, StateId};
 
-use super::{Graph, GraphBox, bbox::PositionedBox, edge::PositionedEdge, node::PositionedNode};
+use super::{BoxVisibility, GraphLayout, LayoutStrategy};
+use crate::graph::{
+    Graph, GraphBox, GraphNode, bbox::PositionedBox, edge::PositionedEdge, node::PositionedNode,
+};
 
-/// Controls which bounding boxes are rendered on the canvas.
-#[derive(Debug, Clone)]
-pub struct BoxVisibility {
-    literal: bool,
-    concat: bool,
-    alternation: bool,
-    kleene_star: bool,
-    kleene_plus: bool,
-    optional: bool,
-}
+/// NFA-specific hierarchical layout strategy.
+///
+/// This strategy is designed for NFAs that have bounding box metadata representing
+/// the regex operator structure. It creates layouts that visually reflect the
+/// hierarchical nature of regular expressions.
+///
+/// # When to Use
+///
+/// Use this strategy when:
+/// - The graph represents an NFA compiled from a regex
+/// - Bounding boxes are available (via [`Graph::boxes()`])
+/// - You want the layout to reflect regex operator grouping
+///
+/// # Algorithm
+///
+/// The layout is computed bottom-up:
+/// 1. Process each bounding box recursively (children first)
+/// 2. Apply operator-specific positioning rules
+/// 3. Normalize coordinates to positive quadrant with padding
+/// 4. Compose fragments into final layout
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NfaLayoutStrategy;
 
-impl Default for BoxVisibility {
-    fn default() -> Self {
-        Self {
-            literal: true,
-            concat: true,
-            alternation: true,
-            kleene_star: true,
-            kleene_plus: true,
-            optional: true,
-        }
+impl LayoutStrategy for NfaLayoutStrategy {
+    fn compute<G: Graph>(
+        &self,
+        graph: &G,
+        visibility: &super::BoxVisibility,
+    ) -> super::GraphLayout {
+        layout_graph(graph, visibility)
     }
-}
-
-impl BoxVisibility {
-    /// Returns whether a bounding box of the provided [`BoxKind`] should be shown.
-    #[must_use]
-    pub fn is_visible(&self, kind: BoxKind) -> bool {
-        match kind {
-            BoxKind::Literal => self.literal,
-            BoxKind::Concat => self.concat,
-            BoxKind::Alternation => self.alternation,
-            BoxKind::KleeneStar => self.kleene_star,
-            BoxKind::KleenePlus => self.kleene_plus,
-            BoxKind::Optional => self.optional,
-        }
-    }
-
-    /// Flips the visibility of the provided [`BoxKind`].
-    pub fn toggle(&mut self, kind: BoxKind) {
-        match kind {
-            BoxKind::Literal => self.literal = !self.literal,
-            BoxKind::Concat => self.concat = !self.concat,
-            BoxKind::Alternation => self.alternation = !self.alternation,
-            BoxKind::KleeneStar => self.kleene_star = !self.kleene_star,
-            BoxKind::KleenePlus => self.kleene_plus = !self.kleene_plus,
-            BoxKind::Optional => self.optional = !self.optional,
-        }
-    }
-}
-
-/// Complete layout ready to be rendered by the canvas.
-#[derive(Debug, Clone)]
-pub struct GraphLayout {
-    /// All positioned bounding boxes.
-    pub boxes: Vec<PositionedBox>,
-    /// All positioned nodes.
-    pub nodes: Vec<PositionedNode>,
-    /// All positioned edges.
-    pub edges: Vec<PositionedEdge>,
-    /// Logical bounds of the layout prior to zooming.
-    pub bounds: Rectangle,
 }
 
 /// Horizontal distance between consecutive nodes on the same level.
@@ -270,7 +241,7 @@ impl BoundsTracker {
 /// - Position entry/exit states for the alternation
 /// - Calculate the overall bounds for rendering
 #[must_use]
-pub fn layout_graph<G: Graph>(graph: &G, visibility: &BoxVisibility) -> GraphLayout {
+fn layout_graph<G: Graph>(graph: &G, visibility: &super::BoxVisibility) -> super::GraphLayout {
     let nodes = graph.nodes();
     let edges = graph.edges();
     let boxes = graph.boxes();
@@ -984,7 +955,7 @@ fn assign_box_positions(
 /// - `state_positions`: Existing positions (will only add missing ones)
 /// - `baseline_y`: Vertical position for the fallback line
 fn assign_fallback_positions(
-    nodes: &[super::GraphNode],
+    nodes: &[GraphNode],
     state_positions: &mut HashMap<StateId, Point>,
     baseline_y: f32,
 ) {

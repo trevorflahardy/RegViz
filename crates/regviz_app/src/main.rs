@@ -7,7 +7,8 @@ use iced::{
 use regviz_core::core::automaton::BoxKind;
 use regviz_core::core::{BuildArtifacts, lexer, nfa, parser};
 
-use graph::{BoxVisibility, GraphCanvas};
+use graph::layout::{NfaLayoutStrategy, TreeLayoutStrategy};
+use graph::{AstGraph, BoxVisibility, GraphCanvas};
 
 struct App {
     input: String,
@@ -88,19 +89,46 @@ impl App {
 
             col = col.push(zoom_controls);
 
-            let graph_canvas: GraphCanvas<nfa::Nfa> = GraphCanvas::new(
+            // Create AST visualization
+            let ast_graph = AstGraph::new(artifacts.ast.clone());
+            let ast_canvas: GraphCanvas<AstGraph, TreeLayoutStrategy> = GraphCanvas::new(
+                ast_graph,
+                BoxVisibility::default(), // AST doesn't use box visibility
+                self.zoom_factor,
+                TreeLayoutStrategy,
+            );
+
+            // Create NFA visualization
+            let nfa_canvas: GraphCanvas<nfa::Nfa, NfaLayoutStrategy> = GraphCanvas::new(
                 artifacts.nfa.clone(),
                 self.box_visibility.clone(),
                 self.zoom_factor,
+                NfaLayoutStrategy,
             );
 
-            // Canvas that takes up max width and height of the column
-            let canvas = Canvas::new(graph_canvas)
-                .width(iced::Length::Fill)
+            // Create side-by-side layout with labels
+            let ast_section = column![
+                text("Abstract Syntax Tree").size(18),
+                Canvas::new(ast_canvas)
+                    .width(iced::Length::Fill)
+                    .height(iced::Length::Fill),
+            ]
+            .spacing(8);
+
+            let nfa_section = column![
+                text("Non-deterministic Finite Automaton").size(18),
+                Canvas::new(nfa_canvas)
+                    .width(iced::Length::Fill)
+                    .height(iced::Length::Fill),
+            ]
+            .spacing(8);
+
+            let visualizations = column![ast_section, nfa_section]
+                .spacing(16)
                 .height(iced::Length::Fill);
 
             // Wrap in container with padding
-            let canvas_with_padding = container(canvas).padding(20); // Add 20 pixels of padding on all sides
+            let canvas_with_padding = container(visualizations).padding(20);
 
             col = col.push(canvas_with_padding);
         }
@@ -129,6 +157,7 @@ impl App {
             self.build_artifacts = None;
             return;
         }
+
         match lexer::lex(self.input.trim()) {
             Ok(tokens) => match parser::parse(&tokens) {
                 Ok(ast) => {
