@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
     /// Parses unary postfix operators (`*`, `+`, `?`).
     fn parse_repeat(&mut self) -> Result<Ast, ParseError> {
         let mut node = self.parse_atom()?;
-        while let Some(apply) = self.next_repetition()? {
+        while let Some(apply) = self.next_repetition() {
             node = apply(node);
         }
         Ok(node)
@@ -101,11 +101,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns and consumes the next repetition operator, if any.
-    fn next_repetition(&mut self) -> Result<Option<fn(Ast) -> Ast>, ParseError> {
+    fn next_repetition(&mut self) -> Option<fn(Ast) -> Ast> {
         let kind = match self.peek_kind() {
             Some(kind @ (TokenKind::Star | TokenKind::Plus | TokenKind::QMark)) => kind,
-            Some(TokenKind::RParen | TokenKind::Or | TokenKind::Eos) | None => return Ok(None),
-            Some(TokenKind::Char(_) | TokenKind::LParen) => return Ok(None),
+            Some(TokenKind::RParen | TokenKind::Or | TokenKind::Eos) | None => return None,
+            Some(TokenKind::Char(_) | TokenKind::LParen) => return None,
         };
 
         self.advance();
@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
             TokenKind::QMark => Ast::opt,
             _ => unreachable!("filtered above"),
         };
-        Ok(Some(apply))
+        Some(apply)
     }
 
     /// Consumes the next token if it matches the provided kind.
