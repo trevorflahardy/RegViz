@@ -99,6 +99,7 @@ pub fn layout_graph<G: Graph>(graph: &G, visibility: &BoxVisibility) -> GraphLay
             children.entry(parent).or_default().push(bbox.id);
         }
     }
+
     for ids in children.values_mut() {
         ids.sort_unstable();
     }
@@ -111,7 +112,9 @@ pub fn layout_graph<G: Graph>(graph: &G, visibility: &BoxVisibility) -> GraphLay
         .filter(|b| b.parent.is_none())
         .map(|b| b.id)
         .collect::<Vec<_>>();
+
     root_ids.sort_unstable();
+
     for root_id in root_ids {
         if let Some(layout) = box_map
             .get(&root_id)
@@ -121,6 +124,7 @@ pub fn layout_graph<G: Graph>(graph: &G, visibility: &BoxVisibility) -> GraphLay
                 let absolute = Point::new(pos.x, pos.y + vertical_offset);
                 state_positions.insert(state, absolute);
             }
+
             vertical_offset += layout.height + LEVEL_SPACING_Y;
         }
     }
