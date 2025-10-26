@@ -1,27 +1,43 @@
 mod graph;
 
 use iced::{
-    Element,
-    widget::{Canvas, button, column, container, row, text, text_input},
+    Alignment, Element,
+    widget::{self, Canvas, button, column, container, row, slider, text, text_input},
 };
 use regviz_core::core::automaton::BoxKind;
 use regviz_core::core::{BuildArtifacts, lexer, nfa, parser};
 
 use graph::{BoxVisibility, GraphCanvas};
 
-#[derive(Default)]
 struct App {
     input: String,
     error: Option<String>,
     build_artifacts: Option<BuildArtifacts>,
     box_visibility: BoxVisibility,
+    zoom_factor: f32,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            error: None,
+            build_artifacts: None,
+            box_visibility: BoxVisibility::default(),
+            zoom_factor: 1.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     InputChanged(String),
     ToggleBox(BoxKind),
+    ZoomChanged(f32),
 }
+
+const MIN_ZOOM_FACTOR: f32 = 0.25;
+const MAX_ZOOM_FACTOR: f32 = 4.0;
 
 impl App {
     fn view(&self) -> Element<'_, Message> {
@@ -59,8 +75,24 @@ impl App {
 
             col = col.push(toggles);
 
-            let graph_canvas: GraphCanvas<nfa::Nfa> =
-                GraphCanvas::new(artifacts.nfa.clone(), self.box_visibility.clone());
+            let zoom_display = text(format!("Zoom: {:.0}%", self.zoom_factor * 100.0));
+            let zoom_slider = slider(
+                MIN_ZOOM_FACTOR..=MAX_ZOOM_FACTOR,
+                self.zoom_factor,
+                Message::ZoomChanged,
+            )
+            .step(0.01);
+            let zoom_controls = row![zoom_display, widget::Space::with_width(8.0), zoom_slider]
+                .spacing(12)
+                .align_y(Alignment::Center);
+
+            col = col.push(zoom_controls);
+
+            let graph_canvas: GraphCanvas<nfa::Nfa> = GraphCanvas::new(
+                artifacts.nfa.clone(),
+                self.box_visibility.clone(),
+                self.zoom_factor,
+            );
 
             // Canvas that takes up max width and height of the column
             let canvas = Canvas::new(graph_canvas)
@@ -84,6 +116,9 @@ impl App {
             }
             Message::ToggleBox(kind) => {
                 self.box_visibility.toggle(kind);
+            }
+            Message::ZoomChanged(value) => {
+                self.zoom_factor = value.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
             }
         }
     }

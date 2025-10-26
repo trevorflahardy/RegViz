@@ -9,20 +9,19 @@ use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout, layout_gra
 pub struct GraphCanvas<G: Graph> {
     graph: G,
     visibility: BoxVisibility,
+    zoom_factor: f32,
 }
 
 impl<G: Graph> GraphCanvas<G> {
     /// Creates a new canvas for the provided graph implementation.
     #[must_use]
-    pub fn new(graph: G, visibility: BoxVisibility) -> Self {
-        Self { graph, visibility }
+    pub fn new(graph: G, visibility: BoxVisibility, zoom_factor: f32) -> Self {
+        Self {
+            graph,
+            visibility,
+            zoom_factor,
+        }
     }
-}
-
-/// Persistent state associated with the [`GraphCanvas`].
-#[derive(Default, Debug, Clone)]
-pub struct GraphCanvasState {
-    zoom: Option<f32>,
 }
 
 impl<G, Message, R> Program<Message, iced::Theme, R> for GraphCanvas<G>
@@ -30,11 +29,11 @@ where
     G: Graph,
     R: Renderer,
 {
-    type State = GraphCanvasState;
+    type State = ();
 
     fn draw(
         &self,
-        state: &Self::State,
+        _state: &Self::State,
         renderer: &R,
         _theme: &iced::Theme,
         bounds: Rectangle,
@@ -42,7 +41,7 @@ where
     ) -> Vec<canvas::Geometry<R>> {
         let layout = layout_graph(&self.graph, &self.visibility);
         let fit_zoom = fit_zoom(bounds.size(), &layout);
-        let zoom = state.zoom.unwrap_or(fit_zoom);
+        let zoom = fit_zoom * self.zoom_factor;
 
         let translation = center_translation(bounds.size(), &layout, zoom);
         let ctx = DrawContext { zoom, translation };
@@ -64,25 +63,11 @@ where
 
     fn update(
         &self,
-        state: &mut Self::State,
-        event: canvas::Event,
-        bounds: Rectangle,
+        _state: &mut Self::State,
+        _event: canvas::Event,
+        _bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> (iced::event::Status, Option<Message>) {
-        if let canvas::Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
-            let layout = layout_graph(&self.graph, &self.visibility);
-            let fit_zoom = fit_zoom(bounds.size(), &layout);
-            let current_zoom = state.zoom.unwrap_or(fit_zoom);
-            let scroll = match delta {
-                mouse::ScrollDelta::Lines { y, .. } => y,
-                mouse::ScrollDelta::Pixels { y, .. } => y / 120.0,
-            };
-            let factor = (1.0 + scroll * 0.1).clamp(0.5, 1.5);
-            let new_zoom = (current_zoom * factor).clamp(0.1, 8.0);
-            state.zoom = Some(new_zoom);
-            return (iced::event::Status::Captured, None);
-        }
-
         (iced::event::Status::Ignored, None)
     }
 }

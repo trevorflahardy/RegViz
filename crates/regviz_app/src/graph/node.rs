@@ -1,10 +1,27 @@
+use iced::Point;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas::{Frame, Path, Stroke, Text};
-use iced::{Point, Vector};
 use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::{BoxId, StateId};
 
 use super::{DrawContext, Drawable};
+
+/// Width of the gap between the outer and inner circle for accepting states.
+const ACCEPT_RING_GAP: f32 = 4.0;
+/// Distance between the centre of a start node and the tail of its arrow as a multiple of the radius.
+const START_ARROW_DISTANCE_FACTOR: f32 = 1.7;
+/// Distance between the centre of a start node and the start of the arrow head along the shaft.
+const START_ARROW_HEAD_OFFSET: f32 = 1.0;
+/// Length of the arrow head segment.
+const START_ARROW_HEAD_LENGTH: f32 = 6.0;
+/// Half-height of the arrow head used to form the triangle.
+const START_ARROW_HEAD_HALF_HEIGHT: f32 = 4.0;
+/// Stroke width applied to node outlines.
+const NODE_OUTLINE_WIDTH: f32 = 1.5;
+/// Stroke width applied to auxiliary shapes such as the accepting ring and start arrow.
+const AUXILIARY_STROKE_WIDTH: f32 = 1.2;
+/// Stroke width used for the start arrow shaft.
+const START_ARROW_STROKE_WIDTH: f32 = 1.3;
 
 /// Visual representation of a state in the rendered graph.
 #[derive(Debug, Clone)]
@@ -72,31 +89,14 @@ impl Drawable for PositionedNode {
         let circle = Path::circle(center, radius);
 
         frame.fill(&circle, iced::Color::WHITE);
-        frame.stroke(&circle, Stroke::default().with_width(1.5));
+        frame.stroke(&circle, Stroke::default().with_width(NODE_OUTLINE_WIDTH));
 
         if self.data.is_accept {
-            // Accepting states have an inner circle
-            let inner = Path::circle(center, radius - 4.0);
-            frame.stroke(&inner, Stroke::default().with_width(1.2));
+            draw_accepting_ring(frame, center, radius);
         }
 
         if self.data.is_start {
-            // Start nodes have an arrow pointing to them as a start indicator
-            let arrow_start = Point::new(center.x - radius * 1.7, center.y);
-            let arrow_end = Point::new(center.x - radius, center.y);
-            let arrow = Path::line(arrow_start, arrow_end);
-            frame.stroke(&arrow, Stroke::default().with_width(1.3));
-
-            // Arrow head
-            let arrow_head = Path::new(|builder| {
-                let offset = Vector::new(6.0, 4.0);
-                builder.move_to(arrow_end);
-                builder.line_to(Point::new(arrow_end.x - offset.x, arrow_end.y - offset.y));
-                builder.line_to(Point::new(arrow_end.x - offset.x, arrow_end.y + offset.y));
-                builder.close();
-            });
-            frame.fill(&arrow_head, iced::Color::WHITE);
-            frame.stroke(&arrow_head, Stroke::default().with_width(1.0));
+            draw_start_arrow(frame, center, radius);
         }
 
         if !self.data.label.is_empty() {
@@ -110,4 +110,35 @@ impl Drawable for PositionedNode {
             });
         }
     }
+}
+
+fn draw_accepting_ring<R: Renderer>(frame: &mut Frame<R>, center: Point, radius: f32) {
+    let inner = Path::circle(center, radius - ACCEPT_RING_GAP);
+    frame.stroke(&inner, Stroke::default().with_width(AUXILIARY_STROKE_WIDTH));
+}
+
+fn draw_start_arrow<R: Renderer>(frame: &mut Frame<R>, center: Point, radius: f32) {
+    let arrow_tail = Point::new(center.x - radius * START_ARROW_DISTANCE_FACTOR, center.y);
+    let arrow_tip = Point::new(center.x - radius * START_ARROW_HEAD_OFFSET, center.y);
+    let arrow = Path::line(arrow_tail, arrow_tip);
+    frame.stroke(
+        &arrow,
+        Stroke::default().with_width(START_ARROW_STROKE_WIDTH),
+    );
+
+    let head_base = Point::new(arrow_tip.x - START_ARROW_HEAD_LENGTH, arrow_tip.y);
+    let head = Path::new(|builder| {
+        builder.move_to(arrow_tip);
+        builder.line_to(Point::new(
+            head_base.x,
+            head_base.y - START_ARROW_HEAD_HALF_HEIGHT,
+        ));
+        builder.line_to(Point::new(
+            head_base.x,
+            head_base.y + START_ARROW_HEAD_HALF_HEIGHT,
+        ));
+        builder.close();
+    });
+    frame.fill(&head, iced::Color::WHITE);
+    frame.stroke(&head, Stroke::default().with_width(AUXILIARY_STROKE_WIDTH));
 }
