@@ -1,5 +1,6 @@
 use iced::{
     Point, Vector,
+    alignment::{Horizontal, Vertical},
     widget::canvas::{Frame, Path, Stroke, Text},
 };
 use iced_graphics::geometry::Renderer;
@@ -8,13 +9,12 @@ use regviz_core::core::automaton::StateId;
 use super::{DrawContext, Drawable};
 
 /// Distance between the edge segment and its label in logical units.
-const LABEL_DISTANCE: f32 = 18.0;
+/// With centered text alignment, this needs to be smaller than before.
+const LABEL_DISTANCE: f32 = 12.0;
 /// Length of each arrow head side.
 const ARROW_HEAD_LENGTH: f32 = 10.0;
 /// Half-width of the arrow head at its base.
 const ARROW_HEAD_HALF_WIDTH: f32 = ARROW_HEAD_LENGTH * 0.5;
-/// Control point offset for curved edges (as a fraction of distance between nodes).
-const CURVE_CONTROL_OFFSET: f32 = 0.4;
 
 /// Edge curvature style for different types of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -281,13 +281,13 @@ impl PositionedEdge {
         let normal = perpendicular(unit);
 
         // Control point offset: position it perpendicular to the line between nodes
-        // Perpendicular gives us "up" for left-to-right edges
-        // For CurveUp (curve_down=false), we want to curve upward, so use positive offset
-        // For CurveDown (curve_down=true), we want to curve downward, so use negative offset
-        let control_offset = if curve_down {
-            -length * CURVE_CONTROL_OFFSET // Negative = downward
+        // Reduce the control offset to prevent curves from extending too far outside bounding boxes
+        // Use a smaller factor to keep curves more contained
+        let max_curve_height = length * 0.25; // Limit curve height to 25% of distance between nodes
+        let base_control_offset = if curve_down {
+            -max_curve_height // Negative = downward
         } else {
-            length * CURVE_CONTROL_OFFSET // Positive = upward
+            max_curve_height // Positive = upward
         };
 
         // Midpoint between nodes
@@ -298,8 +298,8 @@ impl PositionedEdge {
 
         // Control point offset perpendicular to the edge
         let control = Point::new(
-            mid.x + normal.x * control_offset,
-            mid.y + normal.y * control_offset,
+            mid.x + normal.x * base_control_offset,
+            mid.y + normal.y * base_control_offset,
         );
 
         // Find where the curve intersects the node boundaries
@@ -350,8 +350,8 @@ impl PositionedEdge {
         // Draw arrow head at the end point with the correct tangent direction
         self.draw_arrow_head(frame, end, end_tangent_unit);
 
-        // Draw label on the curve
-        self.draw_label(frame, ctx);
+        // Draw label on the curve - calculate position based on curve midpoint
+        self.draw_curved_label(frame, from_center, control, to_center, curve_down, ctx);
     }
 
     /// Draws an arrow head at the specified point, oriented in the given direction.
@@ -398,9 +398,86 @@ impl PositionedEdge {
                 content: self.data.label.clone(),
                 position: label_pos,
                 color: iced::Color::from_rgb(0.1, 0.1, 0.1),
+                horizontal_alignment: Horizontal::Center,
+                vertical_alignment: Vertical::Center,
                 ..Text::default()
             });
         }
+    }
+
+    /// Draws the label for a curved edge at the curve's midpoint.
+    ///
+    /// The label is positioned above the curve for upward curves and below for downward curves.
+    ///
+    /// # Arguments
+    /// - `frame`: Canvas frame to draw on
+    /// - `p0`: Start point of the curve (screen coordinates)
+    /// - `p1`: Control point of the curve (screen coordinates)
+    /// - `p2`: End point of the curve (screen coordinates)
+    /// - `curve_down`: Whether the curve bends downward
+    /// - `ctx`: Drawing context with zoom/pan information (used for zoom scaling)
+    fn draw_curved_label<R: Renderer>(
+        &self,
+        frame: &mut Frame<R>,
+        p0: Point,
+        p1: Point,
+        p2: Point,
+        curve_down: bool,
+        ctx: &DrawContext,
+    ) {
+        if self.data.label.is_empty() {
+            return;
+        }
+
+        // Calculate the point on the curve at t=0.5 (midpoint)
+        // All points are already in screen coordinates
+        let mid_point = quadratic_bezier_point(p0, p1, p2, 0.5);
+
+        // Get the tangent at the midpoint to determine the perpendicular direction
+        let tangent = quadratic_bezier_tangent(p0, p1, p2, 0.5);
+        let tangent_len = (tangent.x * tangent.x + tangent.y * tangent.y).sqrt();
+
+        if tangent_len <= f32::EPSILON {
+            // Fallback to regular label positioning if tangent is degenerate
+            self.draw_label(frame, ctx);
+            return;
+        }
+
+        let tangent_unit = Vector::new(tangent.x / tangent_len, tangent.y / tangent_len);
+        let normal = perpendicular(tangent_unit);
+
+        // Position label on the outer (convex) side of the curve
+        // For a curve that bends downward (curve_down=true), the control point is below the line,
+        // so we want the label on the opposite side (above/outside), which means negative normal offset
+        // For a curve that bends upward (curve_down=false), the control point is above the line,
+        // so we want the label on the opposite side (below/outside), which means positive normal offset
+        //
+        // This is inverted from intuition because:
+        // 1. In screen coordinates, positive Y goes DOWN
+        // 2. perpendicular() rotates 90° CCW, so for rightward tangent (1,0) → (0,1) which points DOWN
+        // 3. We want labels on the convex (outer) side of the curve, opposite the control point
+        let scaled_label_distance = LABEL_DISTANCE * ctx.zoom;
+        let label_offset = if curve_down {
+            -scaled_label_distance // Control point is down, label goes up (negative y)
+        } else {
+            scaled_label_distance // Control point is up, label goes down (positive y)
+        };
+
+        // Apply the offset in the normal direction
+        // No need to transform - we're already in screen coordinates
+        let label_position = Point::new(
+            mid_point.x + normal.x * label_offset,
+            mid_point.y + normal.y * label_offset,
+        );
+
+        frame.fill_text(Text {
+            content: self.data.label.clone(),
+            position: label_position,
+            color: iced::Color::from_rgb(0.1, 0.1, 0.1),
+            horizontal_alignment: Horizontal::Center,
+            vertical_alignment: Vertical::Center,
+            ..Text::default()
+        });
     }
 }
 
@@ -476,5 +553,28 @@ fn quadratic_bezier_tangent(p0: Point, p1: Point, p2: Point, t: f32) -> Vector {
     Vector::new(
         2.0 * mt * (p1.x - p0.x) + 2.0 * t * (p2.x - p1.x),
         2.0 * mt * (p1.y - p0.y) + 2.0 * t * (p2.y - p1.y),
+    )
+}
+
+/// Computes a point on a quadratic Bezier curve at parameter t.
+///
+/// Uses the quadratic Bezier formula: B(t) = (1-t)²p0 + 2(1-t)t*p1 + t²p2
+///
+/// # Arguments
+/// - `p0`: Start point of the curve
+/// - `p1`: Control point
+/// - `p2`: End point of the curve
+/// - `t`: Parameter in range [0, 1]
+///
+/// # Returns
+/// The point on the curve at parameter t
+fn quadratic_bezier_point(p0: Point, p1: Point, p2: Point, t: f32) -> Point {
+    let mt = 1.0 - t;
+    let mt2 = mt * mt;
+    let t2 = t * t;
+
+    Point::new(
+        mt2 * p0.x + 2.0 * mt * t * p1.x + t2 * p2.x,
+        mt2 * p0.y + 2.0 * mt * t * p1.y + t2 * p2.y,
     )
 }
