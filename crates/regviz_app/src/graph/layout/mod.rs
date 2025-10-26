@@ -1,3 +1,4 @@
+pub mod nfa;
 /// Layout algorithms for graph visualization.
 ///
 /// This module provides a pluggable strategy pattern for laying out different types
@@ -11,7 +12,6 @@
 /// - **[`TreeLayoutStrategy`]**: Binary tree layout for AST visualization
 
 /// The layout strategies.
-pub mod nfa;
 pub mod tree;
 
 pub use nfa::NfaLayoutStrategy;

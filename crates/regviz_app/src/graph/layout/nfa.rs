@@ -577,21 +577,28 @@ fn layout_alternation_box(bbox: &GraphBox, child_layouts: Vec<BoxLayoutResult>) 
 /// # Visual Layout
 /// For `a*`, this creates:
 /// ```text
-///       ┌───────────┐
-///   ●───┤  ●─a─●   ├───●
-/// entry └───────────┘  exit
+///       ┌───────────────────┐
+///       │    ε (bypass)     │
+///   ●───┼──────────────────►├───●
+/// entry │  ●───a───●        │  exit
+///       │  └───ε───┘ (loop)│
+///       └───────────────────┘
 /// ```
 ///
-/// # Algorithm
-/// 1. **Center child**: Place the child fragment in the middle with spacing on both sides
-/// 2. **Add operator states**: Entry state on left, exit state on right
-/// 3. **Preserve child dimensions**: Use child's height, extend width for operator states
+/// The entry and exit states are positioned with vertical offset to create
+/// visual separation for the epsilon transitions (bypass and loop-back).
+///
+/// # Arguments
+/// - `bbox`: The bounding box metadata for this operator
+/// - `child_layouts`: Layouts of child fragments (should be exactly 1 for unary ops)
+///
+/// # Returns
+/// A layout with the child centered and operator states positioned to show control flow
 fn layout_unary_box(bbox: &GraphBox, mut child_layouts: Vec<BoxLayoutResult>) -> BoxLayoutResult {
     let mut positions = HashMap::new();
     let child = child_layouts.pop();
 
-    // Extract child dimensions, or use defaults if no child exists
-    let (child_width, child_height, child_entry, _child_exit, child_positions) =
+    let (child_width, child_height, child_entry, child_exit, child_positions) =
         if let Some(child) = child {
             (
                 child.width,
@@ -601,7 +608,6 @@ fn layout_unary_box(bbox: &GraphBox, mut child_layouts: Vec<BoxLayoutResult>) ->
                 child.positions,
             )
         } else {
-            // No child - use default dimensions
             (
                 NODE_SPACING_X,
                 LEVEL_SPACING_Y,
@@ -611,18 +617,18 @@ fn layout_unary_box(bbox: &GraphBox, mut child_layouts: Vec<BoxLayoutResult>) ->
             )
         };
 
-    // Offset the child horizontally to make room for the entry state on the left
-    let offset = Point::new(NODE_SPACING_X, 0.0);
+    // Position child fragment in the center, with vertical padding for epsilon arcs
+    let vertical_padding = LEVEL_SPACING_Y * 0.4; // Space for curved epsilon transitions
+    let offset = Point::new(NODE_SPACING_X, vertical_padding);
     merge_positions(&mut positions, child_positions, offset);
 
-    // Entry state on the left, aligned with child's entry height
-    let entry = Point::new(0.0, child_entry.y + offset.y);
+    // Entry state on the left, centered vertically in the available space
+    let total_height = child_height + vertical_padding * 2.0;
+    let entry_y = total_height * 0.5;
+    let entry = Point::new(0.0, entry_y);
 
-    // Exit state on the right, after the child + spacing
-    let exit = Point::new(
-        offset.x + child_width + NODE_SPACING_X,
-        child_entry.y + offset.y,
-    );
+    // Exit state on the right, aligned with entry
+    let exit = Point::new(offset.x + child_width + NODE_SPACING_X, entry_y);
 
     // Add the operator's entry and exit states
     if let Some(start) = bbox.states.first() {
@@ -634,7 +640,7 @@ fn layout_unary_box(bbox: &GraphBox, mut child_layouts: Vec<BoxLayoutResult>) ->
 
     BoxLayoutResult {
         width: exit.x,
-        height: child_height.max(LEVEL_SPACING_Y),
+        height: total_height,
         entry,
         exit,
         positions,
