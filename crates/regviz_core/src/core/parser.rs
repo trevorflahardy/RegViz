@@ -194,7 +194,7 @@ mod tests {
     use crate::core::lexer;
 
     #[test]
-    fn test_alteration() -> () {
+    fn test_alteration() {
         let input = "a|b";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_concatenation() -> () {
+    fn test_concatenation() {
         let input = "ab";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn test_star() -> () {
+    fn test_star() {
         let input = "a*";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -225,7 +225,7 @@ mod tests {
     }
 
     #[test]
-    fn test_plus() -> () {
+    fn test_plus() {
         let input = "b+";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn test_opt() -> () {
+    fn test_opt() {
         let input = "c?";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -241,7 +241,7 @@ mod tests {
     }
 
     #[test]
-    fn test_grouping() -> () {
+    fn test_grouping() {
         let input = "(a|b)c";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -255,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn test_grouping_optional() -> () {
+    fn test_grouping_optional() {
         let input = "(ab)?";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn test_grouping_star() -> () {
+    fn test_grouping_star() {
         let input = "(a|b)*";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn test_nested_grouping_alteration() -> () {
+    fn test_nested_grouping_alteration() {
         let input = "a|(b|c)";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn test_nested_grouping_concatenation() -> () {
+    fn test_nested_grouping_concatenation() {
         let input = "(ab)c";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     #[rustfmt::skip]
-    fn test_complex_expression() -> () {
+    fn test_complex_expression() {
         let input = "(a|b)*abb";
         let tokens = lexer::lex(input).unwrap();
         let ast = parse(&tokens).unwrap();
