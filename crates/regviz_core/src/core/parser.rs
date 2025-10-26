@@ -187,3 +187,155 @@ fn chain_concat(nodes: Vec<Ast>) -> Ast {
     }
     acc
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::lexer;
+
+    #[test]
+    fn test_alteration() -> () {
+        let input = "a|b";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+
+        assert_eq!(
+            ast,
+            Ast::Alt(Box::new(Ast::Char('a')), Box::new(Ast::Char('b'))),
+        )
+    }
+
+    #[test]
+    fn test_concatenation() -> () {
+        let input = "ab";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(
+            ast,
+            Ast::Concat(Box::new(Ast::Char('a')), Box::new(Ast::Char('b'))),
+        )
+    }
+
+    #[test]
+    fn test_star() -> () {
+        let input = "a*";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(ast, Ast::Star(Box::new(Ast::Char('a'))))
+    }
+
+    #[test]
+    fn test_plus() -> () {
+        let input = "b+";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(ast, Ast::Plus(Box::new(Ast::Char('b'))))
+    }
+
+    #[test]
+    fn test_opt() -> () {
+        let input = "c?";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(ast, Ast::Opt(Box::new(Ast::Char('c'))))
+    }
+
+    #[test]
+    fn test_grouping() -> () {
+        let input = "(a|b)c";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(
+            ast,
+            Ast::Concat(
+                Box::new(Ast::Alt(Box::new(Ast::Char('a')), Box::new(Ast::Char('b')))),
+                Box::new(Ast::Char('c')),
+            ),
+        )
+    }
+
+    #[test]
+    fn test_grouping_optional() -> () {
+        let input = "(ab)?";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(
+            ast,
+            Ast::Opt(Box::new(Ast::Concat(
+                Box::new(Ast::Char('a')),
+                Box::new(Ast::Char('b')),
+            ))),
+        )
+    }
+
+    #[test]
+    fn test_grouping_star() -> () {
+        let input = "(a|b)*";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(
+            ast,
+            Ast::Star(Box::new(Ast::Alt(
+                Box::new(Ast::Char('a')),
+                Box::new(Ast::Char('b')),
+            ))),
+        )
+    }
+
+    #[test]
+    fn test_nested_grouping_alteration() -> () {
+        let input = "a|(b|c)";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(
+            ast,
+            Ast::Alt(
+                Box::new(Ast::Char('a')),
+                Box::new(Ast::Alt(Box::new(Ast::Char('b')), Box::new(Ast::Char('c')),)),
+            ),
+        )
+    }
+
+    #[test]
+    fn test_nested_grouping_concatenation() -> () {
+        let input = "(ab)c";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(
+            ast,
+            Ast::Concat(
+                Box::new(Ast::Concat(
+                    Box::new(Ast::Char('a')),
+                    Box::new(Ast::Char('b')),
+                )),
+                Box::new(Ast::Char('c')),
+            ),
+        )
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_complex_expression() -> () {
+        let input = "(a|b)*abb";
+        let tokens = lexer::lex(input).unwrap();
+        let ast = parse(&tokens).unwrap();
+        assert_eq!(
+            ast,
+            Ast::Concat(
+                Box::new(Ast::Concat(
+                    Box::new(Ast::Concat(
+                        Box::new(Ast::Star(
+                            Box::new(Ast::Alt(
+                                Box::new(Ast::Char('a')),
+                                Box::new(Ast::Char('b')),
+                            ))
+                        )),
+                        Box::new(Ast::Char('a')),
+                    )),
+                    Box::new(Ast::Char('b')),
+                )),
+                Box::new(Ast::Char('b')),
+            ),
+        )
+    }
+}
