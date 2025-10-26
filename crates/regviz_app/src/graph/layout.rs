@@ -70,10 +70,10 @@ pub struct GraphLayout {
 }
 
 const NODE_SPACING_X: f32 = 200.0;
-const LEVEL_SPACING_Y: f32 = 160.0;
+const LEVEL_SPACING_Y: f32 = 200.0;
 const NODE_RADIUS: f32 = 32.0;
-const BOX_PADDING_X: f32 = 90.0;
-const BOX_PADDING_Y: f32 = 110.0;
+const BOX_PADDING_X: f32 = 30.0;
+const BOX_PADDING_Y: f32 = 50.0;
 const INLINE_GAP_X: f32 = NODE_SPACING_X * 0.7;
 const BRANCH_GAP_Y: f32 = LEVEL_SPACING_Y * 0.9;
 
