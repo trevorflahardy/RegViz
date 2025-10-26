@@ -2,22 +2,25 @@ mod graph;
 
 use iced::{
     Element,
-    widget::{Canvas, column, container, text, text_input},
+    widget::{Canvas, button, column, container, row, text, text_input},
 };
+use regviz_core::core::automaton::BoxKind;
 use regviz_core::core::{BuildArtifacts, lexer, nfa, parser};
 
-use graph::GraphCanvas;
+use graph::{BoxVisibility, GraphCanvas};
 
 #[derive(Default)]
 struct App {
     input: String,
     error: Option<String>,
     build_artifacts: Option<BuildArtifacts>,
+    box_visibility: BoxVisibility,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     InputChanged(String),
+    ToggleBox(BoxKind),
 }
 
 impl App {
@@ -44,8 +47,20 @@ impl App {
 
         // Conditionally add the canvas
         if let Some(artifacts) = &self.build_artifacts {
+            let toggles = row![
+                self.box_toggle_button(BoxKind::Literal, "Literal"),
+                self.box_toggle_button(BoxKind::Concat, "Concat"),
+                self.box_toggle_button(BoxKind::Alternation, "Alternation"),
+                self.box_toggle_button(BoxKind::KleeneStar, "Star"),
+                self.box_toggle_button(BoxKind::KleenePlus, "Plus"),
+                self.box_toggle_button(BoxKind::Optional, "Optional"),
+            ]
+            .spacing(8);
+
+            col = col.push(toggles);
+
             let graph_canvas: GraphCanvas<nfa::Nfa> =
-                GraphCanvas::new(artifacts.nfa.clone().into());
+                GraphCanvas::new(artifacts.nfa.clone().into(), self.box_visibility.clone());
 
             // Canvas that takes up max width and height of the column
             let canvas = Canvas::new(graph_canvas)
@@ -66,6 +81,9 @@ impl App {
             Message::InputChanged(input) => {
                 self.input = input;
                 self.lex_and_parse();
+            }
+            Message::ToggleBox(kind) => {
+                self.box_visibility.toggle(kind);
             }
         }
     }
@@ -100,6 +118,21 @@ impl App {
                 self.build_artifacts = None;
             }
         }
+    }
+}
+
+impl App {
+    fn box_toggle_button<'a>(
+        &'a self,
+        kind: BoxKind,
+        label: &'static str,
+    ) -> iced::Element<'a, Message> {
+        let active = self.box_visibility.is_visible(kind);
+        let text_label = format!("{}: {}", label, if active { "On" } else { "Off" });
+        button(text(text_label).size(16))
+            .padding([4, 12])
+            .on_press(Message::ToggleBox(kind))
+            .into()
     }
 }
 

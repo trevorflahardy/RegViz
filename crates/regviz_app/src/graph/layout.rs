@@ -5,6 +5,57 @@ use regviz_core::core::automaton::{BoxId, BoxKind, StateId};
 
 use super::{Graph, GraphBox, bbox::PositionedBox, edge::PositionedEdge, node::PositionedNode};
 
+/// Controls which bounding boxes are rendered on the canvas.
+#[derive(Debug, Clone)]
+pub struct BoxVisibility {
+    literal: bool,
+    concat: bool,
+    alternation: bool,
+    kleene_star: bool,
+    kleene_plus: bool,
+    optional: bool,
+}
+
+impl Default for BoxVisibility {
+    fn default() -> Self {
+        Self {
+            literal: false,
+            concat: true,
+            alternation: true,
+            kleene_star: true,
+            kleene_plus: true,
+            optional: true,
+        }
+    }
+}
+
+impl BoxVisibility {
+    /// Returns whether a bounding box of the provided [`BoxKind`] should be shown.
+    #[must_use]
+    pub fn is_visible(&self, kind: BoxKind) -> bool {
+        match kind {
+            BoxKind::Literal => self.literal,
+            BoxKind::Concat => self.concat,
+            BoxKind::Alternation => self.alternation,
+            BoxKind::KleeneStar => self.kleene_star,
+            BoxKind::KleenePlus => self.kleene_plus,
+            BoxKind::Optional => self.optional,
+        }
+    }
+
+    /// Flips the visibility of the provided [`BoxKind`].
+    pub fn toggle(&mut self, kind: BoxKind) {
+        match kind {
+            BoxKind::Literal => self.literal = !self.literal,
+            BoxKind::Concat => self.concat = !self.concat,
+            BoxKind::Alternation => self.alternation = !self.alternation,
+            BoxKind::KleeneStar => self.kleene_star = !self.kleene_star,
+            BoxKind::KleenePlus => self.kleene_plus = !self.kleene_plus,
+            BoxKind::Optional => self.optional = !self.optional,
+        }
+    }
+}
+
 /// Complete layout ready to be rendered by the canvas.
 #[derive(Debug, Clone)]
 pub struct GraphLayout {
@@ -18,17 +69,17 @@ pub struct GraphLayout {
     pub bounds: Rectangle,
 }
 
-const NODE_SPACING_X: f32 = 160.0;
-const LEVEL_SPACING_Y: f32 = 140.0;
+const NODE_SPACING_X: f32 = 200.0;
+const LEVEL_SPACING_Y: f32 = 160.0;
 const NODE_RADIUS: f32 = 32.0;
-const BOX_PADDING_X: f32 = 60.0;
-const BOX_PADDING_Y: f32 = 70.0;
-const INLINE_GAP_X: f32 = NODE_SPACING_X * 0.4;
-const BRANCH_GAP_Y: f32 = LEVEL_SPACING_Y * 0.6;
+const BOX_PADDING_X: f32 = 90.0;
+const BOX_PADDING_Y: f32 = 110.0;
+const INLINE_GAP_X: f32 = NODE_SPACING_X * 0.7;
+const BRANCH_GAP_Y: f32 = LEVEL_SPACING_Y * 0.9;
 
 /// Computes a deterministic layout for the provided graph.
 #[must_use]
-pub fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
+pub fn layout_graph<G: Graph>(graph: &G, visibility: &BoxVisibility) -> GraphLayout {
     let nodes = graph.nodes();
     let edges = graph.edges();
     let boxes = graph.boxes();
@@ -48,12 +99,22 @@ pub fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
             children.entry(parent).or_default().push(bbox.id);
         }
     }
+    for ids in children.values_mut() {
+        ids.sort_unstable();
+    }
 
-    // Layout every root bounding box and stack them vertically if necessary.
+    // Layout every root bounding box (processing children before parents) and stack them
+    // vertically if necessary.
     let mut vertical_offset = 0.0;
-    for root in boxes.iter().filter(|b| b.parent.is_none()) {
+    let mut root_ids = boxes
+        .iter()
+        .filter(|b| b.parent.is_none())
+        .map(|b| b.id)
+        .collect::<Vec<_>>();
+    root_ids.sort_unstable();
+    for root_id in root_ids {
         if let Some(layout) = box_map
-            .get(&root.id)
+            .get(&root_id)
             .map(|bbox| compute_box_layout(bbox, &box_map, &children))
         {
             for (state, pos) in layout.positions {
@@ -96,7 +157,7 @@ pub fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
         })
         .collect::<Vec<_>>();
 
-    let positioned_boxes = layout_boxes(&boxes, &state_positions);
+    let positioned_boxes = layout_boxes(&boxes, &state_positions, visibility);
     for bbox in &positioned_boxes {
         min_x = min_x.min(bbox.rect.x);
         min_y = min_y.min(bbox.rect.y);
@@ -203,10 +264,13 @@ fn layout_concat_box(child_layouts: Vec<BoxLayoutResult>) -> BoxLayoutResult {
         };
     }
 
-    let baseline = child_layouts
+    let mut baseline = child_layouts
         .iter()
         .map(|child| child.entry.y)
         .fold(0.0, f32::max);
+    if baseline.abs() < f32::EPSILON {
+        baseline = LEVEL_SPACING_Y * 0.5;
+    }
     let mut positions = HashMap::new();
     let mut cursor_x = 0.0;
     let mut max_bottom = baseline;
@@ -237,7 +301,7 @@ fn layout_concat_box(child_layouts: Vec<BoxLayoutResult>) -> BoxLayoutResult {
 
     BoxLayoutResult {
         width: cursor_x,
-        height: max_bottom.max(baseline),
+        height: max_bottom.max(baseline + LEVEL_SPACING_Y * 0.25),
         entry,
         exit,
         positions,
@@ -249,12 +313,10 @@ fn layout_alternation_box(bbox: &GraphBox, child_layouts: Vec<BoxLayoutResult>) 
     let mut positions = HashMap::new();
     let mut current_y = 0.0;
     let mut max_width: f32 = 0.0;
-    let mut entry_samples = Vec::new();
     let count = child_layouts.len();
 
     for (index, child) in child_layouts.into_iter().enumerate() {
         let offset = Point::new(NODE_SPACING_X, current_y);
-        entry_samples.push(child.entry.y + offset.y);
         max_width = max_width.max(child.width);
         merge_positions(&mut positions, child.positions, offset);
 
@@ -264,11 +326,8 @@ fn layout_alternation_box(bbox: &GraphBox, child_layouts: Vec<BoxLayoutResult>) 
         }
     }
 
-    let entry_y = if entry_samples.is_empty() {
-        LEVEL_SPACING_Y * 0.5
-    } else {
-        entry_samples.iter().copied().sum::<f32>() / entry_samples.len() as f32
-    };
+    let total_height = current_y.max(LEVEL_SPACING_Y);
+    let entry_y = total_height * 0.5;
 
     let entry = Point::new(0.0, entry_y);
     let exit = Point::new(NODE_SPACING_X + max_width + NODE_SPACING_X, entry_y);
@@ -282,7 +341,7 @@ fn layout_alternation_box(bbox: &GraphBox, child_layouts: Vec<BoxLayoutResult>) 
 
     BoxLayoutResult {
         width: exit.x,
-        height: current_y.max(entry_y * 2.0).max(LEVEL_SPACING_Y),
+        height: total_height,
         entry,
         exit,
         positions,
@@ -377,8 +436,12 @@ fn normalize_layout(layout: &mut BoxLayoutResult) {
         return;
     }
 
-    let shift_x = -min_x;
-    let shift_y = -min_y;
+    let horizontal_padding = NODE_SPACING_X * 0.2;
+    let vertical_padding = LEVEL_SPACING_Y * 0.3;
+    let content_width = (max_x - min_x).max(NODE_SPACING_X * 0.3);
+    let content_height = (max_y - min_y).max(LEVEL_SPACING_Y * 0.3);
+    let shift_x = -min_x + horizontal_padding;
+    let shift_y = -min_y + vertical_padding;
 
     if shift_x.abs() > f32::EPSILON || shift_y.abs() > f32::EPSILON {
         for pos in layout.positions.values_mut() {
@@ -389,35 +452,49 @@ fn normalize_layout(layout: &mut BoxLayoutResult) {
         layout.entry.y += shift_y;
         layout.exit.x += shift_x;
         layout.exit.y += shift_y;
-
-        max_x += shift_x;
-        max_y += shift_y;
     }
 
-    layout.width = (max_x - 0.0).max(NODE_SPACING_X * 0.5);
-    layout.height = (max_y - 0.0).max(LEVEL_SPACING_Y * 0.5);
+    layout.width = content_width + horizontal_padding * 2.0;
+    layout.height = content_height + vertical_padding * 2.0;
 }
 
 fn layout_boxes(
     boxes: &[GraphBox],
     state_positions: &HashMap<StateId, Point>,
+    visibility: &BoxVisibility,
 ) -> Vec<PositionedBox> {
     let map: HashMap<BoxId, GraphBox> = boxes.iter().map(|b| (b.id, b.clone())).collect();
     let mut children: HashMap<BoxId, Vec<BoxId>> = HashMap::new();
+    let mut parents: HashMap<BoxId, Option<BoxId>> = HashMap::new();
     for bbox in boxes {
         if let Some(parent) = bbox.parent {
             children.entry(parent).or_default().push(bbox.id);
         }
+        parents.insert(bbox.id, bbox.parent);
+    }
+    for ids in children.values_mut() {
+        ids.sort_unstable();
     }
     let mut extents: HashMap<BoxId, Rectangle> = HashMap::new();
 
-    for id in map.keys().cloned().collect::<Vec<_>>() {
+    for id in map.keys().copied().collect::<Vec<_>>() {
         compute_extent(id, &map, &children, state_positions, &mut extents);
     }
 
-    map.into_iter()
-        .filter_map(|(id, data)| extents.get(&id).map(|rect| PositionedBox::new(data, *rect)))
-        .collect()
+    let mut depth_cache: HashMap<BoxId, usize> = HashMap::new();
+    let mut positioned = Vec::new();
+    for (id, data) in map.into_iter() {
+        if !visibility.is_visible(data.kind) {
+            continue;
+        }
+        if let Some(rect) = extents.get(&id) {
+            let depth = compute_depth(id, &parents, &mut depth_cache);
+            positioned.push((depth, id, PositionedBox::new(data, *rect)));
+        }
+    }
+
+    positioned.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    positioned.into_iter().map(|(_, _, pb)| pb).collect()
 }
 
 fn compute_extent(
@@ -471,4 +548,21 @@ fn compute_extent(
     };
     cache.insert(id, rect);
     Some(rect)
+}
+
+fn compute_depth(
+    id: BoxId,
+    parents: &HashMap<BoxId, Option<BoxId>>,
+    cache: &mut HashMap<BoxId, usize>,
+) -> usize {
+    if let Some(depth) = cache.get(&id) {
+        return *depth;
+    }
+
+    let depth = match parents.get(&id).and_then(|p| *p) {
+        Some(parent) => compute_depth(parent, parents, cache) + 1,
+        None => 0,
+    };
+    cache.insert(id, depth);
+    depth
 }

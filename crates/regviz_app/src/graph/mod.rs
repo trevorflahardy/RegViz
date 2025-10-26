@@ -11,7 +11,7 @@ pub use bbox::GraphBox;
 pub use canvas::GraphCanvas;
 pub use draw::{DrawContext, Drawable};
 pub use edge::GraphEdge;
-pub use layout::{GraphLayout, layout_graph};
+pub use layout::{BoxVisibility, GraphLayout, layout_graph};
 pub use node::GraphNode;
 pub use style::color_for_box;
 

@@ -1,3 +1,4 @@
+use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas::{Frame, Path, Stroke, Text};
 use iced::{Point, Vector};
 use iced_graphics::geometry::Renderer;
@@ -98,8 +99,10 @@ impl Drawable for PositionedNode {
         if !self.data.label.is_empty() {
             frame.fill_text(Text {
                 content: self.data.label.clone(),
-                position: Point::new(center.x - radius * 0.35, center.y + 4.0),
+                position: center,
                 color: iced::Color::from_rgb(0.1, 0.1, 0.1),
+                horizontal_alignment: Horizontal::Center,
+                vertical_alignment: Vertical::Center,
                 ..Text::default()
             });
         }

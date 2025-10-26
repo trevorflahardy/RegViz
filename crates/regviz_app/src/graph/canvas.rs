@@ -2,19 +2,20 @@ use iced::widget::canvas::{self, Frame, Program};
 use iced::{Rectangle, Size, Vector, mouse};
 use iced_graphics::geometry::Renderer;
 
-use super::{DrawContext, Drawable, Graph, GraphLayout, layout_graph};
+use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout, layout_graph};
 
 /// Interactive canvas responsible for rendering graphs with zoom support.
 #[derive(Debug)]
 pub struct GraphCanvas<G: Graph> {
     graph: G,
+    visibility: BoxVisibility,
 }
 
 impl<G: Graph> GraphCanvas<G> {
     /// Creates a new canvas for the provided graph implementation.
     #[must_use]
-    pub fn new(graph: G) -> Self {
-        Self { graph }
+    pub fn new(graph: G, visibility: BoxVisibility) -> Self {
+        Self { graph, visibility }
     }
 }
 
@@ -45,7 +46,7 @@ where
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry<R>> {
-        let layout = layout_graph(&self.graph);
+        let layout = layout_graph(&self.graph, &self.visibility);
         let fit_zoom = fit_zoom(bounds.size(), &layout);
         let zoom = state.zoom.unwrap_or(fit_zoom);
 
@@ -75,7 +76,7 @@ where
         _cursor: mouse::Cursor,
     ) -> (iced::event::Status, Option<Message>) {
         if let canvas::Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
-            let layout = layout_graph(&self.graph);
+            let layout = layout_graph(&self.graph, &self.visibility);
             let fit_zoom = fit_zoom(bounds.size(), &layout);
             let current_zoom = state.zoom.unwrap_or(fit_zoom);
             let scroll = match delta {
