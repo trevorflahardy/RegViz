@@ -14,8 +14,8 @@ pub struct LexError {
 pub enum LexErrorKind {
     #[error("dangling escape character")]
     DanglingEscape,
-    #[error("invalid character '{0}': {1}")]
-    InvalidCharacter(char, &'static str),
+    #[error("invalid character '{0}'. Only alphanumeric characters are allowed")]
+    InvalidCharacter(char),
 }
 
 #[derive(Debug, Error, Clone)]
@@ -52,8 +52,8 @@ impl ParseError {
 
 #[derive(Debug, Error, Clone)]
 pub enum BuildError {
-    #[error("lex error: {0}")]
+    #[error("[lex error] {0}")]
     Lex(#[from] LexError),
-    #[error("parse error: {0}")]
+    #[error("[parse error] {0}")]
     Parse(#[from] ParseError),
 }

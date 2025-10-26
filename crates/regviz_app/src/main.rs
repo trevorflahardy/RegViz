@@ -5,7 +5,7 @@ use iced::{
     widget::{Canvas, button, column, container, row, text, text_input},
 };
 use regviz_core::core::automaton::BoxKind;
-use regviz_core::core::{BuildArtifacts, lexer, nfa, parser};
+use regviz_core::core::{BuildArtifacts, nfa, parser};
 
 use graph::{BoxVisibility, GraphCanvas};
 
@@ -94,27 +94,21 @@ impl App {
             self.build_artifacts = None;
             return;
         }
-        match lexer::lex(self.input.trim()) {
-            Ok(tokens) => match parser::parse(&tokens) {
-                Ok(ast) => {
-                    let nfa = nfa::build_nfa(&ast);
-                    let alphabet = nfa.alphabet();
-                    self.build_artifacts = Some(BuildArtifacts {
-                        ast,
-                        nfa,
-                        alphabet,
-                        dfa: None,
-                        min_dfa: None,
-                    });
-                    self.error = None;
-                }
-                Err(e) => {
-                    self.error = Some(format!("Parse error: {}", e));
-                    self.build_artifacts = None;
-                }
-            },
+        match parser::Ast::build(&self.input) {
+            Ok(ast) => {
+                let nfa = nfa::build_nfa(&ast);
+                let alphabet = nfa.alphabet();
+                self.build_artifacts = Some(BuildArtifacts {
+                    ast,
+                    nfa,
+                    alphabet,
+                    dfa: None,
+                    min_dfa: None,
+                });
+                self.error = None;
+            }
             Err(e) => {
-                self.error = Some(format!("Lex error: {}", e));
+                self.error = Some(format!("Parse error: {}", e));
                 self.build_artifacts = None;
             }
         }

@@ -15,12 +15,12 @@ fn main() {
     let input = args.next();
 
     // Lex
-    match lexer::lex(&pattern) {
-        Ok(tokens) => {
-            println!("Tokens: {:?}", tokens);
+    match lexer::Lexer::new(&pattern) {
+        Ok(mut lexer) => {
+            println!("Lexer: {:?}", lexer);
 
             // Parse
-            match parser::parse(&tokens) {
+            match parser::Ast::parse(&mut lexer) {
                 Ok(ast) => {
                     println!("Pattern: {}", pattern);
                     println!("AST: {}", ast);

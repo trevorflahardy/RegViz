@@ -1,10 +1,9 @@
-use regviz_core::core::{dfa, lexer, min, nfa, parser, sim};
+use regviz_core::core::{dfa, min, nfa, parser, sim};
 
 #[test]
 fn test_dfa_simple() {
     let input = "a";
-    let tokens = lexer::lex(input).unwrap();
-    let ast = parser::parse(&tokens).unwrap();
+    let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     assert!(!dfa.states.is_empty());
@@ -14,8 +13,7 @@ fn test_dfa_simple() {
 #[test]
 fn test_dfa_accept() {
     let input = "a*";
-    let tokens = lexer::lex(input).unwrap();
-    let ast = parser::parse(&tokens).unwrap();
+    let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     assert!(sim::simulate_dfa(&dfa, &alphabet, "aaaa"));
@@ -25,8 +23,7 @@ fn test_dfa_accept() {
 #[test]
 fn test_dfa_reject() {
     let input = "a*";
-    let tokens = lexer::lex(input).unwrap();
-    let ast = parser::parse(&tokens).unwrap();
+    let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     assert!(!sim::simulate_dfa(&dfa, &alphabet, "b"));
@@ -36,8 +33,7 @@ fn test_dfa_reject() {
 #[test]
 fn test_dfa_complex() {
     let input = "(a|b)*abb";
-    let tokens = lexer::lex(input).unwrap();
-    let ast = parser::parse(&tokens).unwrap();
+    let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     let min_dfa = min::minimize(&dfa, &alphabet);

@@ -1,10 +1,9 @@
-use regviz_core::core::{lexer, nfa, parser};
+use regviz_core::core::{nfa, parser};
 
 #[test]
 fn test_nfa_simple() {
     let input = "a";
-    let tokens = lexer::lex(input).unwrap();
-    let ast = parser::parse(&tokens).unwrap();
+    let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     assert!(!nfa.states.is_empty());
     assert!(!nfa.edges.is_empty());
@@ -13,8 +12,7 @@ fn test_nfa_simple() {
 #[test]
 fn test_nfa_complex() {
     let input = "(a|b)*abb";
-    let tokens = lexer::lex(input).unwrap();
-    let ast = parser::parse(&tokens).unwrap();
+    let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     assert!(!nfa.states.is_empty());
     assert!(!nfa.edges.is_empty());

@@ -1,4 +1,4 @@
-use crate::core::ast::Ast;
+use crate::core::Ast;
 use crate::core::automaton::{
     BoundingBox, BoxId, BoxKind, Edge, EdgeLabel, State, StateId, Transition,
 };
@@ -163,12 +163,10 @@ impl Builder {
     /// - `Fragment` - The NFA fragment constructed from the AST node.
     fn build(&mut self, ast: Ast) -> Fragment {
         match ast {
-            Ast::Char(c) => self.build_char(c),
+            Ast::Atom(c) => self.build_char(c),
             Ast::Concat(lhs, rhs) => self.build_concat(*lhs, *rhs),
             Ast::Alt(lhs, rhs) => self.build_alternation(*lhs, *rhs),
             Ast::Star(inner) => self.build_star(*inner),
-            Ast::Plus(inner) => self.build_plus(*inner),
-            Ast::Opt(inner) => self.build_optional(*inner),
         }
     }
 
@@ -298,73 +296,6 @@ impl Builder {
 
             for state in inner_accepts {
                 builder.add_edge(state, inner_start, EdgeLabel::Eps);
-                builder.add_edge(state, accept, EdgeLabel::Eps);
-            }
-
-            Fragment {
-                start,
-                accepts: vec![accept],
-            }
-        })
-    }
-
-    /// Applies the plus operand (1 or more occurrences) to the inner AST node.
-    ///
-    /// # Arguments
-    ///
-    /// - `inner` (`Ast`) - The inner AST node to apply the plus operation on.
-    ///
-    /// # Returns
-    ///
-    /// - `Fragment` - The NFA fragment representing the plus operation.
-    fn build_plus(&mut self, inner: Ast) -> Fragment {
-        self.with_box(BoxKind::KleenePlus, move |builder| {
-            let frag = builder.build(inner);
-            let Fragment {
-                start: inner_start,
-                accepts: inner_accepts,
-            } = frag;
-
-            let start = builder.new_state();
-            let accept = builder.new_state();
-
-            builder.add_edge(start, inner_start, EdgeLabel::Eps);
-
-            for state in &inner_accepts {
-                builder.add_edge(*state, inner_start, EdgeLabel::Eps);
-                builder.add_edge(*state, accept, EdgeLabel::Eps);
-            }
-
-            Fragment {
-                start,
-                accepts: vec![accept],
-            }
-        })
-    }
-
-    /// Builds an optional (zero or one occurrence) fragment from the given inner AST.
-    ///
-    /// # Arguments
-    ///
-    /// - `inner` (`Ast`) - The inner AST node to apply the optional operation on.
-    ///
-    /// # Returns
-    ///
-    /// - `Fragment` - The NFA fragment representing the optional operation.
-    fn build_optional(&mut self, inner: Ast) -> Fragment {
-        self.with_box(BoxKind::Optional, move |builder| {
-            let frag = builder.build(inner);
-            let Fragment {
-                start: inner_start,
-                accepts: inner_accepts,
-            } = frag;
-            let start = builder.new_state();
-            let accept = builder.new_state();
-
-            builder.add_edge(start, inner_start, EdgeLabel::Eps);
-            builder.add_edge(start, accept, EdgeLabel::Eps);
-
-            for state in inner_accepts {
                 builder.add_edge(state, accept, EdgeLabel::Eps);
             }
 
