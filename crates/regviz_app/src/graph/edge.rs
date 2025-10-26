@@ -78,7 +78,7 @@ impl Drawable for PositionedEdge {
         frame.stroke(&line, Stroke::default().with_width(1.3));
 
         // Calculate the direction of the edge (unit vector pointing from 'from' to 'to')
-        let unit = normalise_vector(Vector::new(to.x - from.x, to.y - from.y));
+        let unit = normalize_vector(Vector::new(to.x - from.x, to.y - from.y));
         // Calculate the perpendicular vector (rotated 90° counterclockwise) for arrow wings
         let normal = perpendicular(unit);
 
@@ -167,7 +167,7 @@ fn compute_label_anchor(from: Point, to: Point) -> Point {
 ///
 /// # Returns
 /// A vector with length 1.0, or (1.0, 0.0) if the input vector has zero length.
-fn normalise_vector(vector: Vector) -> Vector {
+fn normalize_vector(vector: Vector) -> Vector {
     // Calculate the length using Pythagorean theorem: √(x² + y²)
     let length = (vector.x * vector.x + vector.y * vector.y).sqrt();
 

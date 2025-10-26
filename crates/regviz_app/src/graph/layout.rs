@@ -122,9 +122,9 @@ const BRANCH_GAP_RATIO: f32 = 0.9;
 /// Additional padding applied around the entire layout once nodes are placed.
 const LAYOUT_PADDING_RATIO: f32 = 0.25;
 /// Ratio used when normalising child layouts to keep content away from the border horizontally.
-const NORMALISE_PADDING_X_RATIO: f32 = 0.2;
+const NORMALIZE_PADDING_X_RATIO: f32 = 0.2;
 /// Ratio used when normalising child layouts to keep content away from the border vertically.
-const NORMALISE_PADDING_Y_RATIO: f32 = 0.3;
+const NORMALIZE_PADDING_Y_RATIO: f32 = 0.3;
 /// Minimum content width retained during normalisation relative to [`NODE_SPACING_X`].
 const MIN_CONTENT_WIDTH_RATIO: f32 = 0.3;
 /// Minimum content height retained during normalisation relative to [`LEVEL_SPACING_Y`].
@@ -749,8 +749,8 @@ fn normalize_layout(layout: &mut BoxLayoutResult) {
     // Normalisation converts the fragment so that its minimum x/y become `0` with
     // a little padding. This keeps every fragment in the positive quadrant and
     // prevents parents from having to apply ad-hoc offsets when composing.
-    let horizontal_padding = NODE_SPACING_X * NORMALISE_PADDING_X_RATIO;
-    let vertical_padding = LEVEL_SPACING_Y * NORMALISE_PADDING_Y_RATIO;
+    let horizontal_padding = NODE_SPACING_X * NORMALIZE_PADDING_X_RATIO;
+    let vertical_padding = LEVEL_SPACING_Y * NORMALIZE_PADDING_Y_RATIO;
     let content_width = (max_x - min_x).max(NODE_SPACING_X * MIN_CONTENT_WIDTH_RATIO);
     let content_height = (max_y - min_y).max(LEVEL_SPACING_Y * MIN_CONTENT_HEIGHT_RATIO);
 
