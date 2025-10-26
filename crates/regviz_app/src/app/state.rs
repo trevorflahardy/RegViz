@@ -1,0 +1,39 @@
+use regviz_core::core::BuildArtifacts;
+
+use super::constants::DEFAULT_ZOOM_FACTOR;
+use super::message::ViewMode;
+use crate::graph::BoxVisibility;
+
+/// Main application state.
+pub struct App {
+    /// Current regex input from the user.
+    pub input: String,
+
+    /// Error message from lexing or parsing, if any.
+    pub error: Option<String>,
+
+    /// Successfully built AST, NFA, and alphabet, if available.
+    pub build_artifacts: Option<BuildArtifacts>,
+
+    /// Controls which bounding boxes are visible in NFA view.
+    pub box_visibility: BoxVisibility,
+
+    /// Current zoom level for visualizations (1.0 = fit to screen).
+    pub zoom_factor: f32,
+
+    /// Currently active visualization mode.
+    pub view_mode: ViewMode,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            error: None,
+            build_artifacts: None,
+            box_visibility: BoxVisibility::default(),
+            zoom_factor: DEFAULT_ZOOM_FACTOR,
+            view_mode: ViewMode::Nfa, // Default to NFA view
+        }
+    }
+}
