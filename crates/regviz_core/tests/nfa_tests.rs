@@ -11,7 +11,7 @@ fn test_nfa_simple() {
 
 #[test]
 fn test_nfa_complex() {
-    let input = "(a|b)*abb";
+    let input = "(a+b)*abb";
     let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     assert!(!nfa.states.is_empty());

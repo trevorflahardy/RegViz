@@ -32,7 +32,7 @@ fn test_dfa_reject() {
 
 #[test]
 fn test_dfa_complex() {
-    let input = "(a|b)*abb";
+    let input = "(a+b)*abb";
     let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);

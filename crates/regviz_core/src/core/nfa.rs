@@ -163,6 +163,7 @@ impl Builder {
     /// - `Fragment` - The NFA fragment constructed from the AST node.
     fn build(&mut self, ast: Ast) -> Fragment {
         match ast {
+            Ast::Epsilon => self.build_char('ε'),
             Ast::Atom(c) => self.build_char(c),
             Ast::Concat(lhs, rhs) => self.build_concat(*lhs, *rhs),
             Ast::Alt(lhs, rhs) => self.build_alternation(*lhs, *rhs),

@@ -12,7 +12,7 @@ fn test_parser_simple() {
 
 #[test]
 fn test_parser_alt() {
-    let input = "a|b";
+    let input = "a+b";
     let ast = Ast::build(input).unwrap();
     match ast {
         Ast::Alt(left, right) => match (*left, *right) {
@@ -25,7 +25,7 @@ fn test_parser_alt() {
 
 #[test]
 fn test_parser_complex() {
-    let input = "(a|b)*abb";
+    let input = "(a+b)*abb";
     let ast = Ast::build(input).unwrap();
     // Just check it's not an error and root is Star or Concat
     match ast {

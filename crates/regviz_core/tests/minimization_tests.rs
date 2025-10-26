@@ -12,7 +12,7 @@ fn test_minimize_simple() {
 
 #[test]
 fn test_minimize_complex() {
-    let input = "(a|b)*abb";
+    let input = "(a+b)*abb";
     let ast = parser::Ast::build(input).unwrap();
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);

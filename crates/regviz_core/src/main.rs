@@ -20,7 +20,7 @@ fn main() {
             println!("Lexer: {:?}", lexer);
 
             // Parse
-            match parser::Ast::parse(&mut lexer) {
+            match parser::Ast::parse_lexer(&mut lexer) {
                 Ok(ast) => {
                     println!("Pattern: {}", pattern);
                     println!("AST: {}", ast);

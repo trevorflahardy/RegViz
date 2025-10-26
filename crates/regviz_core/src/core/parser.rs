@@ -1,13 +1,15 @@
 use std::fmt::Display;
 
 use crate::{
-    core::lexer::Lexer,
-    errors::{BuildError, ParseError},
+    core::lexer::{Lexer, OpToken, Token},
+    errors::{BuildError, ParseError, ParseErrorKind},
 };
 
 /// An abstract syntax tree for a regular expression.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ast {
+    /// Epsilon (empty string).
+    Epsilon,
     /// A literal character.
     Atom(char),
     /// Concatenation of two expressions.
@@ -18,22 +20,206 @@ pub enum Ast {
     Star(Box<Ast>),
 }
 
+/// Infix operator definition for Pratt parsing.
+pub struct InfixOp {
+    /// Left binding power.
+    pub left_bp: u8,
+    /// Right binding power.
+    pub right_bp: u8,
+    /// Build function to create AST node.
+    pub build: fn(Ast, Ast) -> Ast,
+}
+
+/// Postfix operator definition for Pratt parsing.
+pub struct PostfixOp {
+    /// Binding power (on the left of the operator token).
+    pub bp: u8,
+    /// Build function to create AST node.
+    pub build: fn(Ast) -> Ast,
+}
+
+/// Prefix operator definition for Pratt parsing.
+pub struct PrefixOp {
+    /// Binding power (on the right of the operator token).
+    pub bp: u8,
+    /// Build function to create AST node.
+    pub build: fn(Ast) -> Ast,
+}
+
+impl OpToken {
+    /// Returns the infix operator definition if this token represents an infix operator.
+    /// Returns `None` otherwise.
+    pub const fn infix(&self) -> Option<InfixOp> {
+        match self {
+            Self::Plus => Some(InfixOp {
+                left_bp: 1,
+                right_bp: 2,
+                build: |l, r| Ast::Alt(Box::new(l), Box::new(r)),
+            }),
+            Self::Dot => Some(InfixOp {
+                left_bp: 3,
+                right_bp: 4,
+                build: |l, r| Ast::Concat(Box::new(l), Box::new(r)),
+            }),
+            Self::Star => None,
+        }
+    }
+
+    /// Returns the postfix operator definition if this token represents a postfix operator.
+    /// Returns `None` otherwise.
+    pub const fn postfix(&self) -> Option<PostfixOp> {
+        match self {
+            Self::Star => Some(PostfixOp {
+                bp: 5,
+                build: |operand| Ast::Star(Box::new(operand)),
+            }),
+            _ => None,
+        }
+    }
+
+    /// Returns the prefix operator definition if this token represents a prefix operator.
+    /// Returns `None` otherwise.
+    pub const fn prefix(&self) -> Option<PrefixOp> {
+        // NOTE: No prefix operators defined yet. We can add support for those if we want.
+        None
+    }
+}
+
 impl Ast {
+    /// Builds an AST from the input regular expression string.
+    /// Returns a [`BuildError`] if lexing or parsing fails.
     pub fn build(input: &str) -> Result<Ast, BuildError> {
         let mut lexer = Lexer::new(input)?;
-        let ast = Ast::parse(&mut lexer)?;
+        if let Token::Eof = lexer.peek().0 {
+            // Empty input, interpreted as epsilon AST
+            return Ok(Ast::Epsilon);
+        }
+        let ast = Ast::parse(&mut lexer, 0, false)?;
         Ok(ast)
     }
 
-    pub fn parse(_lexer: &mut Lexer) -> Result<Ast, ParseError> {
-        unimplemented!()
+    pub fn parse_lexer(lexer: &mut Lexer) -> Result<Ast, ParseError> {
+        Ast::parse(lexer, 0, false)
+    }
+
+    /// Parses an expression from the lexer using Pratt parsing with the given minimum binding power.
+    /// Returns a [`ParseError`] if parsing fails.
+    fn parse(lexer: &mut Lexer, min_bp: u8, open_paren: bool) -> Result<Ast, ParseError> {
+        let (token, idx) = lexer.advance();
+        let mut lhs = match token {
+            Token::Literal(c) => Ast::Atom(c),
+            Token::Op(op_token) => {
+                if let Some(prefix_op) = op_token.prefix() {
+                    // Found prefix operator, parse right-hand side
+                    let rhs = Ast::parse(lexer, prefix_op.bp, open_paren)?;
+                    (prefix_op.build)(rhs)
+                } else {
+                    return Err(ParseError {
+                        at: idx,
+                        kind: ParseErrorKind::UnexpectedPrefixOperator(op_token),
+                    });
+                }
+            }
+            Token::LParen => {
+                println!("Found LParen at index {}", idx);
+                // Parse sub-expression
+                let sub_expr = Ast::parse(lexer, 0, true)?;
+
+                // Expect closing parenthesis
+                let (token, idx) = lexer.advance();
+                match token {
+                    Token::RParen => {
+                        println!("Found matching RParen at index {}", idx);
+                        sub_expr
+                    }
+                    other => {
+                        return Err(ParseError {
+                            at: idx,
+                            kind: ParseErrorKind::MismatchedLeftParen { other },
+                        });
+                    }
+                }
+            }
+            Token::RParen => {
+                return Err(ParseError {
+                    at: idx,
+                    kind: ParseErrorKind::MismatchedRightParen,
+                });
+            }
+            Token::Eof => {
+                return Err(ParseError {
+                    at: idx,
+                    kind: ParseErrorKind::UnexpectedEof,
+                });
+            }
+        };
+
+        loop {
+            let (token, idx) = lexer.peek();
+            let (op_token, is_explicit) = match token {
+                Token::Literal(_) | Token::LParen => {
+                    // Implicit concatenation
+                    (OpToken::Dot, false)
+                }
+                Token::Op(op_token) => (op_token, true),
+                Token::RParen => {
+                    if open_paren {
+                        // Reached the end of a parenthesized expression
+                        break;
+                    } else {
+                        return Err(ParseError {
+                            at: idx,
+                            kind: ParseErrorKind::MismatchedRightParen,
+                        });
+                    }
+                }
+                Token::Eof => break,
+            };
+
+            // NOTE: Check for postfix operator first, then infix operator (to handle cases like a*+b)
+            // Postfix operators natually bind tighter than infix operators
+            if let Some(postfix_op) = op_token.postfix() {
+                if postfix_op.bp < min_bp {
+                    // Postfix operator does not bind strong enough, lhs is complete
+                    break;
+                }
+
+                // Consume the postfix operator if it was explicit
+                if is_explicit {
+                    lexer.advance();
+                }
+
+                lhs = (postfix_op.build)(lhs);
+                continue;
+            } else if let Some(infix_op) = op_token.infix() {
+                if infix_op.left_bp < min_bp {
+                    // Infix operator does not bind strong enough, lhs is complete
+                    break;
+                }
+
+                // Consume the infix operator if it was explicit
+                if is_explicit {
+                    lexer.advance();
+                }
+
+                let rhs = Ast::parse(lexer, infix_op.right_bp, open_paren)?;
+                lhs = (infix_op.build)(lhs, rhs);
+                continue;
+            }
+
+            // No applicable operator found, just exit loop
+            break;
+        }
+
+        Ok(lhs)
     }
 }
 
 impl Display for Ast {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // In-fix notation with parentheses for clarity
+        // Print the AST in unambiguous S-expression format
         match self {
+            Ast::Epsilon => write!(f, "ε"),
             Ast::Atom(c) => write!(f, "{}", c),
             Ast::Concat(lhs, rhs) => write!(f, "(. {} {})", lhs, rhs),
             Ast::Alt(lhs, rhs) => write!(f, "(+ {} {})", lhs, rhs),
@@ -47,110 +233,124 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_alteration() {
-        let input = "a|b";
-        let ast = Ast::build(input).unwrap();
-
-        assert_eq!(
-            ast,
-            Ast::Alt(Box::new(Ast::Atom('a')), Box::new(Ast::Atom('b'))),
-        )
+    fn test_empty_input() {
+        let ast = Ast::build("").unwrap();
+        assert_eq!(ast.to_string(), "ε");
     }
 
     #[test]
-    fn test_concatenation() {
-        let input = "ab";
-        let ast = Ast::build(input).unwrap();
-        assert_eq!(
-            ast,
-            Ast::Concat(Box::new(Ast::Atom('a')), Box::new(Ast::Atom('b'))),
-        )
+    fn test_single_literal() {
+        let ast = Ast::build("a").unwrap();
+        assert_eq!(ast.to_string(), "a");
     }
 
     #[test]
-    fn test_star() {
-        let input = "a*";
-        let ast = Ast::build(input).unwrap();
-        assert_eq!(ast, Ast::Star(Box::new(Ast::Atom('a'))))
+    fn test_single_parentheses() {
+        let ast = Ast::build("(a)").unwrap();
+        assert_eq!(ast.to_string(), "a");
     }
 
     #[test]
-    fn test_grouping() {
-        let input = "(a|b)c";
-        let ast = Ast::build(input).unwrap();
-        assert_eq!(
-            ast,
-            Ast::Concat(
-                Box::new(Ast::Alt(Box::new(Ast::Atom('a')), Box::new(Ast::Atom('b')))),
-                Box::new(Ast::Atom('c')),
-            ),
-        )
+    fn test_nested_parentheses() {
+        let ast = Ast::build("(((a)))").unwrap();
+        assert_eq!(ast.to_string(), "a");
     }
 
     #[test]
-    fn test_grouping_star() {
-        let input = "(a|b)*";
-        let ast = Ast::build(input).unwrap();
+    fn test_missing_parentheses() {
+        let result = Ast::build("((a)");
         assert_eq!(
-            ast,
-            Ast::Star(Box::new(Ast::Alt(
-                Box::new(Ast::Atom('a')),
-                Box::new(Ast::Atom('b')),
-            ))),
-        )
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedLeftParen { other: Token::Eof },
+                at: 4,
+            }))
+        );
+        let result = Ast::build("((a)b");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedLeftParen { other: Token::Eof },
+                at: 5,
+            }))
+        );
+        let result = Ast::build("a)))");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedRightParen,
+                at: 1,
+            }))
+        );
     }
 
     #[test]
-    fn test_nested_grouping_alteration() {
-        let input = "a|(b|c)";
-        let ast = Ast::build(input).unwrap();
-        assert_eq!(
-            ast,
-            Ast::Alt(
-                Box::new(Ast::Atom('a')),
-                Box::new(Ast::Alt(Box::new(Ast::Atom('b')), Box::new(Ast::Atom('c')),)),
-            ),
-        )
+    fn test_single_concatenation() {
+        let ast = Ast::build("ab").unwrap();
+        assert_eq!(ast.to_string(), "(. a b)");
     }
 
     #[test]
-    fn test_nested_grouping_concatenation() {
-        let input = "(ab)c";
-        let ast = Ast::build(input).unwrap();
-        assert_eq!(
-            ast,
-            Ast::Concat(
-                Box::new(Ast::Concat(
-                    Box::new(Ast::Atom('a')),
-                    Box::new(Ast::Atom('b')),
-                )),
-                Box::new(Ast::Atom('c')),
-            ),
-        )
+    fn test_multiple_concatenation() {
+        let ast = Ast::build("abc").unwrap();
+        assert_eq!(ast.to_string(), "(. (. a b) c)");
     }
 
     #[test]
-    #[rustfmt::skip]
-    fn test_complex_expression() {
-        let input = "(a|b)*abb";
-let ast = Ast::build(input).unwrap();
-        assert_eq!(
-            ast,
-            Ast::Concat(
-                Box::new(Ast::Concat(
-                    Box::new(Ast::Concat(
-                        Box::new(Ast::Star(
-                            Box::new(Ast::Alt(
-                                Box::new(Ast::Atom('a')),
-                                Box::new(Ast::Atom('b')),
-                            ))
-                        )),
-                        Box::new(Ast::Atom('a')),
-                    )),
-                    Box::new(Ast::Atom('b')),
-                )),
-                Box::new(Ast::Atom('b')),
-            ),
-        )
+    fn test_mixed_dot_and_literal() {
+        let ast = Ast::build("a.bc").unwrap();
+        assert_eq!(ast.to_string(), "(. (. a b) c)");
+    }
+
+    #[test]
+    fn test_single_alternation() {
+        let ast = Ast::build("a+b").unwrap();
+        assert_eq!(ast.to_string(), "(+ a b)");
+    }
+
+    #[test]
+    fn test_multiple_alternation() {
+        let ast = Ast::build("a+b+c").unwrap();
+        assert_eq!(ast.to_string(), "(+ (+ a b) c)");
+    }
+
+    #[test]
+    fn test_mixed_infix_operators() {
+        let ast = Ast::build("a+bc+d").unwrap();
+        assert_eq!(ast.to_string(), "(+ (+ a (. b c)) d)");
+    }
+
+    #[test]
+    fn test_parentheses_with_infix_operators() {
+        let ast = Ast::build("(a+b)c").unwrap();
+        assert_eq!(ast.to_string(), "(. (+ a b) c)");
+    }
+
+    #[test]
+    fn test_single_kleene_star() {
+        let ast = Ast::build("a*").unwrap();
+        assert_eq!(ast.to_string(), "(* a)");
+    }
+
+    #[test]
+    fn test_multiple_kleene_stars() {
+        let ast = Ast::build("a**").unwrap();
+        assert_eq!(ast.to_string(), "(* (* a))");
+    }
+
+    #[test]
+    fn test_mixed_postfix_and_infix() {
+        let ast = Ast::build("a*b+c*").unwrap();
+        assert_eq!(ast.to_string(), "(+ (. (* a) b) (* c))");
+        let ast = Ast::build("a+b*cd").unwrap();
+        assert_eq!(ast.to_string(), "(+ a (. (. (* b) c) d))");
+        let ast = Ast::build("a+b*c.d+e").unwrap();
+        assert_eq!(ast.to_string(), "(+ (+ a (. (. (* b) c) d)) e)");
+    }
+
+    #[test]
+    fn test_parentheses_with_postfix_and_infix() {
+        let ast = Ast::build("(a+b)*c").unwrap();
+        assert_eq!(ast.to_string(), "(. (* (+ a b)) c)");
     }
 }
