@@ -14,16 +14,19 @@ const ARROW_HEAD_LENGTH: f32 = 10.0;
 /// Half-width of the arrow head at its base.
 const ARROW_HEAD_HALF_WIDTH: f32 = ARROW_HEAD_LENGTH * 0.5;
 /// Control point offset for curved edges (as a fraction of distance between nodes).
-const CURVE_CONTROL_OFFSET: f32 = 0.5;
+const CURVE_CONTROL_OFFSET: f32 = 0.4;
+/// Extra radius padding for curved edges to ensure arrow visibility.
+const CURVED_EDGE_RADIUS_PADDING: f32 = 5.0;
 
 /// Edge curvature style for different types of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EdgeCurve {
     /// Straight line between nodes.
     Straight,
-    /// Curved downward (for star closure: start → inner_start, wrapping below).
+    /// Curved downward (reserved for future use).
+    #[allow(dead_code)]
     CurveDown,
-    /// Curved upward (for star closure: inner_accept → inner_start, wrapping above).
+    /// Curved upward (for star closure loop-back: inner_accept → inner_start).
     CurveUp,
 }
 
@@ -325,13 +328,21 @@ impl PositionedEdge {
         };
 
         // Start point on the edge of the source node
+        // Add extra padding for curved edges to ensure arrow visibility
         let start = Point::new(
-            from_center.x + from_to_control_unit.x * from_radius,
-            from_center.y + from_to_control_unit.y * from_radius,
+            from_center.x + from_to_control_unit.x * (from_radius + CURVED_EDGE_RADIUS_PADDING),
+            from_center.y + from_to_control_unit.y * (from_radius + CURVED_EDGE_RADIUS_PADDING),
         );
 
         // End point on the edge of the destination node
+        // Add extra padding for curved edges to ensure arrow visibility
         let end = Point::new(
+            to_center.x - to_from_control_unit.x * (to_radius + CURVED_EDGE_RADIUS_PADDING),
+            to_center.y - to_from_control_unit.y * (to_radius + CURVED_EDGE_RADIUS_PADDING),
+        );
+
+        // Arrow head should be at the actual node boundary, not the extended end point
+        let arrow_pos = Point::new(
             to_center.x - to_from_control_unit.x * to_radius,
             to_center.y - to_from_control_unit.y * to_radius,
         );
@@ -352,8 +363,8 @@ impl PositionedEdge {
             Vector::new(-to_from_control_unit.x, -to_from_control_unit.y)
         };
 
-        // Draw arrow head at the end of the curve
-        self.draw_arrow_head(frame, end, tangent_unit);
+        // Draw arrow head at the node boundary, not the extended end point
+        self.draw_arrow_head(frame, arrow_pos, tangent_unit);
 
         // Draw label on the curve
         self.draw_label(frame, ctx);

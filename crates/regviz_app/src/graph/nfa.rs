@@ -58,29 +58,27 @@ impl Graph for Nfa {
 ///
 /// For star closures, Thompson's construction creates:
 /// ```
-///        ┌─────ε (bypass, curve down)─────┐
-///        ↓                                 ↓
-/// START ──→ inner_start ... inner_accept ──→ ACCEPT
-///              ↑                    │
-///              └─────ε (loop up)────┘
+///        ┌────────ε (bypass, curve down)─────┐
+///        ↓                                    ↓
+/// START ──ε→ inner_start ──'a'→ inner_accept ──ε→ ACCEPT
+///   (straight)                   ↑
+///                 └───ε (loop up)┘
 /// ```
 ///
 /// The star box contains [START, ACCEPT].
 /// The inner fragment is in a child box.
 ///
-/// We need to detect:
-/// 1. START → ACCEPT: Curve down (bypass)
-/// 2. inner_accept → inner_start: Curve up (loop back)
+/// We curve two edges:
+/// 1. START → ACCEPT: Curve down (bypass, wraps below inner fragment)
+/// 2. inner_accept → inner_start: Curve up (loop-back, wraps above inner fragment)
 ///
-/// To detect (2), we look for edges where:
-/// - The destination is the target of a star/plus/optional START state
-/// - The source has an edge to the star/plus/optional ACCEPT state
+/// All other edges (entry, exit, literal) are straight.
 ///
 /// # Arguments
 /// - `from`: Source state ID
 /// - `to`: Destination state ID
 /// - `label`: Edge label (epsilon or symbol)
-/// - `from_box_id`: The box ID containing the source state
+/// - `_from_box_id`: The box ID containing the source state (unused)
 /// - `box_map`: Map of box IDs to box metadata
 /// - `nfa`: The NFA being processed
 ///
@@ -99,7 +97,7 @@ fn determine_edge_curve(
         return EdgeCurve::Straight;
     }
 
-    // Check all star/plus/optional boxes to see if this edge matches a pattern
+    // Check all star/plus/optional boxes to see if this edge matches a curved pattern
     for bbox in box_map.values() {
         // Only apply curves to unary operators
         if !matches!(
@@ -122,11 +120,7 @@ fn determine_edge_curve(
             return EdgeCurve::CurveDown;
         }
 
-        // Pattern 2: inner_accept → inner_start (loop back, curve up)
-        // To detect this:
-        // - Find what inner_start is (the non-accept target of star_start)
-        // - Check if this edge goes to inner_start from an inner_accept state
-
+        // Pattern 2: inner_accept → inner_start (loop-back, curve up)
         // Find inner_start: it's the epsilon target of star_start that's NOT star_accept
         let inner_start = nfa
             .transitions(star_start)
@@ -137,6 +131,11 @@ fn determine_edge_curve(
         if let Some(inner_start_id) = inner_start {
             // Check if this edge goes TO inner_start
             if to == inner_start_id {
+                // If FROM is star_start, this is the entry edge - keep it straight
+                if from == star_start {
+                    continue; // Don't curve the entry edge
+                }
+
                 // Check if FROM is an inner_accept (has epsilon edge to star_accept)
                 let from_is_inner_accept = nfa
                     .transitions(from)
@@ -144,11 +143,13 @@ fn determine_edge_curve(
                     .any(|t| t.to == star_accept && t.label == EdgeLabel::Eps);
 
                 if from_is_inner_accept {
+                    // This is the loop-back edge - curve it upward
                     return EdgeCurve::CurveUp;
                 }
             }
         }
     }
 
+    // All other edges (entry, exit, literal) are straight
     EdgeCurve::Straight
 }
