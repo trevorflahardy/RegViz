@@ -19,7 +19,7 @@ pub struct BoxVisibility {
 impl Default for BoxVisibility {
     fn default() -> Self {
         Self {
-            literal: false,
+            literal: true,
             concat: true,
             alternation: true,
             kleene_star: true,

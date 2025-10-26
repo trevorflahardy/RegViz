@@ -22,7 +22,8 @@ fn main() {
             // Parse
             match parser::parse(&tokens) {
                 Ok(ast) => {
-                    println!("AST: {:?}", ast);
+                    println!("Pattern: {}", pattern);
+                    println!("AST: {}", ast);
 
                     // Build NFA
                     let nfa = nfa::build_nfa(&ast);
