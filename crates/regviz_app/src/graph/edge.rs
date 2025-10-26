@@ -275,7 +275,7 @@ impl PositionedEdge {
         }
 
         let unit = Vector::new(direction.x / length, direction.y / length);
-        
+
         // Get perpendicular vector (rotates 90° counterclockwise)
         // For horizontal edges (left to right), this gives an upward normal
         let normal = perpendicular(unit);
@@ -285,9 +285,9 @@ impl PositionedEdge {
         // For CurveUp (curve_down=false), we want to curve upward, so use positive offset
         // For CurveDown (curve_down=true), we want to curve downward, so use negative offset
         let control_offset = if curve_down {
-            -length * CURVE_CONTROL_OFFSET  // Negative = downward
+            -length * CURVE_CONTROL_OFFSET // Negative = downward
         } else {
-            length * CURVE_CONTROL_OFFSET   // Positive = upward
+            length * CURVE_CONTROL_OFFSET // Positive = upward
         };
 
         // Midpoint between nodes
@@ -305,17 +305,25 @@ impl PositionedEdge {
         // Find where the curve intersects the node boundaries
         // Use the tangent at t=0 for the start point and t=1 for the end point
         let start_tangent = quadratic_bezier_tangent(from_center, control, to_center, 0.0);
-        let start_tangent_len = (start_tangent.x * start_tangent.x + start_tangent.y * start_tangent.y).sqrt();
+        let start_tangent_len =
+            (start_tangent.x * start_tangent.x + start_tangent.y * start_tangent.y).sqrt();
         let start_tangent_unit = if start_tangent_len > f32::EPSILON {
-            Vector::new(start_tangent.x / start_tangent_len, start_tangent.y / start_tangent_len)
+            Vector::new(
+                start_tangent.x / start_tangent_len,
+                start_tangent.y / start_tangent_len,
+            )
         } else {
             unit
         };
 
         let end_tangent = quadratic_bezier_tangent(from_center, control, to_center, 1.0);
-        let end_tangent_len = (end_tangent.x * end_tangent.x + end_tangent.y * end_tangent.y).sqrt();
+        let end_tangent_len =
+            (end_tangent.x * end_tangent.x + end_tangent.y * end_tangent.y).sqrt();
         let end_tangent_unit = if end_tangent_len > f32::EPSILON {
-            Vector::new(end_tangent.x / end_tangent_len, end_tangent.y / end_tangent_len)
+            Vector::new(
+                end_tangent.x / end_tangent_len,
+                end_tangent.y / end_tangent_len,
+            )
         } else {
             Vector::new(-unit.x, -unit.y)
         };
