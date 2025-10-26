@@ -8,7 +8,7 @@ fn test_minimize_simple() {
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     let min_dfa = min::minimize(&dfa, &alphabet);
-    assert!(min_dfa.states.len() > 0);
+    assert!(!min_dfa.states.is_empty());
 }
 
 #[test]
@@ -19,6 +19,6 @@ fn test_minimize_complex() {
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     let min_dfa = min::minimize(&dfa, &alphabet);
-    assert!(min_dfa.states.len() > 0);
+    assert!(!min_dfa.states.is_empty());
     // Should accept 'abb' and 'aabb', but not 'ab'
 }

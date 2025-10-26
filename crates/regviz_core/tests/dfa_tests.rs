@@ -7,8 +7,8 @@ fn test_dfa_simple() {
     let ast = parser::parse(&tokens).unwrap();
     let nfa = nfa::build_nfa(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
-    assert!(dfa.states.len() > 0);
-    assert!(alphabet.len() > 0);
+    assert!(!dfa.states.is_empty());
+    assert!(!alphabet.is_empty());
 }
 
 #[test]

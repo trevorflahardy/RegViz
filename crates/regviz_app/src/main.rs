@@ -60,7 +60,7 @@ impl App {
             col = col.push(toggles);
 
             let graph_canvas: GraphCanvas<nfa::Nfa> =
-                GraphCanvas::new(artifacts.nfa.clone().into(), self.box_visibility.clone());
+                GraphCanvas::new(artifacts.nfa.clone(), self.box_visibility.clone());
 
             // Canvas that takes up max width and height of the column
             let canvas = Canvas::new(graph_canvas)

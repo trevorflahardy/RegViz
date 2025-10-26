@@ -123,7 +123,7 @@ impl<'a> Determinizer<'a> {
     /// # Returns
     ///
     /// - `()` - This function does not return a value.
-    fn ensure_capacity(&mut self, len: usize) -> () {
+    fn ensure_capacity(&mut self, len: usize) {
         while self.transitions.len() < len {
             self.transitions.push(vec![None; self.alphabet.len()]);
         }

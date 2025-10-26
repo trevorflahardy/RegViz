@@ -18,6 +18,7 @@ pub struct GraphNode {
     /// Whether this node is an accepting state.
     pub is_accept: bool,
     /// Bounding box identifier that owns this node, if any.
+    #[allow(dead_code)]
     pub box_id: Option<BoxId>,
 }
 

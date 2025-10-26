@@ -20,15 +20,9 @@ impl<G: Graph> GraphCanvas<G> {
 }
 
 /// Persistent state associated with the [`GraphCanvas`].
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct GraphCanvasState {
     zoom: Option<f32>,
-}
-
-impl Default for GraphCanvasState {
-    fn default() -> Self {
-        Self { zoom: None }
-    }
 }
 
 impl<G, Message, R> Program<Message, iced::Theme, R> for GraphCanvas<G>

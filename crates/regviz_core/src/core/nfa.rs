@@ -148,7 +148,7 @@ impl Builder {
     ///
     /// # Returns
     /// None
-    fn add_edge(&mut self, from: StateId, to: StateId, label: EdgeLabel) -> () {
+    fn add_edge(&mut self, from: StateId, to: StateId, label: EdgeLabel) {
         self.adjacency[from as usize].push(Transition { to, label });
     }
 
