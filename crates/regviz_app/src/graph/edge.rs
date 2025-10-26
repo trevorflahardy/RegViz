@@ -10,7 +10,7 @@ use super::{DrawContext, Drawable};
 
 /// Distance between the edge segment and its label in logical units.
 /// With centered text alignment, this needs to be smaller than before.
-const LABEL_DISTANCE: f32 = 12.0;
+const LABEL_DISTANCE: f32 = 13.0;
 /// Length of each arrow head side.
 const ARROW_HEAD_LENGTH: f32 = 10.0;
 /// Half-width of the arrow head at its base.
@@ -447,15 +447,6 @@ impl PositionedEdge {
         let normal = perpendicular(tangent_unit);
 
         // Position label on the outer (convex) side of the curve
-        // For a curve that bends downward (curve_down=true), the control point is below the line,
-        // so we want the label on the opposite side (above/outside), which means negative normal offset
-        // For a curve that bends upward (curve_down=false), the control point is above the line,
-        // so we want the label on the opposite side (below/outside), which means positive normal offset
-        //
-        // This is inverted from intuition because:
-        // 1. In screen coordinates, positive Y goes DOWN
-        // 2. perpendicular() rotates 90° CCW, so for rightward tangent (1,0) → (0,1) which points DOWN
-        // 3. We want labels on the convex (outer) side of the curve, opposite the control point
         let scaled_label_distance = LABEL_DISTANCE * ctx.zoom;
         let label_offset = if curve_down {
             -scaled_label_distance // Control point is down, label goes up (negative y)
