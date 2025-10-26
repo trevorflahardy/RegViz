@@ -13,6 +13,19 @@ const LABEL_DISTANCE: f32 = 18.0;
 const ARROW_HEAD_LENGTH: f32 = 10.0;
 /// Half-width of the arrow head at its base.
 const ARROW_HEAD_HALF_WIDTH: f32 = ARROW_HEAD_LENGTH * 0.5;
+/// Control point offset for curved edges (as a fraction of distance between nodes).
+const CURVE_CONTROL_OFFSET: f32 = 0.5;
+
+/// Edge curvature style for different types of transitions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EdgeCurve {
+    /// Straight line between nodes.
+    Straight,
+    /// Curved downward (for star closure: start → inner_start, wrapping below).
+    CurveDown,
+    /// Curved upward (for star closure: inner_accept → inner_start, wrapping above).
+    CurveUp,
+}
 
 /// Renderable description of a transition between two states.
 #[derive(Debug, Clone)]
@@ -23,13 +36,31 @@ pub struct GraphEdge {
     pub to: StateId,
     /// Label displayed next to the edge.
     pub label: String,
+    /// Curvature style for this edge.
+    pub curve: EdgeCurve,
 }
 
 impl GraphEdge {
-    /// Creates a new [`GraphEdge`].
+    /// Creates a new [`GraphEdge`] with a straight line.
     #[must_use]
     pub fn new(from: StateId, to: StateId, label: String) -> Self {
-        Self { from, to, label }
+        Self {
+            from,
+            to,
+            label,
+            curve: EdgeCurve::Straight,
+        }
+    }
+
+    /// Creates a new [`GraphEdge`] with a specified curve style.
+    #[must_use]
+    pub fn with_curve(from: StateId, to: StateId, label: String, curve: EdgeCurve) -> Self {
+        Self {
+            from,
+            to,
+            label,
+            curve,
+        }
     }
 }
 
@@ -97,13 +128,17 @@ impl PositionedEdge {
 impl Drawable for PositionedEdge {
     /// Draws a directed edge from one state to another with an arrow head and label.
     ///
-    /// This function performs several tasks:
-    /// 1. Adjusts edge endpoints to stop at node boundaries (not centers)
-    /// 2. Draws the main line segment connecting the two states
-    /// 3. Draws an arrow head at the destination to show direction
-    /// 4. Renders the transition label near the midpoint of the edge
+    /// This function handles both straight and curved edges:
+    /// - Straight edges: Direct line between two nodes
+    /// - Curved edges: Quadratic Bezier curve for star closure epsilon transitions
     ///
-    /// The edge is shortened on both ends so it doesn't overlap with the node circles.
+    /// The function performs these tasks:
+    /// 1. Transforms coordinates from logical to screen space
+    /// 2. Determines if edge should be curved based on edge type
+    /// 3. Adjusts endpoints to stop at node boundaries
+    /// 4. Draws the edge path (line or curve)
+    /// 5. Draws an arrow head at the destination
+    /// 6. Renders the transition label
     fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
         // Transform logical coordinates to screen coordinates based on zoom/pan
         let from_center = ctx.transform_point(self.from);
@@ -125,6 +160,65 @@ impl Drawable for PositionedEdge {
         let from_radius = self.from_radius * ctx.zoom;
         let to_radius = self.to_radius * ctx.zoom;
 
+        match self.data.curve {
+            EdgeCurve::Straight => {
+                self.draw_straight_edge(
+                    frame,
+                    from_center,
+                    to_center,
+                    unit,
+                    from_radius,
+                    to_radius,
+                    ctx,
+                );
+            }
+            EdgeCurve::CurveDown => {
+                self.draw_curved_edge(
+                    frame,
+                    from_center,
+                    to_center,
+                    from_radius,
+                    to_radius,
+                    true,
+                    ctx,
+                );
+            }
+            EdgeCurve::CurveUp => {
+                self.draw_curved_edge(
+                    frame,
+                    from_center,
+                    to_center,
+                    from_radius,
+                    to_radius,
+                    false,
+                    ctx,
+                );
+            }
+        }
+    }
+}
+
+impl PositionedEdge {
+    /// Draws a straight edge between two nodes.
+    ///
+    /// # Arguments
+    /// - `frame`: Canvas frame to draw on
+    /// - `from_center`: Center of source node (screen coordinates)
+    /// - `to_center`: Center of destination node (screen coordinates)
+    /// - `unit`: Unit direction vector from source to destination
+    /// - `from_radius`: Radius of source node (scaled)
+    /// - `to_radius`: Radius of destination node (scaled)
+    /// - `ctx`: Drawing context with zoom/pan information
+    fn draw_straight_edge<R: Renderer>(
+        &self,
+        frame: &mut Frame<R>,
+        from_center: Point,
+        to_center: Point,
+        unit: Vector,
+        from_radius: f32,
+        to_radius: f32,
+        ctx: &DrawContext,
+    ) {
         // Adjust the start point: move from node center outward by the node radius
         let from = Point::new(
             from_center.x + unit.x * from_radius,
@@ -132,32 +226,158 @@ impl Drawable for PositionedEdge {
         );
 
         // Adjust the end point: move from node center inward by the node radius
-        // This ensures the arrow head sits right at the edge of the destination node
         let to = Point::new(
             to_center.x - unit.x * to_radius,
             to_center.y - unit.y * to_radius,
         );
 
-        // Draw the main line connecting the two states (now shortened to node boundaries)
+        // Draw the main line connecting the two states
         let line = Path::line(from, to);
         frame.stroke(&line, Stroke::default().with_width(1.3));
 
-        // Calculate the perpendicular vector (rotated 90° counterclockwise) for arrow wings
+        // Draw arrow head at destination
+        self.draw_arrow_head(frame, to, unit);
+
+        // Draw label
+        self.draw_label(frame, ctx);
+    }
+
+    /// Draws a curved edge using a quadratic Bezier curve.
+    ///
+    /// For star closures, we need curved arrows:
+    /// - `curve_down = true`: Curve wraps below (start → inner_start bypass)
+    /// - `curve_down = false`: Curve wraps above (inner_accept → inner_start loop)
+    ///
+    /// # Arguments
+    /// - `frame`: Canvas frame to draw on
+    /// - `from_center`: Center of source node (screen coordinates)
+    /// - `to_center`: Center of destination node (screen coordinates)
+    /// - `from_radius`: Radius of source node (scaled)
+    /// - `to_radius`: Radius of destination node (scaled)
+    /// - `curve_down`: If true, curve bends downward; if false, upward
+    /// - `ctx`: Drawing context with zoom/pan information
+    fn draw_curved_edge<R: Renderer>(
+        &self,
+        frame: &mut Frame<R>,
+        from_center: Point,
+        to_center: Point,
+        from_radius: f32,
+        to_radius: f32,
+        curve_down: bool,
+        ctx: &DrawContext,
+    ) {
+        // Calculate the perpendicular offset for the control point
+        let direction = Vector::new(to_center.x - from_center.x, to_center.y - from_center.y);
+        let length = (direction.x * direction.x + direction.y * direction.y).sqrt();
+
+        if length <= f32::EPSILON {
+            return;
+        }
+
+        let unit = Vector::new(direction.x / length, direction.y / length);
         let normal = perpendicular(unit);
 
-        // Build the arrow head triangle at the destination point (edge of destination node)
-        let tip = to;
+        // Control point offset: position it perpendicular to the line between nodes
+        // The sign determines if we curve up or down
+        let control_offset = if curve_down {
+            length * CURVE_CONTROL_OFFSET
+        } else {
+            -length * CURVE_CONTROL_OFFSET
+        };
 
-        // Left wing: move back along the edge direction, then offset perpendicular
-        let left = Point::new(
-            tip.x - unit.x * ARROW_HEAD_LENGTH + normal.x * ARROW_HEAD_HALF_WIDTH,
-            tip.y - unit.y * ARROW_HEAD_LENGTH + normal.y * ARROW_HEAD_HALF_WIDTH,
+        // Midpoint between nodes
+        let mid = Point::new(
+            (from_center.x + to_center.x) * 0.5,
+            (from_center.y + to_center.y) * 0.5,
         );
 
-        // Right wing: move back along the edge direction, then offset opposite perpendicular
+        // Control point offset perpendicular to the edge
+        let control = Point::new(
+            mid.x + normal.x * control_offset,
+            mid.y + normal.y * control_offset,
+        );
+
+        // Find where the curve intersects the node boundaries
+        // For simplicity, we'll use the direction from center to control point
+        // to determine the exit/entry angles
+        let from_to_control = Vector::new(control.x - from_center.x, control.y - from_center.y);
+        let from_to_control_len =
+            (from_to_control.x * from_to_control.x + from_to_control.y * from_to_control.y).sqrt();
+        let from_to_control_unit = if from_to_control_len > f32::EPSILON {
+            Vector::new(
+                from_to_control.x / from_to_control_len,
+                from_to_control.y / from_to_control_len,
+            )
+        } else {
+            unit
+        };
+
+        let to_from_control = Vector::new(control.x - to_center.x, control.y - to_center.y);
+        let to_from_control_len =
+            (to_from_control.x * to_from_control.x + to_from_control.y * to_from_control.y).sqrt();
+        let to_from_control_unit = if to_from_control_len > f32::EPSILON {
+            Vector::new(
+                to_from_control.x / to_from_control_len,
+                to_from_control.y / to_from_control_len,
+            )
+        } else {
+            Vector::new(-unit.x, -unit.y)
+        };
+
+        // Start point on the edge of the source node
+        let start = Point::new(
+            from_center.x + from_to_control_unit.x * from_radius,
+            from_center.y + from_to_control_unit.y * from_radius,
+        );
+
+        // End point on the edge of the destination node
+        let end = Point::new(
+            to_center.x - to_from_control_unit.x * to_radius,
+            to_center.y - to_from_control_unit.y * to_radius,
+        );
+
+        // Draw the quadratic Bezier curve
+        let curve_path = Path::new(|builder| {
+            builder.move_to(start);
+            builder.quadratic_curve_to(control, end);
+        });
+        frame.stroke(&curve_path, Stroke::default().with_width(1.3));
+
+        // Calculate the tangent at the end of the curve for the arrow head
+        let tangent = quadratic_bezier_tangent(start, control, end, 1.0);
+        let tangent_len = (tangent.x * tangent.x + tangent.y * tangent.y).sqrt();
+        let tangent_unit = if tangent_len > f32::EPSILON {
+            Vector::new(tangent.x / tangent_len, tangent.y / tangent_len)
+        } else {
+            Vector::new(-to_from_control_unit.x, -to_from_control_unit.y)
+        };
+
+        // Draw arrow head at the end of the curve
+        self.draw_arrow_head(frame, end, tangent_unit);
+
+        // Draw label on the curve
+        self.draw_label(frame, ctx);
+    }
+
+    /// Draws an arrow head at the specified point, oriented in the given direction.
+    ///
+    /// # Arguments
+    /// - `frame`: Canvas frame to draw on
+    /// - `tip`: Point where the arrow tip should be
+    /// - `direction`: Unit vector indicating the direction the arrow points
+    fn draw_arrow_head<R: Renderer>(&self, frame: &mut Frame<R>, tip: Point, direction: Vector) {
+        let normal = perpendicular(direction);
+
+        // Left wing: move back along the direction, then offset perpendicular
+        let left = Point::new(
+            tip.x - direction.x * ARROW_HEAD_LENGTH + normal.x * ARROW_HEAD_HALF_WIDTH,
+            tip.y - direction.y * ARROW_HEAD_LENGTH + normal.y * ARROW_HEAD_HALF_WIDTH,
+        );
+
+        // Right wing: move back along the direction, then offset opposite perpendicular
         let right = Point::new(
-            tip.x - unit.x * ARROW_HEAD_LENGTH - normal.x * ARROW_HEAD_HALF_WIDTH,
-            tip.y - unit.y * ARROW_HEAD_LENGTH - normal.y * ARROW_HEAD_HALF_WIDTH,
+            tip.x - direction.x * ARROW_HEAD_LENGTH - normal.x * ARROW_HEAD_HALF_WIDTH,
+            tip.y - direction.y * ARROW_HEAD_LENGTH - normal.y * ARROW_HEAD_HALF_WIDTH,
         );
 
         // Create a filled triangle for the arrow head
@@ -169,8 +389,14 @@ impl Drawable for PositionedEdge {
         });
         frame.fill(&arrow_head, iced::Color::WHITE);
         frame.stroke(&arrow_head, Stroke::default().with_width(1.0));
+    }
 
-        // Draw the transition label (e.g., 'a', 'b', 'ε') near the edge
+    /// Draws the edge label at the pre-calculated label position.
+    ///
+    /// # Arguments
+    /// - `frame`: Canvas frame to draw on
+    /// - `ctx`: Drawing context with zoom/pan information
+    fn draw_label<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
         if !self.data.label.is_empty() {
             let label_pos = ctx.transform_point(self.label_position);
             frame.fill_text(Text {
@@ -232,4 +458,28 @@ fn compute_label_anchor(from: Point, to: Point) -> Point {
 /// This is useful for calculating normals to edges (for arrow heads and label placement).
 fn perpendicular(vector: Vector) -> Vector {
     Vector::new(-vector.y, vector.x)
+}
+
+/// Computes the tangent vector of a quadratic Bezier curve at parameter t.
+///
+/// The tangent represents the direction of the curve at a given point,
+/// which is useful for orienting arrow heads and labels.
+///
+/// The tangent is the derivative: B'(t) = 2(1-t)(p1-p0) + 2t(p2-p1)
+///
+/// # Arguments
+/// - `p0`: Start point of the curve
+/// - `p1`: Control point
+/// - `p2`: End point of the curve
+/// - `t`: Parameter in range [0, 1]
+///
+/// # Returns
+/// The tangent vector at parameter t (not normalized)
+fn quadratic_bezier_tangent(p0: Point, p1: Point, p2: Point, t: f32) -> Vector {
+    let mt = 1.0 - t;
+
+    Vector::new(
+        2.0 * mt * (p1.x - p0.x) + 2.0 * t * (p2.x - p1.x),
+        2.0 * mt * (p1.y - p0.y) + 2.0 * t * (p2.y - p1.y),
+    )
 }

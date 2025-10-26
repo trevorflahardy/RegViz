@@ -143,24 +143,14 @@ fn collect_edges(ast: &Ast, edges: &mut Vec<GraphEdge>, next_id: &mut u32) -> u3
             let left_id = collect_edges(left, edges, next_id);
             let right_id = collect_edges(right, edges, next_id);
 
-            edges.push(GraphEdge {
-                from: current_id,
-                to: left_id,
-                label: "L".to_string(),
-            });
-            edges.push(GraphEdge {
-                from: current_id,
-                to: right_id,
-                label: "R".to_string(),
-            });
+            // AST edges are always straight (they're not automaton transitions)
+            edges.push(GraphEdge::new(current_id, left_id, "L".to_string()));
+            edges.push(GraphEdge::new(current_id, right_id, "R".to_string()));
         }
         Ast::Star(inner) | Ast::Plus(inner) | Ast::Opt(inner) => {
             let child_id = collect_edges(inner, edges, next_id);
-            edges.push(GraphEdge {
-                from: current_id,
-                to: child_id,
-                label: String::new(), // No label for unary operators
-            });
+            // AST edges are always straight (they're not automaton transitions)
+            edges.push(GraphEdge::new(current_id, child_id, String::new()));
         }
     }
 

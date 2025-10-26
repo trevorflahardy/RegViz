@@ -598,7 +598,7 @@ fn layout_unary_box(bbox: &GraphBox, mut child_layouts: Vec<BoxLayoutResult>) ->
     let mut positions = HashMap::new();
     let child = child_layouts.pop();
 
-    let (child_width, child_height, child_entry, child_exit, child_positions) =
+    let (child_width, child_height, _child_entry, _child_exit, child_positions) =
         if let Some(child) = child {
             (
                 child.width,
