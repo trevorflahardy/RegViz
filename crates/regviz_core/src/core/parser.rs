@@ -153,7 +153,15 @@ impl Ast {
                     // Implicit concatenation
                     (OpToken::Dot, false)
                 }
-                Token::Op(op_token) => (op_token, true),
+                Token::Op(op_token) => {
+                    if op_token.prefix().is_some() {
+                        // Next token is a prefix operator, interpret as implicit concatenation
+                        (OpToken::Dot, false)
+                    } else {
+                        // Explicit operator
+                        (op_token, true)
+                    }
+                }
                 Token::RParen => {
                     if open_paren {
                         // Reached the end of a parenthesized expression
