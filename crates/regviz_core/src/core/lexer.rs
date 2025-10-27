@@ -122,3 +122,82 @@ impl Lexer {
             .unwrap_or((Token::Eof, self.num_chars))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        core::lexer::{Lexer, OpToken, Token},
+        errors::{LexError, LexErrorKind},
+    };
+
+    #[test]
+    fn test_lexer_basic() {
+        let input = "a+b*c";
+        let mut lexer = Lexer::new(input).unwrap();
+
+        assert_eq!(lexer.advance(), (Token::Literal('a'), 0));
+        assert_eq!(lexer.advance(), (Token::Op(OpToken::Plus), 1));
+        assert_eq!(lexer.advance(), (Token::Literal('b'), 2));
+        assert_eq!(lexer.advance(), (Token::Op(OpToken::Star), 3));
+        assert_eq!(lexer.advance(), (Token::Literal('c'), 4));
+        assert_eq!(lexer.advance(), (Token::Eof, 5));
+    }
+
+    #[test]
+    fn test_lexer_with_parentheses() {
+        let input = "(a.b)+c";
+        let mut lexer = Lexer::new(input).unwrap();
+
+        assert_eq!(lexer.advance(), (Token::LParen, 0));
+        assert_eq!(lexer.advance(), (Token::Literal('a'), 1));
+        assert_eq!(lexer.advance(), (Token::Op(OpToken::Dot), 2));
+        assert_eq!(lexer.advance(), (Token::Literal('b'), 3));
+        assert_eq!(lexer.advance(), (Token::RParen, 4));
+        assert_eq!(lexer.advance(), (Token::Op(OpToken::Plus), 5));
+        assert_eq!(lexer.advance(), (Token::Literal('c'), 6));
+        assert_eq!(lexer.advance(), (Token::Eof, 7));
+    }
+
+    #[test]
+    fn test_lexer_with_escape() {
+        let input = r"a\+b\*c";
+        let mut lexer = Lexer::new(input).unwrap();
+
+        assert_eq!(lexer.advance(), (Token::Literal('a'), 0));
+        assert_eq!(lexer.advance(), (Token::Literal('+'), 2));
+        assert_eq!(lexer.advance(), (Token::Literal('b'), 3));
+        assert_eq!(lexer.advance(), (Token::Literal('*'), 5));
+        assert_eq!(lexer.advance(), (Token::Literal('c'), 6));
+        assert_eq!(lexer.advance(), (Token::Eof, 7));
+    }
+
+    #[test]
+    fn test_lexer_invalid_character() {
+        let input = "a+b$c";
+        let result = Lexer::new(input);
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert_eq!(
+            err,
+            LexError {
+                at: 3,
+                kind: LexErrorKind::InvalidCharacter('$'),
+            }
+        );
+    }
+
+    #[test]
+    fn test_lexer_dangling_escape() {
+        let input = r"a+b\";
+        let result = Lexer::new(input);
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert_eq!(
+            err,
+            LexError {
+                at: 3,
+                kind: LexErrorKind::DanglingEscape,
+            }
+        );
+    }
+}
