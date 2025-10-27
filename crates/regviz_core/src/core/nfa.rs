@@ -163,12 +163,27 @@ impl Builder {
     /// - `Fragment` - The NFA fragment constructed from the AST node.
     fn build(&mut self, ast: Ast) -> Fragment {
         match ast {
-            Ast::Epsilon => self.build_char('ε'),
+            Ast::Epsilon => self.build_epsilon(),
             Ast::Atom(c) => self.build_char(c),
             Ast::Concat(lhs, rhs) => self.build_concat(*lhs, *rhs),
             Ast::Alt(lhs, rhs) => self.build_alternation(*lhs, *rhs),
             Ast::Star(inner) => self.build_star(*inner),
         }
+    }
+
+    /// Builds an epsilon AST symbol within the NFA. Creates a single state that is both the start and accept state.
+    ///
+    /// # Returns
+    ///
+    /// - `Fragment` - The NFA fragment representing the epsilon transition.
+    fn build_epsilon(&mut self) -> Fragment {
+        self.with_box(BoxKind::Literal, move |builder| {
+            let state = builder.new_state();
+            Fragment {
+                start: state,
+                accepts: vec![state],
+            }
+        })
     }
 
     /// Builds a character AST symbol within the NFA. Creates a start and accept state,
