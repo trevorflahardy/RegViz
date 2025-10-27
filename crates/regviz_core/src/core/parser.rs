@@ -117,17 +117,13 @@ impl Ast {
                 }
             }
             Token::LParen => {
-                println!("Found LParen at index {}", idx);
                 // Parse sub-expression
                 let sub_expr = Ast::parse(lexer, 0, true)?;
 
                 // Expect closing parenthesis
                 let (token, idx) = lexer.advance();
                 match token {
-                    Token::RParen => {
-                        println!("Found matching RParen at index {}", idx);
-                        sub_expr
-                    }
+                    Token::RParen => sub_expr,
                     other => {
                         return Err(ParseError {
                             at: idx,
