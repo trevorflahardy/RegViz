@@ -98,10 +98,6 @@ impl Ast {
         Ok(ast)
     }
 
-    pub fn parse_lexer(lexer: &mut Lexer) -> Result<Ast, ParseError> {
-        Ast::parse(lexer, 0, false)
-    }
-
     /// Parses an expression from the lexer using Pratt parsing with the given minimum binding power.
     /// Returns a [`ParseError`] if parsing fails.
     fn parse(lexer: &mut Lexer, min_bp: u8, open_paren: bool) -> Result<Ast, ParseError> {
@@ -207,7 +203,12 @@ impl Ast {
                 continue;
             }
 
-            // No applicable operator found, just exit loop
+            // NOTE: This is where we find out that the operator is neither postfix nor infix,
+            // thus should not be included in the AST. We break out of the loop, and let
+            // the caller handle the lhs.
+            // For example, consider the '~' operator as a prefix operator only.
+            // The expression "a~b" would parse 'a' as lhs, then find '~' which is neither postfix nor infix,
+            // and break out of the loop, leaving 'a' to be handled by the caller and ignoring '~b'.
             break;
         }
 
@@ -282,6 +283,38 @@ mod tests {
                 at: 1,
             }))
         );
+        let result = Ast::build("((a)())");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedRightParen,
+                at: 5,
+            }))
+        );
+        let result = Ast::build("()");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedRightParen,
+                at: 1,
+            }))
+        );
+        let result = Ast::build("(())");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedRightParen,
+                at: 2,
+            }))
+        );
+        let result = Ast::build("a.b*()");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedRightParen,
+                at: 5,
+            }))
+        );
     }
 
     #[test]
@@ -352,5 +385,73 @@ mod tests {
     fn test_parentheses_with_postfix_and_infix() {
         let ast = Ast::build("(a+b)*c").unwrap();
         assert_eq!(ast.to_string(), "(. (* (+ a b)) c)");
+        let ast = Ast::build("a*(b+c)*+d").unwrap();
+        assert_eq!(ast.to_string(), "(+ (. (* a) (* (+ b c))) d)");
+        let ast = Ast::build("a+(b.c*)*").unwrap();
+        assert_eq!(ast.to_string(), "(+ a (* (. b (* c))))");
+    }
+
+    #[test]
+    fn test_wrong_prefix_operator() {
+        let result = Ast::build("+a");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::UnexpectedPrefixOperator(OpToken::Plus),
+                at: 0,
+            }))
+        );
+        let result = Ast::build("a*+.d");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::UnexpectedPrefixOperator(OpToken::Dot),
+                at: 3,
+            }))
+        );
+        let result = Ast::build("a(bc)*+*d");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::UnexpectedPrefixOperator(OpToken::Star),
+                at: 7,
+            }))
+        );
+    }
+
+    #[test]
+    fn test_unexpected_eof() {
+        let result = Ast::build("a+");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::UnexpectedEof,
+                at: 2,
+            }))
+        );
+        let result = Ast::build("a*+");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::UnexpectedEof,
+                at: 3,
+            }))
+        );
+        let result = Ast::build("a.b*(");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::UnexpectedEof,
+                at: 5,
+            }))
+        );
+        let result = Ast::build("(ab");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::MismatchedLeftParen { other: Token::Eof },
+                at: 3,
+            }))
+        );
     }
 }
