@@ -96,7 +96,7 @@ impl App {
         }
         match parser::Ast::build(&self.input) {
             Ok(ast) => {
-                let nfa = nfa::build_nfa(&ast);
+                let nfa = nfa::build_nfa(ast.clone());
                 let alphabet = nfa.alphabet();
                 self.build_artifacts = Some(BuildArtifacts {
                     ast,

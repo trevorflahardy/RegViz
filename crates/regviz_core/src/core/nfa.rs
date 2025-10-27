@@ -63,9 +63,9 @@ impl Nfa {
 /// # Returns
 ///
 /// - `Nfa` - The constructed nondeterministic finite automaton.
-pub fn build_nfa(ast: &Ast) -> Nfa {
+pub fn build_nfa(ast: Ast) -> Nfa {
     let mut builder = Builder::default();
-    let fragment = builder.build(ast.clone());
+    let fragment = builder.build(ast);
     builder.finalize(fragment.start, fragment.accepts)
 }
 
