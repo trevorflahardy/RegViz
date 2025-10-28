@@ -1,4 +1,4 @@
-use regviz_core::core::{BuildArtifacts, lexer, nfa, parser};
+use regviz_core::core::{BuildArtifacts, nfa, parser};
 
 use super::state::App;
 
@@ -22,31 +22,18 @@ impl App {
         }
 
         // Try to lex the input into tokens
-        match lexer::lex(self.input.trim()) {
-            Ok(tokens) => {
-                // Try to parse tokens into an AST
-                match parser::parse(&tokens) {
-                    Ok(ast) => {
-                        // Build NFA from AST
-                        let nfa = nfa::build_nfa(&ast);
-                        let alphabet = nfa.alphabet();
-
-                        // Success: store artifacts and clear error
-                        self.build_artifacts = Some(BuildArtifacts {
-                            ast,
-                            nfa,
-                            alphabet,
-                            dfa: None,
-                            min_dfa: None,
-                        });
-                        self.error = None;
-                    }
-                    Err(e) => {
-                        // Parse error
-                        self.error = Some(format!("Parse error: {}", e));
-                        self.build_artifacts = None;
-                    }
-                }
+        match parser::Ast::build(self.input.trim()) {
+            Ok(ast) => {
+                let nfa = nfa::build_nfa(ast.clone());
+                let alphabet = nfa.alphabet();
+                self.build_artifacts = Some(BuildArtifacts {
+                    ast,
+                    nfa,
+                    alphabet,
+                    dfa: None,
+                    min_dfa: None,
+                });
+                self.error = None;
             }
             Err(e) => {
                 // Lex error
