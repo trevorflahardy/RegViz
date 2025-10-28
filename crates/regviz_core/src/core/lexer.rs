@@ -49,12 +49,14 @@ impl Display for OpToken {
     }
 }
 
+type CharIndex = usize;
+
 #[derive(Debug)]
 pub struct Lexer {
     /// Stack of tokens with their original char indices in the input string.
-    tokens: Vec<(Token, usize)>,
+    tokens: Vec<(Token, CharIndex)>,
     /// Total number of characters processed from the input. Used to return along with [`Token::Eof`] in [`Lexer::peek`] and [`Lexer::advance`].
-    num_chars: usize,
+    num_chars: CharIndex,
 }
 
 impl Lexer {
@@ -109,13 +111,13 @@ impl Lexer {
 
     /// Advance to the next token and return it.
     /// If there are no more tokens, return [`Token::Eof`].
-    pub fn advance(&mut self) -> (Token, usize) {
+    pub fn advance(&mut self) -> (Token, CharIndex) {
         self.tokens.pop().unwrap_or((Token::Eof, self.num_chars))
     }
 
     /// Peek at the next token without consuming it.
     /// If there are no more tokens, return [`Token::Eof`].
-    pub fn peek(&self) -> (Token, usize) {
+    pub fn peek(&self) -> (Token, CharIndex) {
         self.tokens
             .last()
             .copied()

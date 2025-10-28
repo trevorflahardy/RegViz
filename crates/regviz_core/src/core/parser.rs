@@ -99,8 +99,25 @@ impl Ast {
     }
 
     /// Parses an expression from the lexer using Pratt parsing with the given minimum binding power.
+    ///
+    /// # Parameters
+    ///
+    /// * `lexer` - The lexer to read tokens from
+    /// * `min_bp` - Minimum binding power. Operators with lower binding power than this will not be consumed,
+    ///   causing the parser to return the current left-hand side. This is used to impose operator precedence.
+    /// * `open_paren` - Whether we're currently inside a parenthesized sub-expression.
+    ///
     /// Returns a [`ParseError`] if parsing fails.
     fn parse(lexer: &mut Lexer, min_bp: u8, open_paren: bool) -> Result<Ast, ParseError> {
+        // Phase 1: parse primary
+        //
+        // Read the next token and convert it into the initial `lhs`.
+        // This covers:
+        //  - literal atoms
+        //  - prefix operators
+        //  - left parenthesis (recursively parse sub-expression)
+        //
+        // We capture the token index `idx` (char index) for error reporting.
         let (token, idx) = lexer.advance();
         let mut lhs = match token {
             Token::Literal(c) => Ast::Atom(c),
@@ -146,6 +163,16 @@ impl Ast {
             }
         };
 
+        // Phase 2: Pratt loop - consume postfix/infix operators as needed
+        //
+        // Repeatedly inspect the next token and decide whether to:
+        //  - treat it as implicit concatenation (when next is literal or '(')
+        //  - consume an explicit operator (OpToken)
+        //  - or stop and return `lhs` because the next token doesn't bind strongly enough.
+        //
+        // The distinction between explicit vs implicit: implicit concatenation
+        // does not advance the lexer before we build the AST (we synthesize OpToken::Dot),
+        // while explicit operators require consuming the token with `advance()`.
         loop {
             let (token, idx) = lexer.peek();
             let (op_token, is_explicit) = match token {
@@ -177,7 +204,7 @@ impl Ast {
             };
 
             // NOTE: Check for postfix operator first, then infix operator (to handle cases like a*+b)
-            // Postfix operators natually bind tighter than infix operators
+            // Postfix operators naturally bind tighter than infix operators
             if let Some(postfix_op) = op_token.postfix() {
                 if postfix_op.bp < min_bp {
                     // Postfix operator does not bind strong enough, lhs is complete
