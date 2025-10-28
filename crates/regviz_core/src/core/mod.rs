@@ -1,4 +1,3 @@
-pub mod ast;
 pub mod automaton;
 pub mod dfa;
 pub mod lexer;
@@ -6,11 +5,10 @@ pub mod min;
 pub mod nfa;
 pub mod parser;
 pub mod sim;
-pub mod tokens;
 
-use self::ast::Ast;
 use self::dfa::Dfa;
 use self::nfa::Nfa;
+use self::parser::Ast;
 
 /// Aggregates the intermediate products generated while building automata
 /// from a regular expression.

@@ -1,6 +1,6 @@
 use std::env;
 
-use regviz_core::core::{dfa, lexer, nfa, parser, sim};
+use regviz_core::core::{dfa, nfa, parser, sim};
 
 fn main() {
     let mut args = env::args().skip(1);
@@ -15,48 +15,40 @@ fn main() {
     let input = args.next();
 
     // Lex
-    match lexer::lex(&pattern) {
-        Ok(tokens) => {
-            println!("Tokens: {:?}", tokens);
+    match parser::Ast::build(&pattern) {
+        Ok(ast) => {
+            println!("Pattern: {}", pattern);
+            println!("AST: {}", ast);
 
-            // Parse
-            match parser::parse(&tokens) {
-                Ok(ast) => {
-                    println!("Pattern: {}", pattern);
-                    println!("AST: {}", ast);
+            // Build NFA
+            let nfa = nfa::build_nfa(ast);
+            println!(
+                "NFA: states={} start={} accepts={} edges={}",
+                nfa.states.len(),
+                nfa.start,
+                nfa.accepts.len(),
+                nfa.edges.len()
+            );
 
-                    // Build NFA
-                    let nfa = nfa::build_nfa(&ast);
-                    println!(
-                        "NFA: states={} start={} accepts={} edges={}",
-                        nfa.states.len(),
-                        nfa.start,
-                        nfa.accepts.len(),
-                        nfa.edges.len()
-                    );
+            // Determinize -> DFA
+            let (dfa, alphabet) = dfa::determinize(&nfa);
+            println!(
+                "DFA: states={} start={} accepts={} alphabet={:?}",
+                dfa.states.len(),
+                dfa.start,
+                dfa.accepts.len(),
+                alphabet
+            );
 
-                    // Determinize -> DFA
-                    let (dfa, alphabet) = dfa::determinize(&nfa);
-                    println!(
-                        "DFA: states={} start={} accepts={} alphabet={:?}",
-                        dfa.states.len(),
-                        dfa.start,
-                        dfa.accepts.len(),
-                        alphabet
-                    );
-
-                    // If user provided an input string, simulate both NFA and DFA
-                    if let Some(s) = input {
-                        let nfa_accepts = sim::nfa_accepts(&nfa, &s);
-                        let dfa_accepts = sim::simulate_dfa(&dfa, &alphabet, &s);
-                        println!("Input: {:?}", s);
-                        println!("NFA accepts: {}", nfa_accepts);
-                        println!("DFA accepts: {}", dfa_accepts);
-                    }
-                }
-                Err(e) => eprintln!("Parse error: {:?}", e),
+            // If user provided an input string, simulate both NFA and DFA
+            if let Some(s) = input {
+                let nfa_accepts = sim::nfa_accepts(&nfa, &s);
+                let dfa_accepts = sim::simulate_dfa(&dfa, &alphabet, &s);
+                println!("Input: {:?}", s);
+                println!("NFA accepts: {}", nfa_accepts);
+                println!("DFA accepts: {}", dfa_accepts);
             }
         }
-        Err(e) => eprintln!("Lex error: {:?}", e),
+        Err(e) => eprintln!("Build error: {:?}", e),
     }
 }
