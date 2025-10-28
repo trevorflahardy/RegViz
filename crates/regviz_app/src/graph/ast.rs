@@ -29,7 +29,7 @@
 ///            Node 1: Char(a)
 ///            Node 2: Char(b)
 /// ```
-use regviz_core::core::ast::Ast;
+use regviz_core::core::parser::Ast;
 
 use super::{Graph, GraphBox, GraphEdge, GraphNode};
 
@@ -89,12 +89,11 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
     *next_id += 1;
 
     let label = match ast {
-        Ast::Char(c) => format!("'{}'", c),
+        Ast::Atom(c) => format!("'{}'", c),
         Ast::Concat(_, _) => "·".to_string(), // Concatenation operator
         Ast::Alt(_, _) => "|".to_string(),
         Ast::Star(_) => "*".to_string(),
-        Ast::Plus(_) => "+".to_string(),
-        Ast::Opt(_) => "?".to_string(),
+        Ast::Epsilon => "ε".to_string(),
     };
 
     nodes.push(GraphNode {
@@ -107,12 +106,13 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
 
     // Recursively process children
     match ast {
-        Ast::Char(_) => {} // Leaf node, no children
+        Ast::Atom(_) => {} // Leaf node, no children
+        Ast::Epsilon => {} // Leaf node, no children
         Ast::Concat(left, right) | Ast::Alt(left, right) => {
             collect_nodes(left, nodes, next_id);
             collect_nodes(right, nodes, next_id);
         }
-        Ast::Star(inner) | Ast::Plus(inner) | Ast::Opt(inner) => {
+        Ast::Star(inner) => {
             collect_nodes(inner, nodes, next_id);
         }
     }
@@ -138,7 +138,8 @@ fn collect_edges(ast: &Ast, edges: &mut Vec<GraphEdge>, next_id: &mut u32) -> u3
     *next_id += 1;
 
     match ast {
-        Ast::Char(_) => {} // Leaf node, no outgoing edges
+        Ast::Atom(_) => {} // Leaf node, no outgoing edges
+        Ast::Epsilon => {} // Leaf node, no outgoing edges
         Ast::Concat(left, right) | Ast::Alt(left, right) => {
             let left_id = collect_edges(left, edges, next_id);
             let right_id = collect_edges(right, edges, next_id);
@@ -147,7 +148,7 @@ fn collect_edges(ast: &Ast, edges: &mut Vec<GraphEdge>, next_id: &mut u32) -> u3
             edges.push(GraphEdge::new(current_id, left_id, "L".to_string()));
             edges.push(GraphEdge::new(current_id, right_id, "R".to_string()));
         }
-        Ast::Star(inner) | Ast::Plus(inner) | Ast::Opt(inner) => {
+        Ast::Star(inner) => {
             let child_id = collect_edges(inner, edges, next_id);
             // AST edges are always straight (they're not automaton transitions)
             edges.push(GraphEdge::new(current_id, child_id, String::new()));
