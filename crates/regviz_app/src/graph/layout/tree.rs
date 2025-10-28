@@ -39,7 +39,7 @@
 /// - 'a' node at (-NODE_WIDTH/2, 2*LEVEL_HEIGHT)
 /// - 'b' node at (+NODE_WIDTH/2, 2*LEVEL_HEIGHT)
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use iced::{Point, Rectangle};
 
@@ -249,10 +249,10 @@ fn assign_depths(nodes: &[GraphNode], edges: &[crate::graph::GraphEdge]) -> Hash
         .unwrap_or(nodes[0].id);
 
     // BFS to assign depths
-    let mut queue = vec![(root_id, 0)];
+    let mut queue = VecDeque::from([(root_id, 0)]);
     let mut visited = HashMap::new();
 
-    while let Some((node_id, depth)) = queue.pop() {
+    while let Some((node_id, depth)) = queue.pop_front() {
         if visited.contains_key(&node_id) {
             continue;
         }
@@ -263,7 +263,7 @@ fn assign_depths(nodes: &[GraphNode], edges: &[crate::graph::GraphEdge]) -> Hash
         // Find all children (outgoing edges)
         for edge in edges {
             if edge.from == node_id && !visited.contains_key(&edge.to) {
-                queue.push((edge.to, depth + 1));
+                queue.push_back((edge.to, depth + 1));
             }
         }
     }
