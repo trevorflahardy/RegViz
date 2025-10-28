@@ -1,7 +1,7 @@
 /// AST graph wrapper that converts Abstract Syntax Trees into renderable graphs.
 ///
 /// This module provides `AstGraph`, which implements the `Graph` trait for
-/// `regviz_core::core::ast::Ast`. It converts the recursive tree structure into
+/// `regviz_core::core::parser::Ast`. It converts the recursive tree structure into
 /// a flat representation of nodes and edges suitable for visualization.
 ///
 /// # Node Representation
