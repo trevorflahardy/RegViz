@@ -19,7 +19,7 @@
 ///
 /// # Example
 ///
-/// For the regex `(a|b)*c`:
+/// For the regex `(a+b)*c`:
 /// - Alternation box contains 'a' and 'b' branches stacked vertically
 /// - Kleene star box wraps the alternation with entry/exit states
 /// - Concatenation places the star result and 'c' horizontally
@@ -104,7 +104,7 @@ const MIN_CONTENT_HEIGHT_RATIO: f32 = 0.3;
 /// Represents the hierarchy of bounding boxes produced by the backend.
 ///
 /// Bounding boxes form a tree structure that mirrors the regex's syntax tree.
-/// For example, in `(a|b)*`, the alternation box is a child of the star box.
+/// For example, in `(a+b)*`, the alternation box is a child of the star box.
 ///
 /// This structure enables:
 /// - Bottom-up layout (layout children before parents)
@@ -235,7 +235,7 @@ impl BoundsTracker {
 /// 6. **Track bounds**: Determine the overall canvas size needed for the layout
 ///
 /// # Example Flow
-/// For the regex `a|b`, this function will:
+/// For the regex `a+b`, this function will:
 /// - Create an alternation box containing both 'a' and 'b' branches
 /// - Stack the branches vertically with proper spacing
 /// - Position entry/exit states for the alternation
@@ -505,11 +505,11 @@ fn layout_concat_box(child_layouts: Vec<BoxLayoutResult>) -> BoxLayoutResult {
 
 /// Stacks the branches of an alternation vertically while keeping the entry and exit horizontal.
 ///
-/// Alternation (e.g., `a|b`) means "match a OR match b". The layout stacks each alternative
+/// Alternation (e.g., `a+b`) means "match a OR match b". The layout stacks each alternative
 /// vertically, with a shared entry state on the left and exit state on the right.
 ///
 /// # Visual Layout
-/// For `a|b|c`, this creates:
+/// For `a+b|c`, this creates:
 /// ```text
 ///       ┌─────●─a─●─────┐
 ///   ●───┼─────●─b─●─────┼───●
@@ -883,7 +883,7 @@ fn compute_extent(
 /// first so they appear behind shallower boxes.
 ///
 /// # Example
-/// For regex `(a|b)*`:
+/// For regex `(a+b)*`:
 /// - Alternation box has depth 0 (root)
 /// - Kleene star box has depth 1 (child of root)
 /// - Literal boxes for 'a' and 'b' have depth 2 (children of alternation)

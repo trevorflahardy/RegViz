@@ -20,7 +20,7 @@
 ///
 /// # Example
 ///
-/// For the regex `a|b`:
+/// For the regex `a+b`:
 /// ```text
 /// AST:       Graph:
 ///   Alt       Node 0: Alt

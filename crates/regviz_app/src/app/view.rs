@@ -39,7 +39,7 @@ impl App {
     /// Renders the regex input field and status text.
     fn render_input_section(&self) -> Element<'_, Message> {
         let input_field = text_input(
-            "Enter a regular expression (e.g., a|b, (a|b)*c)",
+            "Enter a regular expression (e.g., a+b, (a+b)*c)",
             &self.input,
         )
         .on_input(Message::InputChanged)

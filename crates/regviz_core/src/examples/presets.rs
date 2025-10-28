@@ -85,7 +85,7 @@ pub fn presets() -> &'static [Example] {
         },
         Example {
             name: "Ends With ABB",
-            regex: "(a|b)*abb",
+            regex: "(a+b)*abb",
             samples: &[
                 Sample {
                     input: "abb",
@@ -120,7 +120,7 @@ pub fn presets() -> &'static [Example] {
             regex: "a\\|b",
             samples: &[
                 Sample {
-                    input: "a|b",
+                    input: "a+b",
                     expected: true,
                 },
                 Sample {

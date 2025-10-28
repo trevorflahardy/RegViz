@@ -24,7 +24,7 @@
 ///
 /// # Example
 ///
-/// For the regex AST of `(a|b)*`:
+/// For the regex AST of `(a+b)*`:
 /// ```text
 ///        Star
 ///         |
@@ -38,7 +38,6 @@
 /// - Alt node at (0, LEVEL_HEIGHT)
 /// - 'a' node at (-NODE_WIDTH/2, 2*LEVEL_HEIGHT)
 /// - 'b' node at (+NODE_WIDTH/2, 2*LEVEL_HEIGHT)
-
 use std::collections::HashMap;
 
 use iced::{Point, Rectangle};
