@@ -103,7 +103,10 @@ impl PositionedEdge {
     /// Creates a new positioned edge with explicit node radii.
     ///
     /// This is useful when nodes have different radii (e.g., in different visualization modes).
-    /// ! NOTE: This function is currently unused but kept for potential future use.
+    ///
+    /// # Note
+    ///
+    /// This function is currently unused but kept for potential future use.
     #[must_use]
     #[allow(dead_code)]
     pub fn with_radii(
