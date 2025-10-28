@@ -2,47 +2,61 @@ use iced::widget::canvas::{self, Frame, Program};
 use iced::{Rectangle, Size, Vector, mouse};
 use iced_graphics::geometry::Renderer;
 
-use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout, layout_graph};
+use super::layout::LayoutStrategy;
+use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout};
 
 /// Interactive canvas responsible for rendering graphs with zoom support.
+///
+/// The canvas is generic over both the graph type and the layout strategy,
+/// allowing different visualization approaches for different graph types.
 #[derive(Debug)]
-pub struct GraphCanvas<G: Graph> {
+pub struct GraphCanvas<G: Graph, S: LayoutStrategy> {
     graph: G,
     visibility: BoxVisibility,
+    zoom_factor: f32,
+    strategy: S,
 }
 
-impl<G: Graph> GraphCanvas<G> {
-    /// Creates a new canvas for the provided graph implementation.
+impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
+    /// Creates a new canvas for the provided graph implementation with a specific layout strategy.
+    ///
+    /// # Arguments
+    ///
+    /// - `graph`: The graph to render
+    /// - `visibility`: Controls which bounding boxes are visible
+    /// - `zoom_factor`: Initial zoom level (1.0 = fit to screen)
+    /// - `strategy`: The layout algorithm to use for positioning nodes
     #[must_use]
-    pub fn new(graph: G, visibility: BoxVisibility) -> Self {
-        Self { graph, visibility }
+    pub fn new(graph: G, visibility: BoxVisibility, zoom_factor: f32, strategy: S) -> Self {
+        Self {
+            graph,
+            visibility,
+            zoom_factor,
+            strategy,
+        }
     }
 }
 
-/// Persistent state associated with the [`GraphCanvas`].
-#[derive(Default, Debug, Clone)]
-pub struct GraphCanvasState {
-    zoom: Option<f32>,
-}
-
-impl<G, Message, R> Program<Message, iced::Theme, R> for GraphCanvas<G>
+impl<G, S, Message, R> Program<Message, iced::Theme, R> for GraphCanvas<G, S>
 where
     G: Graph,
+    S: LayoutStrategy,
     R: Renderer,
 {
-    type State = GraphCanvasState;
+    type State = ();
 
     fn draw(
         &self,
-        state: &Self::State,
+        _state: &Self::State,
         renderer: &R,
         _theme: &iced::Theme,
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry<R>> {
-        let layout = layout_graph(&self.graph, &self.visibility);
+        // Use the configured layout strategy
+        let layout = self.strategy.compute(&self.graph, &self.visibility);
         let fit_zoom = fit_zoom(bounds.size(), &layout);
-        let zoom = state.zoom.unwrap_or(fit_zoom);
+        let zoom = fit_zoom * self.zoom_factor;
 
         let translation = center_translation(bounds.size(), &layout, zoom);
         let ctx = DrawContext { zoom, translation };
@@ -64,25 +78,11 @@ where
 
     fn update(
         &self,
-        state: &mut Self::State,
-        event: canvas::Event,
-        bounds: Rectangle,
+        _state: &mut Self::State,
+        _event: canvas::Event,
+        _bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> (iced::event::Status, Option<Message>) {
-        if let canvas::Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
-            let layout = layout_graph(&self.graph, &self.visibility);
-            let fit_zoom = fit_zoom(bounds.size(), &layout);
-            let current_zoom = state.zoom.unwrap_or(fit_zoom);
-            let scroll = match delta {
-                mouse::ScrollDelta::Lines { y, .. } => y,
-                mouse::ScrollDelta::Pixels { y, .. } => y / 120.0,
-            };
-            let factor = (1.0 + scroll * 0.1).clamp(0.5, 1.5);
-            let new_zoom = (current_zoom * factor).clamp(0.1, 8.0);
-            state.zoom = Some(new_zoom);
-            return (iced::event::Status::Captured, None);
-        }
-
         (iced::event::Status::Ignored, None)
     }
 }

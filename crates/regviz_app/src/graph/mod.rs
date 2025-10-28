@@ -1,17 +1,19 @@
+mod ast;
 mod bbox;
 mod canvas;
 mod draw;
 mod edge;
-mod layout;
+pub mod layout;
 mod nfa;
 mod node;
 mod style;
 
+pub use ast::AstGraph;
 pub use bbox::GraphBox;
 pub use canvas::GraphCanvas;
 pub use draw::{DrawContext, Drawable};
 pub use edge::GraphEdge;
-pub use layout::{BoxVisibility, GraphLayout, layout_graph};
+pub use layout::{BoxVisibility, GraphLayout};
 pub use node::GraphNode;
 pub use style::color_for_box;
 

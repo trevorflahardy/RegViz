@@ -1,3 +1,16 @@
+/// RegViz - Regular Expression Visualizer
+///
+/// This application provides interactive visualizations of regular expressions,
+/// allowing users to see both the parse tree (AST) and the non-deterministic
+/// finite automaton (NFA) representation.
+///
+/// # Features
+///
+/// - **Parse Tree**: Hierarchical tree layout showing operator precedence
+/// - **NFA**: State machine visualization with configurable bounding boxes
+/// - **Interactive**: Zoom in/out, toggle elements, switch between views
+/// - **Real-time**: Immediate feedback as you type regex patterns
+mod app;
 mod graph;
 
 use iced::{
@@ -130,6 +143,17 @@ impl App {
     }
 }
 
+/// Application entry point.
+///
+/// Initializes tracing (in debug mode) and starts the Iced event loop
+/// with the RegViz application.
 fn main() -> iced::Result {
-    iced::run("RegViz", App::update, App::view)
+    #[cfg(debug_assertions)]
+    init_tracing();
+
+    iced::run(
+        "RegViz - Regular Expression Visualizer",
+        App::update,
+        App::view,
+    )
 }

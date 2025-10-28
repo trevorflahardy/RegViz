@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tracing = "0.1"
 iced = { version = "0.13.1", features = ["tokio", "canvas", "advanced"] }
 iced_graphics = { version = "0.13.0", features = ["geometry"] }
 regviz_core = { path = "../regviz_core" }
-
 
 [[bin]]
 name = "regviz_app"
