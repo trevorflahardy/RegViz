@@ -30,7 +30,7 @@ pub enum ParseErrorKind {
     MismatchedLeftParen { other: Token },
     #[error("found closing parenthesis with no matching opening parenthesis")]
     RightParenWithoutLeft,
-    #[error("expected an expression before closing parenthesis")]
+    #[error("found empty parentheses '()' which is not allowed")]
     EmptyParentheses,
 }
 
