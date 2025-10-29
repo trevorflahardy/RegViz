@@ -150,9 +150,16 @@ impl Ast {
                 }
             }
             Token::RParen => {
+                if open_paren {
+                    // Found empty parentheses '()'
+                    return Err(ParseError {
+                        at: idx,
+                        kind: ParseErrorKind::EmptyParentheses,
+                    });
+                }
                 return Err(ParseError {
                     at: idx,
-                    kind: ParseErrorKind::MismatchedRightParen,
+                    kind: ParseErrorKind::RightParenWithoutLeft,
                 });
             }
             Token::Eof => {
@@ -196,7 +203,7 @@ impl Ast {
                     } else {
                         return Err(ParseError {
                             at: idx,
-                            kind: ParseErrorKind::MismatchedRightParen,
+                            kind: ParseErrorKind::RightParenWithoutLeft,
                         });
                     }
                 }
@@ -310,7 +317,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::MismatchedRightParen,
+                kind: ParseErrorKind::RightParenWithoutLeft,
                 at: 1,
             }))
         );
@@ -318,7 +325,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::MismatchedRightParen,
+                kind: ParseErrorKind::EmptyParentheses,
                 at: 5,
             }))
         );
@@ -326,7 +333,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::MismatchedRightParen,
+                kind: ParseErrorKind::EmptyParentheses,
                 at: 1,
             }))
         );
@@ -334,7 +341,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::MismatchedRightParen,
+                kind: ParseErrorKind::EmptyParentheses,
                 at: 2,
             }))
         );
@@ -342,7 +349,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::MismatchedRightParen,
+                kind: ParseErrorKind::EmptyParentheses,
                 at: 5,
             }))
         );

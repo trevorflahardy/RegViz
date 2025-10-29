@@ -29,7 +29,9 @@ pub enum ParseErrorKind {
     #[error("expected closing parenthesis but found token '{other}'")]
     MismatchedLeftParen { other: Token },
     #[error("found closing parenthesis with no matching opening parenthesis")]
-    MismatchedRightParen,
+    RightParenWithoutLeft,
+    #[error("expected an expression before closing parenthesis")]
+    EmptyParentheses,
 }
 
 /// Parser error annotated with the .
