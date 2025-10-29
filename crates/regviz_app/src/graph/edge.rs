@@ -212,6 +212,7 @@ impl PositionedEdge {
     /// - `from_radius`: Radius of source node (scaled)
     /// - `to_radius`: Radius of destination node (scaled)
     /// - `ctx`: Drawing context with zoom/pan information
+    #[allow(clippy::too_many_arguments)]
     fn draw_straight_edge<R: Renderer>(
         &self,
         frame: &mut Frame<R>,
@@ -259,6 +260,7 @@ impl PositionedEdge {
     /// - `to_radius`: Radius of destination node (scaled)
     /// - `curve_down`: If true, curve bends downward; if false, upward
     /// - `ctx`: Drawing context with zoom/pan information
+    #[allow(clippy::too_many_arguments)]
     fn draw_curved_edge<R: Renderer>(
         &self,
         frame: &mut Frame<R>,

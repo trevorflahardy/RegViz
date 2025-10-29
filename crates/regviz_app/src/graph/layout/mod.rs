@@ -10,7 +10,7 @@ pub mod nfa;
 /// - **[`LayoutStrategy`]**: Trait defining the interface for layout algorithms
 /// - **[`NfaLayoutStrategy`]**: Hierarchical layout respecting regex bounding boxes
 /// - **[`TreeLayoutStrategy`]**: Binary tree layout for AST visualization
-
+///
 /// The layout strategies.
 pub mod tree;
 
