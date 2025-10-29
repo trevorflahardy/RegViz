@@ -54,7 +54,7 @@ impl App {
     /// Renders status or error information.
     fn render_status_text(&self) -> Element<'_, Message> {
         match &self.error {
-            Some(err) => text(format!("❌ {}", err)).size(14).into(),
+            Some(err) => text(format!("x  {}", err)).size(14).into(),
             None => match &self.build_artifacts {
                 Some(artifacts) => text(format!(
                     "✓ Parsed successfully | {} states | Alphabet: {:?}",

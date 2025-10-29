@@ -63,7 +63,7 @@ impl Nfa {
 /// # Returns
 ///
 /// - `Nfa` - The constructed nondeterministic finite automaton.
-pub fn build_nfa(ast: Ast) -> Nfa {
+pub fn build_nfa(ast: &Ast) -> Nfa {
     let mut builder = Builder::default();
     let fragment = builder.build(ast);
     builder.finalize(fragment.start, fragment.accepts)
@@ -161,13 +161,13 @@ impl Builder {
     /// # Returns
     ///
     /// - `Fragment` - The NFA fragment constructed from the AST node.
-    fn build(&mut self, ast: Ast) -> Fragment {
+    fn build(&mut self, ast: &Ast) -> Fragment {
         match ast {
             Ast::Epsilon => self.build_epsilon(),
-            Ast::Atom(c) => self.build_char(c),
-            Ast::Concat(lhs, rhs) => self.build_concat(*lhs, *rhs),
-            Ast::Alt(lhs, rhs) => self.build_alternation(*lhs, *rhs),
-            Ast::Star(inner) => self.build_star(*inner),
+            Ast::Atom(c) => self.build_char(*c),
+            Ast::Concat(lhs, rhs) => self.build_concat(lhs, rhs),
+            Ast::Alt(lhs, rhs) => self.build_alternation(lhs, rhs),
+            Ast::Star(inner) => self.build_star(inner),
         }
     }
 
@@ -221,7 +221,7 @@ impl Builder {
     /// # Returns
     ///
     /// - `Fragment` - The NFA fragment representing the concatenation.
-    fn build_concat(&mut self, lhs: Ast, rhs: Ast) -> Fragment {
+    fn build_concat(&mut self, lhs: &Ast, rhs: &Ast) -> Fragment {
         self.with_box(BoxKind::Concat, move |builder| {
             let left = builder.build(lhs);
             let right = builder.build(rhs);
@@ -256,7 +256,7 @@ impl Builder {
     /// # Returns
     ///
     /// - `Fragment` - The NFA fragment representing the alternation.
-    fn build_alternation(&mut self, lhs: Ast, rhs: Ast) -> Fragment {
+    fn build_alternation(&mut self, lhs: &Ast, rhs: &Ast) -> Fragment {
         self.with_box(BoxKind::Alternation, move |builder| {
             let left = builder.build(lhs);
             let right = builder.build(rhs);
@@ -296,7 +296,7 @@ impl Builder {
     /// # Returns
     ///
     /// - `Fragment` - The NFA fragment representing the kleene star operation.
-    fn build_star(&mut self, inner: Ast) -> Fragment {
+    fn build_star(&mut self, inner: &Ast) -> Fragment {
         self.with_box(BoxKind::KleeneStar, move |builder| {
             let frag = builder.build(inner);
             let Fragment {

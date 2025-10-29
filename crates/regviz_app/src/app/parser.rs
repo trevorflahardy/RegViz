@@ -24,7 +24,7 @@ impl App {
         // Try to lex the input into tokens
         match parser::Ast::build(self.input.trim()) {
             Ok(ast) => {
-                let nfa = nfa::build_nfa(ast.clone());
+                let nfa = nfa::build_nfa(&ast);
                 let alphabet = nfa.alphabet();
                 self.build_artifacts = Some(BuildArtifacts {
                     ast,
@@ -37,7 +37,7 @@ impl App {
             }
             Err(e) => {
                 // Lex error
-                self.error = Some(format!("Lex error: {}", e));
+                self.error = Some(format!("Build error: {}", e));
                 self.build_artifacts = None;
             }
         }
