@@ -14,13 +14,6 @@ impl App {
     /// On success, `build_artifacts` is populated and `error` is cleared.
     /// On failure, `error` is set and `build_artifacts` is cleared.
     pub fn lex_and_parse(&mut self) {
-        // Empty input is not an error, just clears everything
-        if self.input.is_empty() {
-            self.error = None;
-            self.build_artifacts = None;
-            return;
-        }
-
         // Try to lex the input into tokens
         match parser::Ast::build(self.input.trim()) {
             Ok(ast) => {
