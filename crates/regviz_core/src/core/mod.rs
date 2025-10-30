@@ -24,8 +24,6 @@ pub struct BuildArtifacts {
     pub dfa: Option<Dfa>,
     /// A lazily computed minimal DFA.
     pub min_dfa: Option<Dfa>,
-    /// Alphabet corresponding to the DFA transition table when available.
-    pub dfa_alphabet: Option<Vec<char>>,
 }
 
 impl BuildArtifacts {
@@ -38,7 +36,6 @@ impl BuildArtifacts {
             alphabet,
             dfa: None,
             min_dfa: None,
-            dfa_alphabet: None,
         }
     }
 }
