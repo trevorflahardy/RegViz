@@ -27,6 +27,9 @@ pub struct App {
 
     /// Interactive simulation state for stepping through input strings.
     pub simulation: SimulationState,
+
+    /// Validation error for the simulation input, if any.
+    pub simulation_error: Option<String>,
 }
 
 impl Default for App {
@@ -35,10 +38,11 @@ impl Default for App {
             input: String::new(),
             error: None,
             build_artifacts: None,
-            box_visibility: BoxVisibility::default(),
+            box_visibility: BoxVisibility::minimized(),
             zoom_factor: DEFAULT_ZOOM_FACTOR,
             view_mode: ViewMode::Nfa, // Default to NFA view
             simulation: SimulationState::default(),
+            simulation_error: None,
         }
     }
 }
