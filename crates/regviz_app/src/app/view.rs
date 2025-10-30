@@ -292,9 +292,7 @@ impl App {
                 let Some(dfa) = artifacts.dfa.clone() else {
                     return text("Determinized DFA is not available").into();
                 };
-                let Some(alphabet) = artifacts.dfa_alphabet.clone() else {
-                    return text("DFA alphabet is not available").into();
-                };
+                let alphabet = artifacts.alphabet.clone();
                 let highlights: Highlights =
                     self.simulation.current_highlights().unwrap_or_default();
                 let graph = VisualDfa::new(dfa, alphabet, highlights);
