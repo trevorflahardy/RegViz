@@ -1,6 +1,6 @@
-use iced::Point;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas::{Frame, Path, Stroke, Text};
+use iced::{Color, Point};
 use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::{BoxId, StateId};
 
@@ -37,6 +37,8 @@ pub struct GraphNode {
     /// Bounding box identifier that owns this node, if any.
     #[allow(dead_code)]
     pub box_id: Option<BoxId>,
+    /// Whether this node is part of the active simulation frontier.
+    pub is_active: bool,
 }
 
 impl GraphNode {
@@ -55,7 +57,15 @@ impl GraphNode {
             is_start,
             is_accept,
             box_id,
+            is_active: false,
         }
+    }
+
+    /// Marks the node as active (or inactive) for the current simulation step.
+    #[must_use]
+    pub fn with_active(mut self, is_active: bool) -> Self {
+        self.is_active = is_active;
+        self
     }
 }
 
@@ -87,23 +97,38 @@ impl Drawable for PositionedNode {
         let center = ctx.transform_point(self.position);
         let radius = self.radius * ctx.zoom;
         let circle = Path::circle(center, radius);
+        let fill_color = if self.data.is_active {
+            active_node_fill()
+        } else {
+            Color::WHITE
+        };
+        let outline_color = if self.data.is_active {
+            active_node_outline()
+        } else {
+            default_node_outline()
+        };
 
-        frame.fill(&circle, iced::Color::WHITE);
-        frame.stroke(&circle, Stroke::default().with_width(NODE_OUTLINE_WIDTH));
+        frame.fill(&circle, fill_color);
+        frame.stroke(
+            &circle,
+            Stroke::default()
+                .with_width(NODE_OUTLINE_WIDTH)
+                .with_color(outline_color),
+        );
 
         if self.data.is_accept {
             draw_accepting_ring(frame, center, radius);
         }
 
         if self.data.is_start {
-            draw_start_arrow(frame, center, radius);
+            draw_start_arrow(frame, center, radius, outline_color);
         }
 
         if !self.data.label.is_empty() {
             frame.fill_text(Text {
                 content: self.data.label.clone(),
                 position: center,
-                color: iced::Color::from_rgb(0.1, 0.1, 0.1),
+                color: label_color(self.data.is_active),
                 horizontal_alignment: Horizontal::Center,
                 vertical_alignment: Vertical::Center,
                 ..Text::default()
@@ -117,13 +142,20 @@ fn draw_accepting_ring<R: Renderer>(frame: &mut Frame<R>, center: Point, radius:
     frame.stroke(&inner, Stroke::default().with_width(AUXILIARY_STROKE_WIDTH));
 }
 
-fn draw_start_arrow<R: Renderer>(frame: &mut Frame<R>, center: Point, radius: f32) {
+fn draw_start_arrow<R: Renderer>(
+    frame: &mut Frame<R>,
+    center: Point,
+    radius: f32,
+    outline_color: Color,
+) {
     let arrow_tail = Point::new(center.x - radius * START_ARROW_DISTANCE_FACTOR, center.y);
     let arrow_tip = Point::new(center.x - radius * START_ARROW_HEAD_OFFSET, center.y);
     let arrow = Path::line(arrow_tail, arrow_tip);
     frame.stroke(
         &arrow,
-        Stroke::default().with_width(START_ARROW_STROKE_WIDTH),
+        Stroke::default()
+            .with_width(START_ARROW_STROKE_WIDTH)
+            .with_color(outline_color),
     );
 
     let head_base = Point::new(arrow_tip.x - START_ARROW_HEAD_LENGTH, arrow_tip.y);
@@ -139,6 +171,31 @@ fn draw_start_arrow<R: Renderer>(frame: &mut Frame<R>, center: Point, radius: f3
         ));
         builder.close();
     });
-    frame.fill(&head, iced::Color::WHITE);
-    frame.stroke(&head, Stroke::default().with_width(AUXILIARY_STROKE_WIDTH));
+    frame.fill(&head, Color::WHITE);
+    frame.stroke(
+        &head,
+        Stroke::default()
+            .with_width(AUXILIARY_STROKE_WIDTH)
+            .with_color(outline_color),
+    );
+}
+
+fn active_node_fill() -> Color {
+    Color::from_rgb8(129, 199, 132)
+}
+
+fn active_node_outline() -> Color {
+    Color::from_rgb8(56, 142, 60)
+}
+
+fn default_node_outline() -> Color {
+    Color::from_rgb(0.15, 0.15, 0.15)
+}
+
+fn label_color(active: bool) -> Color {
+    if active {
+        Color::from_rgb8(15, 63, 21)
+    } else {
+        Color::from_rgb(0.1, 0.1, 0.1)
+    }
 }
