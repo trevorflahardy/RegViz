@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR};
 use super::message::{InputMessage, Message, SimulationMessage, ViewMessage, ViewMode};
 use super::simulation::{SimulationTarget, build_dfa_trace, build_nfa_trace};
@@ -58,7 +60,7 @@ impl App {
     fn handle_simulation_input_changed(&mut self, input: String) {
         self.simulation.input = input;
         self.simulation.reset_cursor();
-        self.rebuild_simulation_trace();
+        self.refresh_simulation_trace();
     }
 
     /// Steps the simulation forward when possible.
@@ -74,6 +76,7 @@ impl App {
     /// Resets the simulation to the initial state.
     fn handle_simulation_reset(&mut self) {
         self.simulation.reset_cursor();
+        self.refresh_simulation_trace();
     }
 
     /// Switches between NFA and DFA simulation modes.
@@ -84,11 +87,61 @@ impl App {
 
         self.simulation.target = target;
         self.simulation.reset_cursor();
+        self.refresh_simulation_trace();
+    }
+
+    /// Validates the simulation input and rebuilds the trace when valid.
+    pub(crate) fn refresh_simulation_trace(&mut self) {
+        if let Some(error) = self.validate_simulation_input() {
+            self.simulation_error = Some(error);
+            self.simulation.clear_trace();
+            return;
+        }
+
+        self.simulation_error = None;
         self.rebuild_simulation_trace();
+    }
+
+    /// Returns an error if the simulation input uses symbols outside the regex alphabet.
+    fn validate_simulation_input(&self) -> Option<String> {
+        let Some(artifacts) = &self.build_artifacts else {
+            return None;
+        };
+
+        if self.simulation.input.is_empty() {
+            return None;
+        }
+
+        let alphabet: BTreeSet<char> = artifacts.alphabet.iter().copied().collect();
+        let invalid: BTreeSet<char> = self
+            .simulation
+            .input
+            .chars()
+            .filter(|symbol| !alphabet.contains(symbol))
+            .collect();
+
+        if invalid.is_empty() {
+            None
+        } else {
+            let symbols = invalid
+                .iter()
+                .map(|symbol| format!("'{}'", symbol))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            Some(format!(
+                "Input contains symbol(s) outside the regex alphabet: {}",
+                symbols
+            ))
+        }
     }
 
     /// Recomputes the simulation trace for the current target automaton.
     pub(crate) fn rebuild_simulation_trace(&mut self) {
+        if self.simulation_error.is_some() {
+            return;
+        }
+
         let Some(artifacts) = self.build_artifacts.as_mut() else {
             self.simulation.clear_trace();
             return;
@@ -103,21 +156,17 @@ impl App {
             }
             SimulationTarget::Dfa => {
                 if artifacts.dfa.is_none() {
-                    let (dfa, alphabet) = dfa::determinize(&artifacts.nfa);
+                    let (dfa, determinized_alphabet) = dfa::determinize(&artifacts.nfa);
+                    debug_assert_eq!(determinized_alphabet, artifacts.alphabet);
                     artifacts.dfa = Some(dfa);
-                    artifacts.dfa_alphabet = Some(alphabet);
                 }
 
                 let Some(dfa) = artifacts.dfa.as_ref() else {
                     self.simulation.clear_trace();
                     return;
                 };
-                let Some(alphabet) = artifacts.dfa_alphabet.as_ref() else {
-                    self.simulation.clear_trace();
-                    return;
-                };
 
-                let trace = build_dfa_trace(dfa, alphabet, input);
+                let trace = build_dfa_trace(dfa, &artifacts.alphabet, input);
                 self.simulation.set_trace(Some(trace));
             }
         }
