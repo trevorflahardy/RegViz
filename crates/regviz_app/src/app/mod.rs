@@ -1,6 +1,7 @@
 mod constants;
 mod message;
 mod parser;
+mod simulation;
 mod state;
 mod update;
 mod view;
