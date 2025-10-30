@@ -75,11 +75,8 @@ fn render_automaton_canvas<'a>(
             let Some(dfa) = artifacts.dfa.clone() else {
                 return text("Determinized DFA is not available").into();
             };
-            let Some(alphabet) = artifacts.dfa_alphabet.clone() else {
-                return text("DFA alphabet is not available").into();
-            };
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
-            let graph = VisualDfa::new(dfa, alphabet, highlights);
+            let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);
             let canvas: GraphCanvas<VisualDfa, NfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 BoxVisibility::default(),
