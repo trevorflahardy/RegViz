@@ -16,6 +16,10 @@ const ARROW_HEAD_LENGTH: f32 = 10.0;
 /// Half-width of the arrow head at its base.
 const ARROW_HEAD_HALF_WIDTH: f32 = ARROW_HEAD_LENGTH * 0.5;
 
+const INACTIVE_EDGE_STROKE_WIDTH: f32 = 1.3;
+const ACTIVE_EDGE_STROKE_WIDTH: f32 = 2.4;
+const ACTIVE_ARROW_ALPHA: f32 = 0.35;
+
 /// Edge curvature style for different types of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EdgeCurve {
@@ -637,10 +641,6 @@ fn quadratic_bezier_point(p0: Point, p1: Point, p2: Point, t: f32) -> Point {
         mt2 * p0.y + 2.0 * mt * t * p1.y + t2 * p2.y,
     )
 }
-
-const INACTIVE_EDGE_STROKE_WIDTH: f32 = 1.3;
-const ACTIVE_EDGE_STROKE_WIDTH: f32 = 2.4;
-const ACTIVE_ARROW_ALPHA: f32 = 0.35;
 
 fn active_edge_color() -> Color {
     Color::from_rgb8(46, 125, 50)
