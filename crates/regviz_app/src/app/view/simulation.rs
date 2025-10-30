@@ -10,7 +10,14 @@ use crate::app::simulation::SimulationTarget;
 use crate::app::state::App;
 
 /// Renders controls for stepping through the simulation input.
-pub fn panel<'a>(app: &'a App, _artifacts: &'a BuildArtifacts) -> Element<'a, Message> {
+pub fn panel<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> Element<'a, Message> {
+    panel_column(app, artifacts).into()
+}
+
+fn panel_column<'a>(
+    app: &'a App,
+    _artifacts: &'a BuildArtifacts,
+) -> iced::widget::Column<'a, Message> {
     let target_toggle = target_buttons(app);
 
     let input_field = text_input("Enter an input string (e.g., abab)", &app.simulation.input)
@@ -18,25 +25,24 @@ pub fn panel<'a>(app: &'a App, _artifacts: &'a BuildArtifacts) -> Element<'a, Me
         .padding(8)
         .size(16);
 
-    let controls_row = step_controls(app);
+    let controls_row = step_controls(app, app.simulation_error.is_some());
+    let mut section = column![target_toggle, input_field].spacing(6);
+    let PanelMessages {
+        validation,
+        summary,
+    } = panel_messages(app);
 
-    let mut section = column![target_toggle, input_field, controls_row].spacing(6);
-
-    if let Some(summary) = summary_line(app) {
-        section = section.push(text(summary).size(14));
+    if let Some(error) = validation {
+        section = section.push(text(error).size(14));
     }
 
-    if let Some(states) = active_states_line(app) {
-        section = section.push(text(states).size(14));
+    section = section.push(controls_row);
+
+    for message in summary {
+        section = section.push(text(message).size(14));
     }
 
-    if app.simulation.is_current_rejection() {
-        section = section.push(text("Input string is not accepted.").size(14));
-    } else if acceptance_hint(app) {
-        section = section.push(text("Input string is accepted.").size(14));
-    }
-
-    section.into()
+    section
 }
 
 fn target_buttons(app: &App) -> Element<'_, Message> {
@@ -76,18 +82,19 @@ fn toggle_button(
         .into()
 }
 
-fn step_controls(app: &App) -> Element<'_, Message> {
+fn step_controls(app: &App, disabled: bool) -> Element<'_, Message> {
     let mut prev_button = button(text("Prev").size(14)).padding([4, 12]);
-    if app.simulation.can_step_backward() {
+    if !disabled && app.simulation.can_step_backward() {
         prev_button = prev_button.on_press(Message::Simulation(SimulationMessage::StepBackward));
     }
 
-    let reset_button = button(text("Reset").size(14))
-        .padding([4, 12])
-        .on_press(Message::Simulation(SimulationMessage::Reset));
+    let mut reset_button = button(text("Reset").size(14)).padding([4, 12]);
+    if !disabled {
+        reset_button = reset_button.on_press(Message::Simulation(SimulationMessage::Reset));
+    }
 
     let mut next_button = button(text("Next").size(14)).padding([4, 12]);
-    if app.simulation.can_step_forward() {
+    if !disabled && app.simulation.can_step_forward() {
         next_button = next_button.on_press(Message::Simulation(SimulationMessage::StepForward));
     }
 
@@ -167,4 +174,92 @@ fn acceptance_hint(app: &App) -> bool {
     }
 
     app.simulation.cursor + 1 == total_steps && step.accepted
+}
+
+struct PanelMessages {
+    validation: Option<String>,
+    summary: Vec<String>,
+}
+
+fn panel_messages(app: &App) -> PanelMessages {
+    let validation = app.simulation_error.clone();
+    let summary = summary_messages(app);
+    PanelMessages {
+        validation,
+        summary,
+    }
+}
+
+fn summary_messages(app: &App) -> Vec<String> {
+    let mut messages = Vec::new();
+
+    if let Some(summary) = summary_line(app) {
+        messages.push(summary);
+    }
+
+    if let Some(states) = active_states_line(app) {
+        messages.push(states);
+    }
+
+    if app.simulation.is_current_rejection() {
+        messages.push("Input string is not accepted.".to_string());
+    } else if acceptance_hint(app) {
+        messages.push("Input string is accepted.".to_string());
+    }
+
+    messages
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use regviz_core::core::{BuildArtifacts, nfa, parser};
+
+    use crate::app::simulation::{SimulationState, build_nfa_trace};
+
+    mod iced_test {
+        pub fn contains(haystack: &[String], needle: &str) -> bool {
+            haystack.iter().any(|message| message.contains(needle))
+        }
+    }
+
+    fn sample_artifacts() -> BuildArtifacts {
+        let ast = parser::Ast::build("a").expect("valid ast");
+        let nfa = nfa::build_nfa(&ast);
+        let alphabet = nfa.alphabet();
+        BuildArtifacts::new(ast, nfa, alphabet)
+    }
+
+    #[test]
+    fn panel_displays_simulation_error() {
+        let mut app = App::default();
+        app.simulation_error =
+            Some("Input contains symbol(s) outside the regex alphabet: 'x'".into());
+
+        let data = super::panel_messages(&app);
+        let combined = data
+            .validation
+            .iter()
+            .cloned()
+            .chain(data.summary.iter().cloned())
+            .collect::<Vec<_>>();
+
+        assert!(iced_test::contains(
+            &combined,
+            "Input contains symbol(s) outside the regex alphabet",
+        ));
+    }
+
+    #[test]
+    fn panel_enables_step_controls_when_trace_available() {
+        let mut app = App::default();
+        let artifacts = sample_artifacts();
+        let trace = build_nfa_trace(&artifacts.nfa, "a");
+        let mut simulation = SimulationState::default();
+        simulation.set_trace(Some(trace));
+        app.simulation = simulation;
+
+        let data = super::panel_messages(&app);
+        assert!(iced_test::contains(&data.summary, "Step")); // ensures summary present
+    }
 }
