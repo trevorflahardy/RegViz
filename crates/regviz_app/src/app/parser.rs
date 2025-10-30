@@ -25,17 +25,17 @@ impl App {
                     alphabet,
                     dfa: None,
                     min_dfa: None,
-                    dfa_alphabet: None,
                 });
                 self.error = None;
                 self.simulation.reset_cursor();
-                self.rebuild_simulation_trace();
+                self.refresh_simulation_trace();
             }
             Err(e) => {
                 // Lex error
                 self.error = Some(format!("Build error: {}", e));
                 self.build_artifacts = None;
                 self.simulation.clear_trace();
+                self.simulation_error = None;
             }
         }
     }
