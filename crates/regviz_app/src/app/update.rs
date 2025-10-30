@@ -1,6 +1,8 @@
 use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR};
 use super::message::Message;
+use super::simulation::{SimulationTarget, build_dfa_trace, build_nfa_trace};
 use super::state::App;
+use regviz_core::core::dfa;
 
 impl App {
     /// Handles incoming messages and updates application state accordingly.
@@ -20,6 +22,21 @@ impl App {
             }
             Message::ViewModeChanged(mode) => {
                 self.handle_view_mode_changed(mode);
+            }
+            Message::SimulationInputChanged(input) => {
+                self.handle_simulation_input_changed(input);
+            }
+            Message::SimulationStepForward => {
+                self.handle_simulation_step_forward();
+            }
+            Message::SimulationStepBackward => {
+                self.handle_simulation_step_backward();
+            }
+            Message::SimulationReset => {
+                self.handle_simulation_reset();
+            }
+            Message::SimulationTargetChanged(target) => {
+                self.handle_simulation_target_changed(target);
             }
         }
     }
@@ -43,5 +60,72 @@ impl App {
     /// Switches between AST and NFA visualization modes.
     fn handle_view_mode_changed(&mut self, mode: super::message::ViewMode) {
         self.view_mode = mode;
+    }
+
+    /// Updates the simulation input string and rebuilds the trace.
+    fn handle_simulation_input_changed(&mut self, input: String) {
+        self.simulation.input = input;
+        self.simulation.reset_cursor();
+        self.rebuild_simulation_trace();
+    }
+
+    /// Steps the simulation forward when possible.
+    fn handle_simulation_step_forward(&mut self) {
+        self.simulation.step_forward();
+    }
+
+    /// Steps the simulation backward when possible.
+    fn handle_simulation_step_backward(&mut self) {
+        self.simulation.step_backward();
+    }
+
+    /// Resets the simulation to the initial state.
+    fn handle_simulation_reset(&mut self) {
+        self.simulation.reset_cursor();
+    }
+
+    /// Switches between NFA and DFA simulation modes.
+    fn handle_simulation_target_changed(&mut self, target: SimulationTarget) {
+        if self.simulation.target == target {
+            return;
+        }
+
+        self.simulation.target = target;
+        self.simulation.reset_cursor();
+        self.rebuild_simulation_trace();
+    }
+
+    /// Recomputes the simulation trace for the current target automaton.
+    pub(crate) fn rebuild_simulation_trace(&mut self) {
+        let Some(artifacts) = self.build_artifacts.as_mut() else {
+            self.simulation.clear_trace();
+            return;
+        };
+
+        let input = self.simulation.input.as_str();
+
+        match self.simulation.target {
+            SimulationTarget::Nfa => {
+                let trace = build_nfa_trace(&artifacts.nfa, input);
+                self.simulation.set_trace(Some(trace));
+            }
+            SimulationTarget::Dfa => {
+                if artifacts.dfa.is_none() {
+                    // TODO: Currently the DFA alphabet is assumed to be the same as the NFA alphabet - I believe this is correct. Maybe look into if the determinize function needs to actually return its alphabet or not.
+                    let (dfa, _alphabet) = dfa::determinize(&artifacts.nfa);
+                    artifacts.dfa = Some(dfa);
+                }
+
+                let Some(dfa) = artifacts.dfa.as_ref() else {
+                    self.simulation.clear_trace();
+                    return;
+                };
+
+                let alphabet = &artifacts.alphabet;
+
+                let trace = build_dfa_trace(dfa, alphabet, input);
+                self.simulation.set_trace(Some(trace));
+            }
+        }
     }
 }
