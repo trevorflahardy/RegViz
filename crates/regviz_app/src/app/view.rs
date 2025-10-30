@@ -2,13 +2,14 @@ use iced::{
     Alignment, Element, Length,
     widget::{Canvas, button, column, container, row, slider, text, text_input},
 };
-use regviz_core::core::{automaton::BoxKind, nfa};
+use regviz_core::core::{BuildArtifacts, automaton::BoxKind};
 
 use crate::graph::layout::{NfaLayoutStrategy, TreeLayoutStrategy};
-use crate::graph::{AstGraph, BoxVisibility, GraphCanvas};
+use crate::graph::{AstGraph, BoxVisibility, GraphCanvas, Highlights, VisualDfa, VisualNfa};
 
 use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR};
 use super::message::{Message, ViewMode};
+use super::simulation::SimulationTarget;
 use super::state::App;
 
 impl App {
@@ -27,10 +28,10 @@ impl App {
         col = col.push(self.render_input_section());
 
         // Only show visualizations if we have valid artifacts
-        if self.build_artifacts.is_some() {
+        if let Some(artifacts) = &self.build_artifacts {
             col = col.push(self.render_view_mode_toggle());
-            col = col.push(self.render_mode_specific_controls());
-            col = col.push(self.render_visualization());
+            col = col.push(self.render_mode_specific_controls(artifacts));
+            col = col.push(self.render_visualization(artifacts));
         }
 
         col.into()
@@ -92,18 +93,93 @@ impl App {
     }
 
     /// Renders controls that are specific to the current view mode.
-    fn render_mode_specific_controls(&self) -> Element<'_, Message> {
-        let mut controls = column![].spacing(8);
+    fn render_mode_specific_controls(&self, artifacts: &BuildArtifacts) -> Element<'_, Message> {
+        let mut controls = column![].spacing(10);
 
-        // Show box visibility toggles only in NFA mode
         if self.view_mode == ViewMode::Nfa {
-            controls = controls.push(self.render_box_toggles());
+            controls = controls.push(self.render_simulation_controls(artifacts));
+
+            if self.simulation.target == SimulationTarget::Nfa {
+                controls = controls.push(self.render_box_toggles());
+            }
         }
 
-        // Zoom controls are available in both modes
         controls = controls.push(self.render_zoom_controls());
 
         controls.into()
+    }
+
+    /// Renders controls for stepping through the simulation input.
+    fn render_simulation_controls(&self, artifacts: &BuildArtifacts) -> Element<'_, Message> {
+        let target_toggle = row![
+            text("Simulate:").size(14),
+            self.create_simulation_target_button(SimulationTarget::Nfa),
+            self.create_simulation_target_button(SimulationTarget::Dfa),
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+
+        let input_field = text_input("Enter an input string (e.g., abab)", &self.simulation.input)
+            .on_input(Message::SimulationInputChanged)
+            .padding(8)
+            .size(16);
+
+        let mut prev_button = button(text("Prev").size(14)).padding([4, 12]);
+        if self.simulation.can_step_backward() {
+            prev_button = prev_button.on_press(Message::SimulationStepBackward);
+        }
+
+        let mut next_button = button(text("Next").size(14)).padding([4, 12]);
+        if self.simulation.can_step_forward() {
+            next_button = next_button.on_press(Message::SimulationStepForward);
+        }
+
+        let reset_button = button(text("Reset").size(14))
+            .padding([4, 12])
+            .on_press(Message::SimulationReset);
+
+        let step_label = self
+            .simulation_step_label()
+            .unwrap_or_else(|| "Step –".to_string());
+
+        let controls_row = row![
+            prev_button,
+            reset_button,
+            next_button,
+            text(step_label).size(14),
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+
+        let mut section = column![target_toggle, input_field, controls_row].spacing(6);
+
+        if let Some(summary) = self.simulation_summary_line(artifacts) {
+            section = section.push(text(summary).size(14));
+        }
+
+        if let Some(states) = self.simulation_active_states_line() {
+            section = section.push(text(states).size(14));
+        }
+
+        section.into()
+    }
+
+    /// Creates a toggle button for selecting the simulation target automaton.
+    fn create_simulation_target_button(&self, target: SimulationTarget) -> Element<'_, Message> {
+        let label = match target {
+            SimulationTarget::Nfa => "NFA",
+            SimulationTarget::Dfa => "DFA",
+        };
+        let text_label = if self.simulation.target == target {
+            format!("{} ✓", label)
+        } else {
+            label.to_string()
+        };
+
+        button(text(text_label).size(14))
+            .padding([4, 12])
+            .on_press(Message::SimulationTargetChanged(target))
+            .into()
     }
 
     /// Renders buttons for toggling bounding box visibility (NFA only).
@@ -154,22 +230,21 @@ impl App {
     }
 
     /// Renders the active visualization (AST or NFA).
-    fn render_visualization(&self) -> Element<'_, Message> {
-        let Some(artifacts) = &self.build_artifacts else {
-            return text("No visualization available").into();
-        };
-
+    fn render_visualization(&self, artifacts: &BuildArtifacts) -> Element<'_, Message> {
         let canvas = match self.view_mode {
             ViewMode::Ast => self.render_ast_canvas(artifacts),
-            ViewMode::Nfa => self.render_nfa_canvas(artifacts),
+            ViewMode::Nfa => self.render_automaton_canvas(artifacts),
         };
 
-        let title = text(match self.view_mode {
+        let title_text = match self.view_mode {
             ViewMode::Ast => "Parse Tree Visualization",
-            ViewMode::Nfa => "NFA Visualization",
-        })
-        .size(18);
+            ViewMode::Nfa => match self.simulation.target {
+                SimulationTarget::Nfa => "NFA Simulation",
+                SimulationTarget::Dfa => "DFA Simulation",
+            },
+        };
 
+        let title = text(title_text).size(18);
         let content = column![title, canvas].spacing(12).height(Length::Fill);
 
         container(content).padding(20).height(Length::Fill).into()
@@ -194,21 +269,117 @@ impl App {
             .into()
     }
 
-    /// Creates an NFA visualization canvas.
-    fn render_nfa_canvas(
-        &self,
-        artifacts: &regviz_core::core::BuildArtifacts,
-    ) -> Element<'_, Message> {
-        let canvas: GraphCanvas<nfa::Nfa, NfaLayoutStrategy> = GraphCanvas::new(
-            artifacts.nfa.clone(),
-            self.box_visibility.clone(),
-            self.zoom_factor,
-            NfaLayoutStrategy,
-        );
+    /// Creates an automaton visualization canvas for the active simulation target.
+    fn render_automaton_canvas(&self, artifacts: &BuildArtifacts) -> Element<'_, Message> {
+        match self.simulation.target {
+            SimulationTarget::Nfa => {
+                let highlights: Highlights =
+                    self.simulation.current_highlights().unwrap_or_default();
+                let graph = VisualNfa::new(artifacts.nfa.clone(), highlights);
+                let canvas: GraphCanvas<VisualNfa, NfaLayoutStrategy> = GraphCanvas::new(
+                    graph,
+                    self.box_visibility.clone(),
+                    self.zoom_factor,
+                    NfaLayoutStrategy,
+                );
 
-        Canvas::new(canvas)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into()
+                Canvas::new(canvas)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into()
+            }
+            SimulationTarget::Dfa => {
+                let Some(dfa) = artifacts.dfa.clone() else {
+                    return text("Determinized DFA is not available").into();
+                };
+                let Some(alphabet) = artifacts.dfa_alphabet.clone() else {
+                    return text("DFA alphabet is not available").into();
+                };
+                let highlights: Highlights =
+                    self.simulation.current_highlights().unwrap_or_default();
+                let graph = VisualDfa::new(dfa, alphabet, highlights);
+                let canvas: GraphCanvas<VisualDfa, NfaLayoutStrategy> = GraphCanvas::new(
+                    graph,
+                    BoxVisibility::default(),
+                    self.zoom_factor,
+                    NfaLayoutStrategy,
+                );
+
+                Canvas::new(canvas)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into()
+            }
+        }
+    }
+
+    fn simulation_step_label(&self) -> Option<String> {
+        let step = self.simulation.current_step()?;
+        let total = self.simulation.step_count()?;
+        let max_index = total.saturating_sub(1);
+        Some(format!("Step {} / {}", step.index, max_index))
+    }
+
+    fn simulation_summary_line(&self, artifacts: &BuildArtifacts) -> Option<String> {
+        let step = self.simulation.current_step()?;
+        let total = self.simulation.step_count()?;
+        let max_index = total.saturating_sub(1);
+        let consumed = match step.consumed {
+            Some(ch) => format!("Consumed: '{}'", ch),
+            None => "Consumed: –".to_string(),
+        };
+        let accepting = match self.simulation_accepting(artifacts) {
+            Some(true) => "Accepting: Yes",
+            Some(false) => "Accepting: No",
+            None => "Accepting: –",
+        };
+
+        Some(format!(
+            "Step {} / {} • {} • {}",
+            step.index, max_index, consumed, accepting
+        ))
+    }
+
+    fn simulation_active_states_line(&self) -> Option<String> {
+        let step = self.simulation.current_step()?;
+        let mut states: Vec<_> = step.active_states.iter().copied().collect();
+        states.sort_unstable();
+
+        let states_text = if states.is_empty() {
+            "∅".to_string()
+        } else {
+            states
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+
+        let target_label = match self.simulation.target {
+            SimulationTarget::Nfa => "NFA",
+            SimulationTarget::Dfa => "DFA",
+        };
+
+        Some(format!("Active {} states: {}", target_label, states_text))
+    }
+
+    fn simulation_accepting(&self, artifacts: &BuildArtifacts) -> Option<bool> {
+        let step = self.simulation.current_step()?;
+
+        match self.simulation.target {
+            SimulationTarget::Nfa => Some(
+                step.active_states
+                    .iter()
+                    .any(|state| artifacts.nfa.accepts.contains(state)),
+            ),
+            SimulationTarget::Dfa => {
+                let dfa = artifacts.dfa.as_ref()?;
+                Some(
+                    step.active_states
+                        .iter()
+                        .any(|state| dfa.accepts.contains(state)),
+                )
+            }
+        }
     }
 }
