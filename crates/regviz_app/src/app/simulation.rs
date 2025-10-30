@@ -1,11 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use regviz_core::core::automaton::{EdgeLabel, StateId};
 use regviz_core::core::dfa::Dfa;
 use regviz_core::core::nfa::Nfa;
 use regviz_core::core::sim;
 
-use crate::graph::{EdgeHighlight, Highlights};
+use crate::graph::{EdgeHighlight, Highlights, StateHighlight};
 
 /// Specifies which automaton should drive the simulation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +33,8 @@ pub struct SimulationStep {
     pub active_states: HashSet<StateId>,
     /// Edges that were taken while advancing to this step.
     pub traversed_edges: HashSet<EdgeHighlight>,
+    /// Whether this step represents an accepting frontier.
+    pub accepted: bool,
 }
 
 impl SimulationStep {
@@ -43,12 +45,14 @@ impl SimulationStep {
         consumed: Option<char>,
         active_states: HashSet<StateId>,
         traversed_edges: HashSet<EdgeHighlight>,
+        accepted: bool,
     ) -> Self {
         Self {
             index,
             consumed,
             active_states,
             traversed_edges,
+            accepted,
         }
     }
 }
@@ -138,10 +142,20 @@ impl SimulationState {
     #[must_use]
     pub fn current_highlights(&self) -> Option<Highlights> {
         let step = self.current_step()?;
-        Some(Highlights::from_sets(
-            step.active_states.clone(),
-            step.traversed_edges.clone(),
-        ))
+        let total_steps = self.step_count()?;
+        let is_terminal_step = self.cursor + 1 == total_steps;
+        let highlight_style = if is_terminal_step && !step.accepted {
+            StateHighlight::Rejected
+        } else {
+            StateHighlight::Active
+        };
+
+        let mut states = HashMap::new();
+        for state in &step.active_states {
+            states.insert(*state, highlight_style);
+        }
+
+        Some(Highlights::new(states, step.traversed_edges.clone()))
     }
 
     /// Returns whether stepping backward is possible.
@@ -177,6 +191,18 @@ impl SimulationState {
     pub fn reset_cursor(&mut self) {
         self.cursor = 0;
     }
+
+    /// Returns whether the cursor is positioned at the terminal step without acceptance.
+    #[must_use]
+    pub fn is_current_rejection(&self) -> bool {
+        let Some(step) = self.current_step() else {
+            return false;
+        };
+        let Some(total_steps) = self.step_count() else {
+            return false;
+        };
+        self.cursor + 1 == total_steps && !step.accepted
+    }
 }
 
 /// Builds a simulation trace for an NFA by computing epsilon closures between steps.
@@ -187,11 +213,13 @@ pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
     let mut current: HashSet<StateId> = HashSet::new();
     current.insert(nfa.start);
     current = sim::epsilon_closure(&current, nfa);
+    let initial_accepting = current.iter().any(|state| nfa.accepts.contains(state));
     steps.push(SimulationStep::new(
         0,
         None,
         current.clone(),
         HashSet::new(),
+        initial_accepting,
     ));
 
     for (idx, ch) in input.chars().enumerate() {
@@ -211,12 +239,14 @@ pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
 
         let moved = sim::move_on(&current, ch, nfa);
         let next = sim::epsilon_closure(&moved, nfa);
+        let accepting = next.iter().any(|state| nfa.accepts.contains(state));
 
         steps.push(SimulationStep::new(
             idx + 1,
             Some(ch),
             next.clone(),
             traversed,
+            accepting,
         ));
         current = next;
     }
@@ -232,7 +262,14 @@ pub fn build_dfa_trace(dfa: &Dfa, alphabet: &[char], input: &str) -> SimulationT
 
     let mut initial = HashSet::new();
     initial.insert(dfa.start);
-    steps.push(SimulationStep::new(0, None, initial, HashSet::new()));
+    let initial_accepting = initial.iter().any(|state| dfa.accepts.contains(state));
+    steps.push(SimulationStep::new(
+        0,
+        None,
+        initial,
+        HashSet::new(),
+        initial_accepting,
+    ));
 
     for (idx, ch) in input.chars().enumerate() {
         let mut traversed = HashSet::new();
@@ -254,8 +291,15 @@ pub fn build_dfa_trace(dfa: &Dfa, alphabet: &[char], input: &str) -> SimulationT
         if let Some(state) = current {
             active.insert(state);
         }
+        let accepting = active.iter().any(|state| dfa.accepts.contains(state));
 
-        steps.push(SimulationStep::new(idx + 1, Some(ch), active, traversed));
+        steps.push(SimulationStep::new(
+            idx + 1,
+            Some(ch),
+            active,
+            traversed,
+            accepting,
+        ));
     }
 
     SimulationTrace::new(steps)

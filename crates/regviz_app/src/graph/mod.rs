@@ -16,7 +16,7 @@ pub use canvas::GraphCanvas;
 pub use dfa::VisualDfa;
 pub use draw::{DrawContext, Drawable};
 pub use edge::GraphEdge;
-pub use highlight::{EdgeHighlight, Highlights};
+pub use highlight::{EdgeHighlight, Highlights, StateHighlight};
 pub use layout::{BoxVisibility, GraphLayout};
 pub use nfa::VisualNfa;
 pub use node::GraphNode;

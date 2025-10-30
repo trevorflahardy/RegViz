@@ -4,7 +4,7 @@ use iced::{Color, Point};
 use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::{BoxId, StateId};
 
-use super::{DrawContext, Drawable};
+use super::{DrawContext, Drawable, StateHighlight};
 
 /// Width of the gap between the outer and inner circle for accepting states.
 const ACCEPT_RING_GAP: f32 = 4.0;
@@ -37,8 +37,8 @@ pub struct GraphNode {
     /// Bounding box identifier that owns this node, if any.
     #[allow(dead_code)]
     pub box_id: Option<BoxId>,
-    /// Whether this node is part of the active simulation frontier.
-    pub is_active: bool,
+    /// Optional highlight applied during simulation.
+    pub highlight: Option<StateHighlight>,
 }
 
 impl GraphNode {
@@ -57,14 +57,14 @@ impl GraphNode {
             is_start,
             is_accept,
             box_id,
-            is_active: false,
+            highlight: None,
         }
     }
 
-    /// Marks the node as active (or inactive) for the current simulation step.
+    /// Applies a highlight style for the current simulation step.
     #[must_use]
-    pub fn with_active(mut self, is_active: bool) -> Self {
-        self.is_active = is_active;
+    pub fn with_highlight(mut self, highlight: Option<StateHighlight>) -> Self {
+        self.highlight = highlight;
         self
     }
 }
@@ -97,16 +97,9 @@ impl Drawable for PositionedNode {
         let center = ctx.transform_point(self.position);
         let radius = self.radius * ctx.zoom;
         let circle = Path::circle(center, radius);
-        let fill_color = if self.data.is_active {
-            active_node_fill()
-        } else {
-            Color::WHITE
-        };
-        let outline_color = if self.data.is_active {
-            active_node_outline()
-        } else {
-            default_node_outline()
-        };
+        let highlight = self.data.highlight;
+        let fill_color = highlight_fill_color(highlight);
+        let outline_color = highlight_outline_color(highlight);
 
         frame.fill(&circle, fill_color);
         frame.stroke(
@@ -128,7 +121,7 @@ impl Drawable for PositionedNode {
             frame.fill_text(Text {
                 content: self.data.label.clone(),
                 position: center,
-                color: label_color(self.data.is_active),
+                color: label_color(highlight),
                 horizontal_alignment: Horizontal::Center,
                 vertical_alignment: Vertical::Center,
                 ..Text::default()
@@ -192,10 +185,34 @@ fn default_node_outline() -> Color {
     Color::from_rgb(0.15, 0.15, 0.15)
 }
 
-fn label_color(active: bool) -> Color {
-    if active {
-        Color::from_rgb8(15, 63, 21)
-    } else {
-        Color::from_rgb(0.1, 0.1, 0.1)
+fn rejected_node_fill() -> Color {
+    Color::from_rgb8(239, 154, 154)
+}
+
+fn rejected_node_outline() -> Color {
+    Color::from_rgb8(198, 40, 40)
+}
+
+fn highlight_fill_color(highlight: Option<StateHighlight>) -> Color {
+    match highlight {
+        Some(StateHighlight::Active) => active_node_fill(),
+        Some(StateHighlight::Rejected) => rejected_node_fill(),
+        None => Color::WHITE,
+    }
+}
+
+fn highlight_outline_color(highlight: Option<StateHighlight>) -> Color {
+    match highlight {
+        Some(StateHighlight::Active) => active_node_outline(),
+        Some(StateHighlight::Rejected) => rejected_node_outline(),
+        None => default_node_outline(),
+    }
+}
+
+fn label_color(highlight: Option<StateHighlight>) -> Color {
+    match highlight {
+        Some(StateHighlight::Active) => Color::from_rgb8(15, 63, 21),
+        Some(StateHighlight::Rejected) => Color::from_rgb8(97, 13, 20),
+        None => Color::from_rgb(0.1, 0.1, 0.1),
     }
 }

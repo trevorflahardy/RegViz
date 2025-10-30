@@ -25,6 +25,7 @@ impl App {
                     alphabet,
                     dfa: None,
                     min_dfa: None,
+                    dfa_alphabet: None,
                 });
                 self.error = None;
                 self.simulation.reset_cursor();

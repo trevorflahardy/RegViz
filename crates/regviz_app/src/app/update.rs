@@ -1,5 +1,5 @@
 use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR};
-use super::message::Message;
+use super::message::{InputMessage, Message, SimulationMessage, ViewMessage, ViewMode};
 use super::simulation::{SimulationTarget, build_dfa_trace, build_nfa_trace};
 use super::state::App;
 use regviz_core::core::dfa;
@@ -11,33 +11,25 @@ impl App {
     /// and updates the app state in response.
     pub fn update(&mut self, message: Message) {
         match message {
-            Message::InputChanged(input) => {
-                self.handle_input_changed(input);
-            }
-            Message::ToggleBox(kind) => {
-                self.handle_toggle_box(kind);
-            }
-            Message::ZoomChanged(value) => {
-                self.handle_zoom_changed(value);
-            }
-            Message::ViewModeChanged(mode) => {
-                self.handle_view_mode_changed(mode);
-            }
-            Message::SimulationInputChanged(input) => {
-                self.handle_simulation_input_changed(input);
-            }
-            Message::SimulationStepForward => {
-                self.handle_simulation_step_forward();
-            }
-            Message::SimulationStepBackward => {
-                self.handle_simulation_step_backward();
-            }
-            Message::SimulationReset => {
-                self.handle_simulation_reset();
-            }
-            Message::SimulationTargetChanged(target) => {
-                self.handle_simulation_target_changed(target);
-            }
+            Message::Input(input_msg) => match input_msg {
+                InputMessage::Changed(value) => self.handle_input_changed(value),
+            },
+            Message::Simulation(sim_msg) => match sim_msg {
+                SimulationMessage::InputChanged(value) => {
+                    self.handle_simulation_input_changed(value)
+                }
+                SimulationMessage::StepForward => self.handle_simulation_step_forward(),
+                SimulationMessage::StepBackward => self.handle_simulation_step_backward(),
+                SimulationMessage::Reset => self.handle_simulation_reset(),
+                SimulationMessage::TargetChanged(target) => {
+                    self.handle_simulation_target_changed(target)
+                }
+            },
+            Message::View(view_msg) => match view_msg {
+                ViewMessage::ToggleBox(kind) => self.handle_toggle_box(kind),
+                ViewMessage::ZoomChanged(value) => self.handle_zoom_changed(value),
+                ViewMessage::ViewModeChanged(mode) => self.handle_view_mode_changed(mode),
+            },
         }
     }
 
@@ -58,7 +50,7 @@ impl App {
     }
 
     /// Switches between AST and NFA visualization modes.
-    fn handle_view_mode_changed(&mut self, mode: super::message::ViewMode) {
+    fn handle_view_mode_changed(&mut self, mode: ViewMode) {
         self.view_mode = mode;
     }
 
@@ -111,17 +103,19 @@ impl App {
             }
             SimulationTarget::Dfa => {
                 if artifacts.dfa.is_none() {
-                    // TODO: Currently the DFA alphabet is assumed to be the same as the NFA alphabet - I believe this is correct. Maybe look into if the determinize function needs to actually return its alphabet or not.
-                    let (dfa, _alphabet) = dfa::determinize(&artifacts.nfa);
+                    let (dfa, alphabet) = dfa::determinize(&artifacts.nfa);
                     artifacts.dfa = Some(dfa);
+                    artifacts.dfa_alphabet = Some(alphabet);
                 }
 
                 let Some(dfa) = artifacts.dfa.as_ref() else {
                     self.simulation.clear_trace();
                     return;
                 };
-
-                let alphabet = &artifacts.alphabet;
+                let Some(alphabet) = artifacts.dfa_alphabet.as_ref() else {
+                    self.simulation.clear_trace();
+                    return;
+                };
 
                 let trace = build_dfa_trace(dfa, alphabet, input);
                 self.simulation.set_trace(Some(trace));

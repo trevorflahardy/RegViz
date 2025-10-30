@@ -41,7 +41,7 @@ fn build_nodes(dfa: &Dfa, highlights: &Highlights) -> Vec<GraphNode> {
     dfa.states
         .iter()
         .map(|state_id| {
-            let is_active = highlights.is_state_active(*state_id);
+            let highlight = highlights.state_style(*state_id);
             GraphNode::new(
                 *state_id,
                 state_id.to_string(),
@@ -49,7 +49,7 @@ fn build_nodes(dfa: &Dfa, highlights: &Highlights) -> Vec<GraphNode> {
                 dfa.accepts.contains(state_id),
                 None,
             )
-            .with_active(is_active)
+            .with_highlight(highlight)
         })
         .collect()
 }
