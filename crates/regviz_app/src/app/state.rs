@@ -2,6 +2,7 @@ use regviz_core::core::BuildArtifacts;
 
 use super::constants::DEFAULT_ZOOM_FACTOR;
 use super::message::ViewMode;
+use super::simulation::SimulationState;
 use crate::graph::BoxVisibility;
 
 /// Main application state.
@@ -23,6 +24,9 @@ pub struct App {
 
     /// Currently active visualization mode.
     pub view_mode: ViewMode,
+
+    /// Interactive simulation state for stepping through input strings.
+    pub simulation: SimulationState,
 }
 
 impl Default for App {
@@ -34,6 +38,7 @@ impl Default for App {
             box_visibility: BoxVisibility::default(),
             zoom_factor: DEFAULT_ZOOM_FACTOR,
             view_mode: ViewMode::Nfa, // Default to NFA view
+            simulation: SimulationState::default(),
         }
     }
 }
