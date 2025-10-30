@@ -91,7 +91,7 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
     let label = match ast {
         Ast::Atom(c) => format!("'{}'", c),
         Ast::Concat(_, _) => "·".to_string(), // Concatenation operator
-        Ast::Alt(_, _) => "|".to_string(),
+        Ast::Alt(_, _) => "+".to_string(),
         Ast::Star(_) => "*".to_string(),
         Ast::Epsilon => "ε".to_string(),
     };
