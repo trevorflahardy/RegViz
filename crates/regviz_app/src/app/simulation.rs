@@ -208,7 +208,8 @@ impl SimulationState {
 /// Builds a simulation trace for an NFA by computing epsilon closures between steps.
 #[must_use]
 pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
-    let mut steps = Vec::with_capacity(input.chars().count() + 1);
+    let symbols: Vec<char> = input.chars().collect();
+    let mut steps = Vec::with_capacity(symbols.len() + 1);
 
     let mut current: HashSet<StateId> = HashSet::new();
     current.insert(nfa.start);
@@ -222,33 +223,37 @@ pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
         initial_accepting,
     ));
 
-    for (idx, ch) in input.chars().enumerate() {
+    for (idx, symbol) in symbols.iter().enumerate() {
         let mut traversed = HashSet::new();
 
         for state in &current {
             for transition in nfa.transitions(*state) {
-                if transition.label == EdgeLabel::Sym(ch) {
+                if transition.label == EdgeLabel::Sym(*symbol) {
                     traversed.insert(EdgeHighlight::new(
                         *state,
                         transition.to,
-                        EdgeLabel::Sym(ch),
+                        EdgeLabel::Sym(*symbol),
                     ));
                 }
             }
         }
 
-        let moved = sim::move_on(&current, ch, nfa);
+        let moved = sim::move_on(&current, *symbol, nfa);
         let next = sim::epsilon_closure(&moved, nfa);
         let accepting = next.iter().any(|state| nfa.accepts.contains(state));
 
         steps.push(SimulationStep::new(
             idx + 1,
-            Some(ch),
+            Some(*symbol),
             next.clone(),
             traversed,
             accepting,
         ));
         current = next;
+
+        if current.is_empty() && idx + 1 < symbols.len() {
+            break;
+        }
     }
 
     SimulationTrace::new(steps)
@@ -257,7 +262,8 @@ pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
 /// Builds a simulation trace for a DFA using the deterministic transition table.
 #[must_use]
 pub fn build_dfa_trace(dfa: &Dfa, alphabet: &[char], input: &str) -> SimulationTrace {
-    let mut steps = Vec::with_capacity(input.chars().count() + 1);
+    let symbols: Vec<char> = input.chars().collect();
+    let mut steps = Vec::with_capacity(symbols.len() + 1);
     let mut current = Some(dfa.start);
 
     let mut initial = HashSet::new();
@@ -271,13 +277,13 @@ pub fn build_dfa_trace(dfa: &Dfa, alphabet: &[char], input: &str) -> SimulationT
         initial_accepting,
     ));
 
-    for (idx, ch) in input.chars().enumerate() {
+    for (idx, symbol) in symbols.iter().enumerate() {
         let mut traversed = HashSet::new();
 
         if let Some(state) = current {
-            if let Some(symbol_idx) = alphabet.iter().position(|&symbol| symbol == ch) {
+            if let Some(symbol_idx) = alphabet.iter().position(|&candidate| candidate == *symbol) {
                 if let Some(next) = dfa.trans[state as usize][symbol_idx] {
-                    traversed.insert(EdgeHighlight::new(state, next, EdgeLabel::Sym(ch)));
+                    traversed.insert(EdgeHighlight::new(state, next, EdgeLabel::Sym(*symbol)));
                     current = Some(next);
                 } else {
                     current = None;
@@ -295,11 +301,15 @@ pub fn build_dfa_trace(dfa: &Dfa, alphabet: &[char], input: &str) -> SimulationT
 
         steps.push(SimulationStep::new(
             idx + 1,
-            Some(ch),
+            Some(*symbol),
             active,
             traversed,
             accepting,
         ));
+
+        if current.is_none() && idx + 1 < symbols.len() {
+            break;
+        }
     }
 
     SimulationTrace::new(steps)
