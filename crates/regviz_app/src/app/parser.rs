@@ -27,11 +27,14 @@ impl App {
                     min_dfa: None,
                 });
                 self.error = None;
+                self.simulation.reset_cursor();
+                self.rebuild_simulation_trace();
             }
             Err(e) => {
                 // Lex error
                 self.error = Some(format!("Build error: {}", e));
                 self.build_artifacts = None;
+                self.simulation.clear_trace();
             }
         }
     }
