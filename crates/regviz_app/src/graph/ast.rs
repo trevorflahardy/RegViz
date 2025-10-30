@@ -102,6 +102,7 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
         is_start: false,
         is_accept: false,
         box_id: None,
+        is_active: false,
     });
 
     // Recursively process children
