@@ -45,7 +45,7 @@ pub struct Edge {
 }
 
 /// Transition stored in adjacency lists.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Transition {
     /// Destination state.
     pub to: StateId,

@@ -21,7 +21,7 @@ fn main() {
             println!("AST: {}", ast);
 
             // Build NFA
-            let nfa = nfa::build_nfa(&ast);
+            let nfa = nfa::Nfa::build(&ast);
             println!(
                 "NFA: states={} start={} accepts={} edges={}",
                 nfa.states.len(),
@@ -31,19 +31,19 @@ fn main() {
             );
 
             // Determinize -> DFA
-            let (dfa, alphabet) = dfa::determinize(&nfa);
+            let dfa = dfa::determinize(&nfa);
             println!(
                 "DFA: states={} start={} accepts={} alphabet={:?}",
                 dfa.states.len(),
                 dfa.start,
                 dfa.accepts.len(),
-                alphabet
+                dfa.alphabet
             );
 
             // If user provided an input string, simulate both NFA and DFA
             if let Some(s) = input {
                 let nfa_accepts = sim::nfa_accepts(&nfa, &s);
-                let dfa_accepts = sim::simulate_dfa(&dfa, &alphabet, &s);
+                let dfa_accepts = sim::simulate_dfa(&dfa, &s);
                 println!("Input: {:?}", s);
                 println!("NFA accepts: {}", nfa_accepts);
                 println!("DFA accepts: {}", dfa_accepts);

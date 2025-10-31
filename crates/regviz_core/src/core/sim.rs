@@ -5,10 +5,10 @@ use super::dfa::Dfa;
 use super::nfa::Nfa;
 
 /// Simulates a DFA and reports whether it accepts the provided input.
-pub fn simulate_dfa(dfa: &Dfa, alphabet: &[char], input: &str) -> bool {
+pub fn simulate_dfa(dfa: &Dfa, input: &str) -> bool {
     let mut state = dfa.start;
     for ch in input.chars() {
-        let idx = match alphabet.iter().position(|&c| c == ch) {
+        let idx = match dfa.alphabet.iter().position(|&c| c == ch) {
             Some(i) => i,
             None => return false,
         };
@@ -21,6 +21,7 @@ pub fn simulate_dfa(dfa: &Dfa, alphabet: &[char], input: &str) -> bool {
 }
 
 /// Computes the epsilon-closure of a state set in an NFA using DFS.
+/// That is, the set of states reachable from `seed` via only epsilon transitions.
 pub fn epsilon_closure(seed: &HashSet<StateId>, nfa: &Nfa) -> HashSet<StateId> {
     let mut closure = seed.clone();
     let mut stack: Vec<StateId> = seed.iter().copied().collect();

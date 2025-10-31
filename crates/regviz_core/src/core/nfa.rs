@@ -22,6 +22,22 @@ pub struct Nfa {
 }
 
 impl Nfa {
+    /// Builds an [`Nfa`] using Thompson's construction algorithm.
+    ///
+    /// # Arguments
+    ///
+    /// - `ast` (`&Ast`) - The abstract syntax tree representing the regular expression. Will be cloned.
+    ///
+    /// # Returns
+    ///
+    /// - `Nfa` - The constructed nondeterministic finite automaton.
+    pub fn build(ast: &Ast) -> Nfa {
+        let mut builder = Builder::default();
+        let fragment = builder.build(ast);
+        builder.finalize(fragment)
+    }
+
+    /// Retrieves the outgoing transitions from a given state.
     ///
     /// # Arguments
     ///
@@ -54,21 +70,6 @@ impl Nfa {
     }
 }
 
-/// Builds an [`Nfa`] using Thompson's construction algorithm.
-///
-/// # Arguments
-///
-/// - `ast` (`&Ast`) - The abstract syntax tree representing the regular expression. Will be cloned.
-///
-/// # Returns
-///
-/// - `Nfa` - The constructed nondeterministic finite automaton.
-pub fn build_nfa(ast: &Ast) -> Nfa {
-    let mut builder = Builder::default();
-    let fragment = builder.build(ast);
-    builder.finalize(fragment.start, fragment.accepts)
-}
-
 /// The internal builder struct for converting an AST to an NFA.
 /// Holds adjacency lists and provides methods for constructing NFA fragments.
 #[derive(Default)]
@@ -83,17 +84,24 @@ struct Builder {
     box_stack: Vec<BoxId>,
 }
 
-/// Represents a fragment of an NFA with a start state and accepting states.
+/// Represents a fragment of an NFA with a start state and an accepting state.
 /// Created when building NFA components from AST nodes.
 #[derive(Debug, Clone)]
 struct Fragment {
     /// The ID of the start state.
     start: StateId,
-    /// A list of accepting state IDs.
-    accepts: Vec<StateId>,
+    /// The accepting state ID.
+    /// There's always exactly one accept state per fragment, according to Thompson's construction.
+    accept: StateId,
 }
 
 impl Builder {
+    /// A helper method to create a bounding box around a fragment-building operation.
+    /// # Arguments
+    /// - `kind` (`BoxKind`) - The kind of bounding box to create.
+    /// - `f` (`F`) - A closure that takes a mutable reference to the builder and returns a Fragment.
+    /// # Returns
+    /// - `Fragment` - The fragment produced by the closure within the bounding box.
     fn with_box<F>(&mut self, kind: BoxKind, f: F) -> Fragment
     where
         F: FnOnce(&mut Self) -> Fragment,
@@ -104,6 +112,7 @@ impl Builder {
         fragment
     }
 
+    /// Begins a new bounding box of the specified kind, pushing it onto the box stack.
     fn begin_box(&mut self, kind: BoxKind) {
         let id = self.boxes.len() as BoxId;
         let parent = self.box_stack.last().copied();
@@ -116,6 +125,7 @@ impl Builder {
         self.box_stack.push(id);
     }
 
+    /// Ends the current bounding box, popping it from the box stack.
     fn end_box(&mut self) {
         self.box_stack.pop();
     }
@@ -181,7 +191,7 @@ impl Builder {
             let state = builder.new_state();
             Fragment {
                 start: state,
-                accepts: vec![state],
+                accept: state,
             }
         })
     }
@@ -203,10 +213,7 @@ impl Builder {
 
             builder.add_edge(start, accept, EdgeLabel::Sym(ch));
 
-            Fragment {
-                start,
-                accepts: vec![accept],
-            }
+            Fragment { start, accept }
         })
     }
 
@@ -228,20 +235,18 @@ impl Builder {
 
             let Fragment {
                 start: left_start,
-                accepts: left_accepts,
+                accept: left_accept,
             } = left;
             let Fragment {
                 start: right_start,
-                accepts: right_accepts,
+                accept: right_accept,
             } = right;
 
-            for accept in &left_accepts {
-                builder.add_edge(*accept, right_start, EdgeLabel::Eps);
-            }
+            builder.add_edge(left_accept, right_start, EdgeLabel::Eps);
 
             Fragment {
                 start: left_start,
-                accepts: right_accepts,
+                accept: right_accept,
             }
         })
     }
@@ -263,11 +268,11 @@ impl Builder {
 
             let Fragment {
                 start: left_start,
-                accepts: left_accepts,
+                accept: left_accept,
             } = left;
             let Fragment {
                 start: right_start,
-                accepts: right_accepts,
+                accept: right_accept,
             } = right;
 
             let start = builder.new_state();
@@ -276,14 +281,11 @@ impl Builder {
             builder.add_edge(start, left_start, EdgeLabel::Eps);
             builder.add_edge(start, right_start, EdgeLabel::Eps);
 
-            for state in left_accepts.iter().chain(right_accepts.iter()) {
+            for state in &[left_accept, right_accept] {
                 builder.add_edge(*state, accept, EdgeLabel::Eps);
             }
 
-            Fragment {
-                start,
-                accepts: vec![accept],
-            }
+            Fragment { start, accept }
         })
     }
 
@@ -301,7 +303,7 @@ impl Builder {
             let frag = builder.build(inner);
             let Fragment {
                 start: inner_start,
-                accepts: inner_accepts,
+                accept: inner_accept,
             } = frag;
 
             let start = builder.new_state();
@@ -310,15 +312,10 @@ impl Builder {
             builder.add_edge(start, inner_start, EdgeLabel::Eps);
             builder.add_edge(start, accept, EdgeLabel::Eps);
 
-            for state in inner_accepts {
-                builder.add_edge(state, inner_start, EdgeLabel::Eps);
-                builder.add_edge(state, accept, EdgeLabel::Eps);
-            }
+            builder.add_edge(inner_accept, inner_start, EdgeLabel::Eps);
+            builder.add_edge(inner_accept, accept, EdgeLabel::Eps);
 
-            Fragment {
-                start,
-                accepts: vec![accept],
-            }
+            Fragment { start, accept }
         })
     }
 
@@ -327,17 +324,17 @@ impl Builder {
     /// and ensures the accepting states are unique and sorted.
     ///
     /// # Arguments
-    /// - `start` (`StateId`) - The start state of the NFA.
-    /// - `accepts` (`Vec<StateId>`) - The list of accepting states
+    /// - `fragment` ([`Fragment`]) - The final fragment representing the entire NFA.
     ///
     /// # Returns
     ///
-    /// - `Nfa` - The finalized NFA structure.
-    fn finalize(mut self, start: StateId, accepts: Vec<StateId>) -> Nfa {
-        let accepts = unique_sorted(accepts);
+    /// - [`Nfa`] - The finalized NFA structure.
+    fn finalize(mut self, fragment: Fragment) -> Nfa {
         let mut edges = Vec::new();
 
-        for (from, row) in self.adjacency.iter().enumerate() {
+        for (from, row) in self.adjacency.iter_mut().enumerate() {
+            // Sort the adjacency list row by destination state for consistency.
+            row.sort_by_key(|tr| tr.to);
             // Iterate over each transition in the adjacency list row.
             for tr in row {
                 // And push this as a concrete edge on the edge list.
@@ -350,9 +347,9 @@ impl Builder {
         }
 
         Nfa {
-            states: std::mem::take(&mut self.states),
-            start,
-            accepts,
+            states: self.states,
+            start: fragment.start,
+            accepts: vec![fragment.accept],
             edges,
             adjacency: self.adjacency,
             boxes: self.boxes,
@@ -360,8 +357,288 @@ impl Builder {
     }
 }
 
-fn unique_sorted(mut ids: Vec<StateId>) -> Vec<StateId> {
-    ids.sort_unstable();
-    ids.dedup();
-    ids
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_epsilon() {
+        let ast = Ast::build("").unwrap();
+        let nfa = Nfa::build(&ast);
+        // State creation order:
+        // Epsilon Fragment:
+        // Start 0, Accept 0, +0 edges
+        assert_eq!(nfa.states.len(), 1);
+        assert_eq!(nfa.start, 0);
+        assert_eq!(nfa.accepts, vec![0]);
+        assert_eq!(nfa.edges.len(), 0);
+        assert!(nfa.adjacency[0].is_empty());
+    }
+
+    #[test]
+    fn test_build_char() {
+        let ast = Ast::Atom('a');
+        let nfa = Nfa::build(&ast);
+        // State creation order:
+        // Literal Fragment 'a':
+        // Start 0, Accept 1, +1 edge
+        assert_eq!(nfa.states.len(), 2);
+        assert_eq!(nfa.start, 0);
+        assert_eq!(nfa.accepts, vec![1]);
+        assert_eq!(nfa.edges.len(), 1);
+        assert_eq!(
+            nfa.adjacency,
+            vec![
+                // 0 -> 'a' -> 1
+                vec![Transition {
+                    to: 1,
+                    label: EdgeLabel::Sym('a'),
+                }],
+                // 1 -> no edges
+                vec![]
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_concat() {
+        let ast = Ast::build("ab").unwrap();
+        let nfa = Nfa::build(&ast);
+        // State creation order:
+        // Literal Fragment 'a':
+        // Start 0, Accept 1, +1 edge
+        // Literal Fragment 'b':
+        // Start 2, Accept 3, +1 edge
+        // Concat Fragment:
+        // Start 0, Accept 3, +1 edge
+        assert_eq!(nfa.states.len(), 4);
+        assert_eq!(nfa.start, 0);
+        assert_eq!(nfa.accepts, vec![3]);
+        assert_eq!(nfa.edges.len(), 3);
+        assert_eq!(
+            nfa.adjacency,
+            vec![
+                // 0 -> 'a' -> 1
+                vec![Transition {
+                    to: 1,
+                    label: EdgeLabel::Sym('a'),
+                }],
+                // 1 -> eps -> 2
+                vec![Transition {
+                    to: 2,
+                    label: EdgeLabel::Eps,
+                }],
+                // 2 -> 'b' -> 3
+                vec![Transition {
+                    to: 3,
+                    label: EdgeLabel::Sym('b'),
+                }],
+                // 3 -> no edges
+                vec![]
+            ]
+        )
+    }
+
+    #[test]
+    fn test_build_alternation() {
+        let ast = Ast::build("a+b").unwrap();
+        let nfa = Nfa::build(&ast);
+        // State creation order:
+        // Literal Fragment 'a':
+        // Start 0, Accept 1, +1 edge
+        // Literal Fragment 'b':
+        // Start 2, Accept 3, +1 edge
+        // Alternation Fragment:
+        // Start 4, Accept 5, +4 edges
+        assert_eq!(nfa.states.len(), 6);
+        assert_eq!(nfa.start, 4);
+        assert_eq!(nfa.accepts, vec![5]);
+        assert_eq!(nfa.edges.len(), 6);
+        assert_eq!(
+            nfa.adjacency,
+            vec![
+                // 0 -> 'a' -> 1
+                vec![Transition {
+                    to: 1,
+                    label: EdgeLabel::Sym('a'),
+                }],
+                // 1 -> eps -> 5
+                vec![Transition {
+                    to: 5,
+                    label: EdgeLabel::Eps,
+                }],
+                // 2 -> 'b' -> 3
+                vec![Transition {
+                    to: 3,
+                    label: EdgeLabel::Sym('b'),
+                }],
+                // 3 -> eps -> 5
+                vec![Transition {
+                    to: 5,
+                    label: EdgeLabel::Eps,
+                }],
+                // 4 -> eps -> 0
+                //   -> eps -> 2
+                vec![
+                    Transition {
+                        to: 0,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 2,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 5 -> no edges
+                vec![],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_star() {
+        let ast = Ast::build("a*").unwrap();
+        let nfa = Nfa::build(&ast);
+        // State creation order:
+        // Literal Fragment 'a':
+        // Start 0, Accept 1, +1 edge
+        // Kleene Star Fragment:
+        // Start 2, Accept 3, +4 edges
+        assert_eq!(nfa.states.len(), 4);
+        assert_eq!(nfa.start, 2);
+        assert_eq!(nfa.accepts, vec![3]);
+        assert_eq!(nfa.edges.len(), 5);
+        assert_eq!(
+            nfa.adjacency,
+            vec![
+                // 0 -> 'a' -> 1
+                vec![Transition {
+                    to: 1,
+                    label: EdgeLabel::Sym('a'),
+                }],
+                // 1 -> eps -> 0
+                //   -> eps -> 3
+                vec![
+                    Transition {
+                        to: 0,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 3,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 2 -> eps -> 0
+                //   -> eps -> 3
+                vec![
+                    Transition {
+                        to: 0,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 3,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 3 -> no edges
+                vec![],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_complex() {
+        let ast = Ast::build("(ab+c)*").unwrap();
+        let nfa = Nfa::build(&ast);
+        // State creation order:
+        // Literal Fragment 'a':
+        // Start 0, Accept 1, +1 edge
+        // Literal Fragment 'b':
+        // Start 2, Accept 3, +1 edge
+        // Concat Fragment 'ab':
+        // Start 0, Accept 3, +1 edge
+        // Literal Fragment 'c':
+        // Start 4, Accept 5, +1 edge
+        // Alternation Fragment 'ab+c':
+        // Start 6, Accept 7, +4 edges
+        // Kleene Star Fragment '(ab+c)*':
+        // Start 8, Accept 9, +4 edges
+        assert_eq!(nfa.states.len(), 10);
+        assert_eq!(nfa.start, 8);
+        assert_eq!(nfa.accepts, vec![9]);
+        assert_eq!(nfa.edges.len(), 12);
+        assert_eq!(
+            nfa.adjacency,
+            vec![
+                // 0 -> 'a' -> 1
+                vec![Transition {
+                    to: 1,
+                    label: EdgeLabel::Sym('a'),
+                }],
+                // 1 -> eps -> 2
+                vec![Transition {
+                    to: 2,
+                    label: EdgeLabel::Eps,
+                }],
+                // 2 -> 'b' -> 3
+                vec![Transition {
+                    to: 3,
+                    label: EdgeLabel::Sym('b'),
+                }],
+                // 3 -> eps -> 7
+                vec![Transition {
+                    to: 7,
+                    label: EdgeLabel::Eps,
+                }],
+                // 4 -> 'c' -> 5
+                vec![Transition {
+                    to: 5,
+                    label: EdgeLabel::Sym('c'),
+                }],
+                // 5 -> eps -> 7
+                vec![Transition {
+                    to: 7,
+                    label: EdgeLabel::Eps,
+                }],
+                // 6 -> eps -> 0
+                //   -> eps -> 4
+                vec![
+                    Transition {
+                        to: 0,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 4,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 7 -> eps -> 6
+                //   -> eps -> 9
+                vec![
+                    Transition {
+                        to: 6,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 9,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 8 -> eps -> 6
+                //   -> eps -> 9
+                vec![
+                    Transition {
+                        to: 6,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 9,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 9 -> no edges
+                vec![],
+            ]
+        );
+    }
 }

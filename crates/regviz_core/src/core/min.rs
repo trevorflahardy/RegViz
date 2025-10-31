@@ -4,17 +4,16 @@ use crate::core::automaton::StateId;
 use crate::core::dfa::Dfa;
 
 /// Minimizes a DFA using Hopcroft's partition refinement algorithm.
-pub fn minimize(dfa: &Dfa, alphabet: &[char]) -> Dfa {
+pub fn minimize(dfa: &Dfa) -> Dfa {
     if dfa.trans.len() <= 1 {
         return dfa.clone();
     }
 
-    PartitionRefinement::new(dfa, alphabet).run()
+    PartitionRefinement::new(dfa).run()
 }
 
 struct PartitionRefinement<'a> {
     dfa: &'a Dfa,
-    alphabet: &'a [char],
     partitions: Vec<Vec<usize>>,
     state_class: Vec<usize>,
     worklist: VecDeque<(usize, usize)>,
@@ -22,7 +21,7 @@ struct PartitionRefinement<'a> {
 }
 
 impl<'a> PartitionRefinement<'a> {
-    fn new(dfa: &'a Dfa, alphabet: &'a [char]) -> Self {
+    fn new(dfa: &'a Dfa) -> Self {
         let accepting: HashSet<StateId> = dfa.accepts.iter().copied().collect();
         let mut partitions = Vec::new();
         let mut accepting_block = Vec::new();
@@ -53,14 +52,13 @@ impl<'a> PartitionRefinement<'a> {
             if block.is_empty() {
                 continue;
             }
-            for symbol_idx in 0..alphabet.len() {
+            for symbol_idx in 0..dfa.alphabet.len() {
                 worklist.push_back((class_idx, symbol_idx));
             }
         }
 
         Self {
             dfa,
-            alphabet,
             partitions,
             state_class,
             worklist,
@@ -145,14 +143,14 @@ impl<'a> PartitionRefinement<'a> {
 
     fn enqueue_splits(&mut self, splits: Vec<usize>) {
         for idx in splits {
-            for symbol_idx in 0..self.alphabet.len() {
+            for symbol_idx in 0..self.dfa.alphabet.len() {
                 self.worklist.push_back((idx, symbol_idx));
             }
         }
     }
 
     fn build_minimized(self) -> Dfa {
-        let mut new_trans = vec![vec![None; self.alphabet.len()]; self.partitions.len()];
+        let mut new_trans = vec![vec![None; self.dfa.alphabet.len()]; self.partitions.len()];
         for (class_idx, block) in self.partitions.iter().enumerate() {
             if block.is_empty() {
                 continue;
@@ -184,6 +182,7 @@ impl<'a> PartitionRefinement<'a> {
             start,
             accepts: new_accepts,
             trans: new_trans,
+            alphabet: self.dfa.alphabet.to_vec(),
         }
     }
 }

@@ -16,7 +16,9 @@ pub struct LexError {
 pub enum LexErrorKind {
     #[error("dangling escape character")]
     DanglingEscape,
-    #[error("invalid character '{0}'. Only alphanumeric characters are allowed")]
+    #[error(
+        "invalid character '{0}'. Only alphanumeric characters and reserved characters ('(', ')', '+', '*', '.') are allowed."
+    )]
     InvalidCharacter(char),
 }
 
