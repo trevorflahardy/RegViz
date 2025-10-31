@@ -4,7 +4,7 @@ use regviz_core::core::{dfa, min, nfa, parser, sim};
 fn test_simulate_nfa_accept() {
     let input = "a*";
     let ast = parser::Ast::build(input).unwrap();
-    let nfa = nfa::build_nfa(&ast);
+    let nfa = nfa::Nfa::build(&ast);
     assert!(sim::nfa_accepts(&nfa, "aaaa"));
     assert!(sim::nfa_accepts(&nfa, ""));
 }
@@ -13,7 +13,7 @@ fn test_simulate_nfa_accept() {
 fn test_simulate_nfa_reject() {
     let input = "a*";
     let ast = parser::Ast::build(input).unwrap();
-    let nfa = nfa::build_nfa(&ast);
+    let nfa = nfa::Nfa::build(&ast);
     assert!(!sim::nfa_accepts(&nfa, "b"));
     assert!(!sim::nfa_accepts(&nfa, "ab"));
 }
@@ -22,7 +22,7 @@ fn test_simulate_nfa_reject() {
 fn test_simulate_dfa_accept() {
     let input = "a*";
     let ast = parser::Ast::build(input).unwrap();
-    let nfa = nfa::build_nfa(&ast);
+    let nfa = nfa::Nfa::build(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     assert!(sim::simulate_dfa(&dfa, &alphabet, "aaaa"));
     assert!(sim::simulate_dfa(&dfa, &alphabet, ""));
@@ -32,7 +32,7 @@ fn test_simulate_dfa_accept() {
 fn test_simulate_dfa_reject() {
     let input = "a*";
     let ast = parser::Ast::build(input).unwrap();
-    let nfa = nfa::build_nfa(&ast);
+    let nfa = nfa::Nfa::build(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     assert!(!sim::simulate_dfa(&dfa, &alphabet, "b"));
     assert!(!sim::simulate_dfa(&dfa, &alphabet, "ab"));
@@ -42,7 +42,7 @@ fn test_simulate_dfa_reject() {
 fn test_simulate_dfa_complex() {
     let input = "(a+b)*abb";
     let ast = parser::Ast::build(input).unwrap();
-    let nfa = nfa::build_nfa(&ast);
+    let nfa = nfa::Nfa::build(&ast);
     let (dfa, alphabet) = dfa::determinize(&nfa);
     let min_dfa = min::minimize(&dfa, &alphabet);
     assert!(sim::simulate_dfa(&min_dfa, &alphabet, "abb"));

@@ -17,7 +17,7 @@ impl App {
         // Try to lex the input into tokens
         match parser::Ast::build(self.input.trim()) {
             Ok(ast) => {
-                let nfa = nfa::build_nfa(&ast);
+                let nfa = nfa::Nfa::build(&ast);
                 let alphabet = nfa.alphabet();
                 self.build_artifacts = Some(BuildArtifacts {
                     ast,

@@ -22,6 +22,22 @@ pub struct Nfa {
 }
 
 impl Nfa {
+    /// Builds an [`Nfa`] using Thompson's construction algorithm.
+    ///
+    /// # Arguments
+    ///
+    /// - `ast` (`&Ast`) - The abstract syntax tree representing the regular expression. Will be cloned.
+    ///
+    /// # Returns
+    ///
+    /// - `Nfa` - The constructed nondeterministic finite automaton.
+    pub fn build(ast: &Ast) -> Nfa {
+        let mut builder = Builder::default();
+        let fragment = builder.build(ast);
+        builder.finalize(fragment)
+    }
+
+    /// Retrieves the outgoing transitions from a given state.
     ///
     /// # Arguments
     ///
@@ -52,21 +68,6 @@ impl Nfa {
         chars.sort_unstable();
         chars
     }
-}
-
-/// Builds an [`Nfa`] using Thompson's construction algorithm.
-///
-/// # Arguments
-///
-/// - `ast` (`&Ast`) - The abstract syntax tree representing the regular expression. Will be cloned.
-///
-/// # Returns
-///
-/// - `Nfa` - The constructed nondeterministic finite automaton.
-pub fn build_nfa(ast: &Ast) -> Nfa {
-    let mut builder = Builder::default();
-    let fragment = builder.build(ast);
-    builder.finalize(fragment)
 }
 
 /// The internal builder struct for converting an AST to an NFA.
@@ -363,7 +364,7 @@ mod tests {
     #[test]
     fn test_build_epsilon() {
         let ast = Ast::build("").unwrap();
-        let nfa = build_nfa(&ast);
+        let nfa = Nfa::build(&ast);
         // State creation order:
         // Epsilon Fragment:
         // Start 0, Accept 0, +0 edges
@@ -377,7 +378,7 @@ mod tests {
     #[test]
     fn test_build_char() {
         let ast = Ast::Atom('a');
-        let nfa = build_nfa(&ast);
+        let nfa = Nfa::build(&ast);
         // State creation order:
         // Literal Fragment 'a':
         // Start 0, Accept 1, +1 edge
@@ -402,7 +403,7 @@ mod tests {
     #[test]
     fn test_build_concat() {
         let ast = Ast::build("ab").unwrap();
-        let nfa = build_nfa(&ast);
+        let nfa = Nfa::build(&ast);
         // State creation order:
         // Literal Fragment 'a':
         // Start 0, Accept 1, +1 edge
@@ -441,7 +442,7 @@ mod tests {
     #[test]
     fn test_build_alternation() {
         let ast = Ast::build("a+b").unwrap();
-        let nfa = build_nfa(&ast);
+        let nfa = Nfa::build(&ast);
         // State creation order:
         // Literal Fragment 'a':
         // Start 0, Accept 1, +1 edge
@@ -497,7 +498,7 @@ mod tests {
     #[test]
     fn test_build_star() {
         let ast = Ast::build("a*").unwrap();
-        let nfa = build_nfa(&ast);
+        let nfa = Nfa::build(&ast);
         // State creation order:
         // Literal Fragment 'a':
         // Start 0, Accept 1, +1 edge
@@ -548,7 +549,7 @@ mod tests {
     #[test]
     fn test_build_complex() {
         let ast = Ast::build("(ab+c)*").unwrap();
-        let nfa = build_nfa(&ast);
+        let nfa = Nfa::build(&ast);
         // State creation order:
         // Literal Fragment 'a':
         // Start 0, Accept 1, +1 edge
