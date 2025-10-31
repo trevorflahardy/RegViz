@@ -69,7 +69,7 @@ fn toggle_button(
     target: SimulationTarget,
 ) -> Element<'static, Message> {
     let text_label = if is_active {
-        format!("{} ✓", label)
+        format!("{label} ✓")
     } else {
         label.to_string()
     };
@@ -123,7 +123,7 @@ fn summary_line(app: &App) -> Option<String> {
     let total = app.simulation.step_count()?;
     let max_index = total.saturating_sub(1);
     let consumed = match step.consumed {
-        Some(ch) => format!("Consumed: '{}'", ch),
+        Some(ch) => format!("Consumed: '{ch}'"),
         None => "Consumed: –".to_string(),
     };
     let accepting = if step.accepted {
@@ -158,7 +158,7 @@ fn active_states_line(app: &App) -> Option<String> {
         SimulationTarget::Dfa => "DFA",
     };
 
-    Some(format!("Active {} states: {}", target_label, states_text))
+    Some(format!("Active {target_label} states: {states_text}"))
 }
 
 fn acceptance_hint(app: &App) -> bool {

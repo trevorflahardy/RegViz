@@ -28,7 +28,7 @@ pub fn bounding_boxes(app: &App) -> Element<'_, Message> {
 /// Renders zoom controls with slider and percentage display.
 pub fn zoom(app: &App) -> Element<'_, Message> {
     let zoom_percentage = (app.zoom_factor * 100.0).round() as i32;
-    let zoom_display = text(format!("Zoom: {}%", zoom_percentage)).size(14);
+    let zoom_display = text(format!("Zoom: {zoom_percentage}%")).size(14);
 
     let zoom_slider = slider(
         MIN_ZOOM_FACTOR..=MAX_ZOOM_FACTOR,

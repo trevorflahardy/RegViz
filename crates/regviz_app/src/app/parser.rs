@@ -32,7 +32,7 @@ impl App {
             }
             Err(e) => {
                 // Lex error
-                self.error = Some(format!("Build error: {}", e));
+                self.error = Some(format!("Build error: {e}"));
                 self.build_artifacts = None;
                 self.simulation.clear_trace();
                 self.simulation_error = None;

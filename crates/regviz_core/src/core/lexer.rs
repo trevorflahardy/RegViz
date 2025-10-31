@@ -19,8 +19,8 @@ pub enum Token {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::Literal(c) => write!(f, "{}", c),
-            Token::Op(op) => write!(f, "{}", op),
+            Token::Literal(c) => write!(f, "{c}"),
+            Token::Op(op) => write!(f, "{op}"),
             Token::LParen => write!(f, "("),
             Token::RParen => write!(f, ")"),
             Token::Eof => write!(f, "<EOF>"),
@@ -45,7 +45,7 @@ impl Display for OpToken {
             OpToken::Star => "*",
             OpToken::Dot => ".",
         };
-        write!(f, "{}", symbol)
+        write!(f, "{symbol}")
     }
 }
 

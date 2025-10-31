@@ -487,6 +487,7 @@ impl PositionedEdge {
     /// - `p2`: End point of the curve (screen coordinates)
     /// - `curve_down`: Whether the curve bends downward
     /// - `ctx`: Drawing context with zoom/pan information (used for zoom scaling)
+    #[allow(clippy::too_many_arguments)]
     fn draw_curved_label<R: Renderer>(
         &self,
         frame: &mut Frame<R>,

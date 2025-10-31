@@ -125,13 +125,12 @@ impl App {
         } else {
             let symbols = invalid
                 .iter()
-                .map(|symbol| format!("'{}'", symbol))
+                .map(|symbol| format!("'{symbol}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
 
             Some(format!(
-                "Input contains symbol(s) outside the regex alphabet: {}",
-                symbols
+                "Input contains symbol(s) outside the regex alphabet: {symbols}"
             ))
         }
     }

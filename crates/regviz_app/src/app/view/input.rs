@@ -23,7 +23,7 @@ pub fn render(app: &App) -> Element<'_, Message> {
 
 fn status_text(app: &App) -> Element<'_, Message> {
     match &app.error {
-        Some(err) => text(format!("x  {}", err)).size(14).into(),
+        Some(err) => text(format!("x  {err}")).size(14).into(),
         None => match &app.build_artifacts {
             Some(artifacts) => text(format!(
                 "✓ Parsed successfully | {} states | Alphabet: {:?}",

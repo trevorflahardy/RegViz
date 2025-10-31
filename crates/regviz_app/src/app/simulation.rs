@@ -85,6 +85,7 @@ impl SimulationTrace {
 
 /// Reactive state used by the UI to drive step-by-step simulation.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct SimulationState {
     /// Input string provided by the user.
     pub input: String,
@@ -95,16 +96,6 @@ pub struct SimulationState {
     trace: Option<SimulationTrace>,
 }
 
-impl Default for SimulationState {
-    fn default() -> Self {
-        Self {
-            input: String::new(),
-            cursor: 0,
-            target: SimulationTarget::default(),
-            trace: None,
-        }
-    }
-}
 
 impl SimulationState {
     /// Replaces the current trace and clamps the cursor to the new bounds.
