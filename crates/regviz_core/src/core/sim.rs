@@ -21,6 +21,7 @@ pub fn simulate_dfa(dfa: &Dfa, alphabet: &[char], input: &str) -> bool {
 }
 
 /// Computes the epsilon-closure of a state set in an NFA using DFS.
+/// That is, the set of states reachable from `seed` via only epsilon transitions.
 pub fn epsilon_closure(seed: &HashSet<StateId>, nfa: &Nfa) -> HashSet<StateId> {
     let mut closure = seed.clone();
     let mut stack: Vec<StateId> = seed.iter().copied().collect();
