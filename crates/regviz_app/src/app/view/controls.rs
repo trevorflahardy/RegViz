@@ -18,7 +18,8 @@ pub fn bounding_boxes(app: &App) -> Element<'_, Message> {
         box_toggle_button(app, BoxKind::KleenePlus, "Plus"),
         box_toggle_button(app, BoxKind::Optional, "Optional"),
     ]
-    .spacing(8);
+    .spacing(8)
+    .wrap();
 
     column![text("Bounding Boxes:").size(14), toggles]
         .spacing(4)

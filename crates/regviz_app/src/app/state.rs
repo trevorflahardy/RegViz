@@ -40,9 +40,11 @@ impl Default for App {
     fn default() -> Self {
         // Initialize two-pane layout: left controls | right visualization
         let (mut panes, left) = pane_grid::State::new(PaneContent::Controls);
-        let _right = panes
+        let (_pane, split) = panes
             .split(Axis::Vertical, left, PaneContent::Visualization)
             .expect("split pane should succeed");
+
+        panes.resize(split, 0.3);
 
         Self {
             input: String::new(),
