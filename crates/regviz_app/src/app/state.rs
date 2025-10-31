@@ -1,3 +1,4 @@
+use iced::widget::pane_grid::{self, Axis};
 use regviz_core::core::BuildArtifacts;
 
 use super::constants::DEFAULT_ZOOM_FACTOR;
@@ -30,10 +31,19 @@ pub struct App {
 
     /// Validation error for the simulation input, if any.
     pub simulation_error: Option<String>,
+
+    /// Pane grid state for left (controls) and right (visualization) panes.
+    pub panes: pane_grid::State<PaneContent>,
 }
 
 impl Default for App {
     fn default() -> Self {
+        // Initialize two-pane layout: left controls | right visualization
+        let (mut panes, left) = pane_grid::State::new(PaneContent::Controls);
+        let _right = panes
+            .split(Axis::Vertical, left, PaneContent::Visualization)
+            .expect("split pane should succeed");
+
         Self {
             input: String::new(),
             error: None,
@@ -43,6 +53,14 @@ impl Default for App {
             view_mode: ViewMode::Nfa, // Default to NFA view
             simulation: SimulationState::default(),
             simulation_error: None,
+            panes,
         }
     }
+}
+
+/// Identifiers for content in each pane of the `PaneGrid`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaneContent {
+    Controls,
+    Visualization,
 }

@@ -18,15 +18,13 @@ fn panel_column<'a>(
     app: &'a App,
     _artifacts: &'a BuildArtifacts,
 ) -> iced::widget::Column<'a, Message> {
-    let target_toggle = target_buttons(app);
-
     let input_field = text_input("Enter an input string (e.g., abab)", &app.simulation.input)
         .on_input(|value| Message::Simulation(SimulationMessage::InputChanged(value)))
         .padding(8)
         .size(16);
 
     let controls_row = step_controls(app, app.simulation_error.is_some());
-    let mut section = column![target_toggle, input_field].spacing(6);
+    let mut section = column![input_field].spacing(6);
     let PanelMessages {
         validation,
         summary,
@@ -45,42 +43,7 @@ fn panel_column<'a>(
     section
 }
 
-fn target_buttons(app: &App) -> Element<'_, Message> {
-    let nfa = toggle_button(
-        "NFA",
-        app.simulation.target == SimulationTarget::Nfa,
-        SimulationTarget::Nfa,
-    );
-    let dfa = toggle_button(
-        "DFA",
-        app.simulation.target == SimulationTarget::Dfa,
-        SimulationTarget::Dfa,
-    );
-
-    row![text("Simulate:").size(14), nfa, dfa,]
-        .spacing(10)
-        .align_y(Alignment::Center)
-        .into()
-}
-
-fn toggle_button(
-    label: &str,
-    is_active: bool,
-    target: SimulationTarget,
-) -> Element<'static, Message> {
-    let text_label = if is_active {
-        format!("{label} ✓")
-    } else {
-        label.to_string()
-    };
-
-    button(text(text_label).size(14))
-        .padding([4, 12])
-        .on_press(Message::Simulation(SimulationMessage::TargetChanged(
-            target,
-        )))
-        .into()
-}
+// Target toggle buttons were moved to the right pane tri-toggle.
 
 fn step_controls(app: &App, disabled: bool) -> Element<'_, Message> {
     let mut prev_button = button(text("Prev").size(14)).padding([4, 12]);

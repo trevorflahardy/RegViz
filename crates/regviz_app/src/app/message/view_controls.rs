@@ -7,8 +7,8 @@ pub enum ViewMessage {
     ToggleBox(BoxKind),
     /// User adjusted the zoom slider.
     ZoomChanged(f32),
-    /// User switched between visualization screens.
-    ViewModeChanged(ViewMode),
+    /// Combined selection for bottom-right controls (NFA / DFA / AST).
+    SelectRightPaneMode(RightPaneMode),
 }
 
 /// Available visualization modes.
@@ -20,13 +20,12 @@ pub enum ViewMode {
     Nfa,
 }
 
-impl ViewMode {
-    /// Returns a human-readable label for this view mode.
-    #[must_use]
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::Ast => "Parse Tree",
-            Self::Nfa => "NFA",
-        }
-    }
+impl ViewMode {}
+
+/// Bottom-right tri-toggle options (unifies AST view and NFA/DFA targets).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RightPaneMode {
+    Ast,
+    Nfa,
+    Dfa,
 }

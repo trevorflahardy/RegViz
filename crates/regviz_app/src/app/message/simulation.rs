@@ -1,4 +1,4 @@
-use crate::app::simulation::SimulationTarget;
+// (no imports)
 
 /// Messages emitted by the simulation control panel.
 #[derive(Debug, Clone)]
@@ -11,6 +11,5 @@ pub enum SimulationMessage {
     StepBackward,
     /// Reset the simulation to the initial step.
     Reset,
-    /// User selected a different automaton to simulate (NFA or DFA).
-    TargetChanged(SimulationTarget),
+    // Target switching moved to right-pane tri-toggle; no longer emitted here.
 }

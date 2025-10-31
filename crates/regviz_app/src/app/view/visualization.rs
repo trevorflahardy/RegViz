@@ -1,9 +1,10 @@
 use iced::{
-    Element, Length,
-    widget::{Canvas, column, container, text},
+    Alignment, Element, Length,
+    alignment::{Horizontal, Vertical},
+    widget::{Canvas, button, column, container, row, text},
 };
 
-use crate::app::message::{Message, ViewMode};
+use crate::app::message::{Message, RightPaneMode, ViewMessage, ViewMode};
 use crate::app::simulation::SimulationTarget;
 use crate::app::state::App;
 use crate::graph::layout::{DfaLayoutStrategy, NfaLayoutStrategy, TreeLayoutStrategy};
@@ -28,7 +29,12 @@ pub fn render<'a>(
     };
 
     let title = text(title_text).size(18);
-    let content = column![title, canvas].spacing(12).height(Length::Fill);
+    let bottom = bottom_tri_toggle(app);
+
+    let content = column![title, canvas, bottom]
+        .spacing(12)
+        .height(Length::Fill)
+        .align_x(Alignment::Start);
 
     container(content).padding(20).height(Length::Fill).into()
 }
@@ -48,6 +54,52 @@ fn render_ast_canvas<'a>(
     Canvas::new(canvas)
         .width(Length::Fill)
         .height(Length::Fill)
+        .into()
+}
+
+/// Renders an empty right pane when no artifacts are available.
+pub fn render_empty(app: &App) -> Element<'_, Message> {
+    let hint = text("Enter a regular expression to visualize")
+        .height(Length::Fill)
+        .align_y(Vertical::Top)
+        .align_x(Horizontal::Center);
+
+    let bottom = bottom_tri_toggle(app);
+
+    let content = column![hint, bottom]
+        .spacing(12)
+        .height(Length::Fill)
+        .align_x(Alignment::Start);
+
+    container(content).padding(20).height(Length::Fill).into()
+}
+
+fn bottom_tri_toggle(app: &App) -> Element<'_, Message> {
+    let is_ast = app.view_mode == ViewMode::Ast;
+    let is_nfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Nfa;
+    let is_dfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Dfa;
+
+    let ast = tri_button("AST", is_ast, RightPaneMode::Ast);
+    let nfa = tri_button("NFA", is_nfa, RightPaneMode::Nfa);
+    let dfa = tri_button("DFA", is_dfa, RightPaneMode::Dfa);
+
+    let row = row![nfa, dfa, ast].spacing(12).align_y(Alignment::Center);
+    container(row)
+        .align_x(Horizontal::Center)
+        .align_y(Vertical::Bottom)
+        .width(Length::Fill)
+        .into()
+}
+
+fn tri_button(label: &str, active: bool, mode: RightPaneMode) -> Element<'static, Message> {
+    let mut text_label = label.to_string();
+    if active {
+        text_label.push_str(" ✓");
+    }
+
+    button(text(text_label).size(14))
+        .padding([4, 12])
+        .on_press(Message::View(ViewMessage::SelectRightPaneMode(mode)))
         .into()
 }
 

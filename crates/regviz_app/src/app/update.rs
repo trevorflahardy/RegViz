@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 
 use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR};
-use super::message::{InputMessage, Message, SimulationMessage, ViewMessage, ViewMode};
+use super::message::{
+    InputMessage, Message, PaneGridMessage, RightPaneMode, SimulationMessage, ViewMessage, ViewMode,
+};
 use super::simulation::{SimulationTarget, build_dfa_trace, build_nfa_trace};
 use super::state::App;
 use regviz_core::core::dfa;
@@ -23,14 +25,17 @@ impl App {
                 SimulationMessage::StepForward => self.handle_simulation_step_forward(),
                 SimulationMessage::StepBackward => self.handle_simulation_step_backward(),
                 SimulationMessage::Reset => self.handle_simulation_reset(),
-                SimulationMessage::TargetChanged(target) => {
-                    self.handle_simulation_target_changed(target)
-                }
+                // Target switching handled via ViewMessage::SelectRightPaneMode
             },
             Message::View(view_msg) => match view_msg {
                 ViewMessage::ToggleBox(kind) => self.handle_toggle_box(kind),
                 ViewMessage::ZoomChanged(value) => self.handle_zoom_changed(value),
-                ViewMessage::ViewModeChanged(mode) => self.handle_view_mode_changed(mode),
+                ViewMessage::SelectRightPaneMode(mode) => self.handle_right_pane_mode(mode),
+            },
+            Message::PaneGrid(event) => match event {
+                PaneGridMessage::Resized(event) => {
+                    self.panes.resize(event.split, event.ratio);
+                }
             },
         }
     }
@@ -51,9 +56,21 @@ impl App {
         self.zoom_factor = value.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
     }
 
-    /// Switches between AST and NFA visualization modes.
-    fn handle_view_mode_changed(&mut self, mode: ViewMode) {
-        self.view_mode = mode;
+    /// Handles the combined bottom-right selection buttons.
+    fn handle_right_pane_mode(&mut self, mode: RightPaneMode) {
+        match mode {
+            RightPaneMode::Ast => {
+                self.view_mode = ViewMode::Ast;
+            }
+            RightPaneMode::Nfa => {
+                self.view_mode = ViewMode::Nfa;
+                self.handle_simulation_target_changed(SimulationTarget::Nfa);
+            }
+            RightPaneMode::Dfa => {
+                self.view_mode = ViewMode::Nfa;
+                self.handle_simulation_target_changed(SimulationTarget::Dfa);
+            }
+        }
     }
 
     /// Updates the simulation input string and rebuilds the trace.
