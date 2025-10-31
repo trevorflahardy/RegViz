@@ -6,6 +6,8 @@ use super::message::ViewMode;
 use super::simulation::SimulationState;
 use crate::graph::BoxVisibility;
 
+const PANEL_SPLIT_RATIO: f32 = 0.4;
+
 /// Main application state.
 pub struct App {
     /// Current regex input from the user.
@@ -44,7 +46,7 @@ impl Default for App {
             .split(Axis::Vertical, left, PaneContent::Visualization)
             .expect("split pane should succeed");
 
-        panes.resize(split, 0.3);
+        panes.resize(split, PANEL_SPLIT_RATIO);
 
         Self {
             input: String::new(),
