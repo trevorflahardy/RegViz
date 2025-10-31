@@ -6,6 +6,17 @@ use regviz_core::core::automaton::StateId;
 use super::{BoxVisibility, GraphLayout, LayoutStrategy};
 use crate::graph::{Graph, GraphEdge, GraphNode, edge::PositionedEdge, node::PositionedNode};
 
+/// Horizontal distance between consecutive BFS layers.
+const LAYER_SPACING_X: f32 = 240.0;
+/// Vertical distance between nodes within a layer.
+const NODE_SPACING_Y: f32 = 150.0;
+/// Radius of each rendered DFA state.
+const NODE_RADIUS: f32 = 32.0;
+/// Horizontal padding added to the final layout bounds.
+const LAYOUT_PADDING_X: f32 = 80.0;
+/// Vertical padding added to the final layout bounds.
+const LAYOUT_PADDING_Y: f32 = 90.0;
+
 /// Layered layout strategy specialised for DFA graphs.
 ///
 /// DFAs do not carry bounding-box metadata like NFAs, so we arrange states by
@@ -21,17 +32,6 @@ impl LayoutStrategy for DfaLayoutStrategy {
         layout_graph(graph)
     }
 }
-
-/// Horizontal distance between consecutive BFS layers.
-const LAYER_SPACING_X: f32 = 240.0;
-/// Vertical distance between nodes within a layer.
-const NODE_SPACING_Y: f32 = 150.0;
-/// Radius of each rendered DFA state.
-const NODE_RADIUS: f32 = 32.0;
-/// Horizontal padding added to the final layout bounds.
-const LAYOUT_PADDING_X: f32 = 80.0;
-/// Vertical padding added to the final layout bounds.
-const LAYOUT_PADDING_Y: f32 = 90.0;
 
 fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
     let nodes = graph.nodes();
