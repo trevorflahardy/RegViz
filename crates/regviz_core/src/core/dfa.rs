@@ -18,6 +18,8 @@ pub struct Dfa {
     /// Transition table indexed by state then alphabet symbol.
     /// [`None`] indicates transition into a dead state.
     pub trans: Vec<Vec<Option<StateId>>>,
+    /// The alphabet of symbols used in the DFA.
+    pub alphabet: Vec<char>,
 }
 
 /// A helper function to determinize an NFA into a DFA using subset construction.
@@ -29,7 +31,7 @@ pub struct Dfa {
 /// # Returns
 ///
 /// - `(Dfa, Vec<char>)` - A tuple containing the resulting DFA and its alphabet.
-pub fn determinize(nfa: &Nfa) -> (Dfa, Vec<char>) {
+pub fn determinize(nfa: &Nfa) -> Dfa {
     Determinizer::new(nfa).run()
 }
 
@@ -92,7 +94,7 @@ impl<'a> Determinizer<'a> {
         }
     }
 
-    fn run(mut self) -> (Dfa, Vec<char>) {
+    fn run(mut self) -> Dfa {
         while let Some(key) = self.queue.pop_front() {
             let state_id = self.map[&key];
             self.ensure_capacity(state_id as usize + 1);
@@ -107,13 +109,13 @@ impl<'a> Determinizer<'a> {
 
         let accepts = self.collect_accepting();
         let states: Vec<StateId> = (0..self.map.len()).map(|i| i as StateId).collect();
-        let dfa = Dfa {
+        Dfa {
             states,
             start: 0,
             accepts,
             trans: self.transitions,
-        };
-        (dfa, self.alphabet)
+            alphabet: self.alphabet.clone(),
+        }
     }
 
     /// Ensures the transitions vector has at least `len` elements.
@@ -197,8 +199,8 @@ mod tests {
     #[test]
     fn test_determinize_epsilon() {
         let nfa = Nfa::build(&Ast::build("").unwrap());
-        let (dfa, alphabet) = determinize(&nfa);
-        assert_eq!(alphabet, vec![]);
+        let dfa = determinize(&nfa);
+        assert_eq!(dfa.alphabet, vec![]);
         assert_eq!(dfa.start, 0);
         assert_eq!(dfa.accepts, vec![0]);
         assert_eq!(dfa.states.len(), 1);
@@ -212,8 +214,8 @@ mod tests {
     #[test]
     fn test_determinize_literal() {
         let nfa = Nfa::build(&Ast::build("a").unwrap());
-        let (dfa, alphabet) = determinize(&nfa);
-        assert_eq!(alphabet, vec!['a']);
+        let dfa = determinize(&nfa);
+        assert_eq!(dfa.alphabet, vec!['a']);
         assert_eq!(dfa.start, 0);
         assert_eq!(dfa.accepts, vec![1]);
         assert_eq!(dfa.states.len(), 2);
@@ -229,8 +231,8 @@ mod tests {
     #[test]
     fn test_determinize_concat() {
         let nfa = Nfa::build(&Ast::build("ab").unwrap());
-        let (dfa, alphabet) = determinize(&nfa);
-        assert_eq!(alphabet, vec!['a', 'b']);
+        let dfa = determinize(&nfa);
+        assert_eq!(dfa.alphabet, vec!['a', 'b']);
         assert_eq!(dfa.start, 0);
         assert_eq!(dfa.accepts, vec![2]);
         assert_eq!(dfa.states.len(), 3);
@@ -247,8 +249,8 @@ mod tests {
     #[test]
     fn test_determinize_alternation() {
         let nfa = Nfa::build(&Ast::build("a+b").unwrap());
-        let (dfa, alphabet) = determinize(&nfa);
-        assert_eq!(alphabet, vec!['a', 'b']);
+        let dfa = determinize(&nfa);
+        assert_eq!(dfa.alphabet, vec!['a', 'b']);
         assert_eq!(dfa.start, 0);
         assert_eq!(dfa.accepts, vec![1, 2]);
         assert_eq!(dfa.states.len(), 3);
@@ -265,8 +267,8 @@ mod tests {
     #[test]
     fn test_determinize_kleene_star() {
         let nfa = Nfa::build(&Ast::build("a*").unwrap());
-        let (dfa, alphabet) = determinize(&nfa);
-        assert_eq!(alphabet, vec!['a']);
+        let dfa = determinize(&nfa);
+        assert_eq!(dfa.alphabet, vec!['a']);
         assert_eq!(dfa.start, 0);
         assert_eq!(dfa.accepts, vec![0, 1]);
         assert_eq!(dfa.states.len(), 2);

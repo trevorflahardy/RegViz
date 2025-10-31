@@ -5,10 +5,10 @@ use super::dfa::Dfa;
 use super::nfa::Nfa;
 
 /// Simulates a DFA and reports whether it accepts the provided input.
-pub fn simulate_dfa(dfa: &Dfa, alphabet: &[char], input: &str) -> bool {
+pub fn simulate_dfa(dfa: &Dfa, input: &str) -> bool {
     let mut state = dfa.start;
     for ch in input.chars() {
-        let idx = match alphabet.iter().position(|&c| c == ch) {
+        let idx = match dfa.alphabet.iter().position(|&c| c == ch) {
             Some(i) => i,
             None => return false,
         };
