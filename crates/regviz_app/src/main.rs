@@ -32,6 +32,7 @@ fn init_tracing() {
         .try_init()
         .ok();
 }
+
 /// Application entry point.
 ///
 /// Initializes tracing (in debug mode) and starts the Iced event loop

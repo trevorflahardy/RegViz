@@ -1,4 +1,4 @@
-use regviz_core::core::{BuildArtifacts, nfa, parser};
+use regviz_core::core::{BuildArtifacts, nfa::Nfa, parser};
 
 use super::state::App;
 
@@ -17,7 +17,7 @@ impl App {
         // Try to lex the input into tokens
         match parser::Ast::build(self.input.trim()) {
             Ok(ast) => {
-                let nfa = nfa::Nfa::build(&ast);
+                let nfa = Nfa::build(&ast);
                 let alphabet = nfa.alphabet();
                 self.build_artifacts = Some(BuildArtifacts {
                     ast,

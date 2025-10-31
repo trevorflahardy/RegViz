@@ -156,8 +156,7 @@ impl App {
             }
             SimulationTarget::Dfa => {
                 if artifacts.dfa.is_none() {
-                    let (dfa, determinized_alphabet) = dfa::determinize(&artifacts.nfa);
-                    debug_assert_eq!(determinized_alphabet, artifacts.alphabet);
+                    let dfa = dfa::determinize(&artifacts.nfa);
                     artifacts.dfa = Some(dfa);
                 }
 
