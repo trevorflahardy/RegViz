@@ -1,3 +1,4 @@
+pub mod dfa;
 pub mod nfa;
 /// Layout algorithms for graph visualization.
 ///
@@ -14,6 +15,7 @@ pub mod nfa;
 /// The layout strategies.
 pub mod tree;
 
+pub use dfa::DfaLayoutStrategy;
 pub use nfa::NfaLayoutStrategy;
 pub use tree::TreeLayoutStrategy;
 

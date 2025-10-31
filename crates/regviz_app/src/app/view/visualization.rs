@@ -6,7 +6,7 @@ use iced::{
 use crate::app::message::{Message, ViewMode};
 use crate::app::simulation::SimulationTarget;
 use crate::app::state::App;
-use crate::graph::layout::{NfaLayoutStrategy, TreeLayoutStrategy};
+use crate::graph::layout::{DfaLayoutStrategy, NfaLayoutStrategy, TreeLayoutStrategy};
 use crate::graph::{AstGraph, BoxVisibility, GraphCanvas, Highlights, VisualDfa, VisualNfa};
 
 /// Renders the active visualization (AST or automaton).
@@ -77,11 +77,11 @@ fn render_automaton_canvas<'a>(
             };
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
             let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);
-            let canvas: GraphCanvas<VisualDfa, NfaLayoutStrategy> = GraphCanvas::new(
+            let canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 BoxVisibility::default(),
                 app.zoom_factor,
-                NfaLayoutStrategy,
+                DfaLayoutStrategy,
             );
 
             Canvas::new(canvas)
