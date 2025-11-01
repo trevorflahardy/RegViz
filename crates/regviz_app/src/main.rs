@@ -45,7 +45,7 @@ fn main() -> iced::Result {
     application(|| (App::default(), Task::none()), App::update, App::view)
         .theme(|state: &App| Some(state.theme))
         .antialiasing(true)
-        .centered()
+        // .centered() // Commented out: causes macOS objc2-foundation crash
         .transparent(true)
         .decorations(false)
         .title(|_: &App| String::from("RegViz - Regular Expression Visualizer"))
