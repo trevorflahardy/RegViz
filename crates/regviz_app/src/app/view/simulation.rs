@@ -5,12 +5,12 @@ use iced::{
 
 use regviz_core::core::BuildArtifacts;
 
-use crate::app::state::App;
 use crate::app::{
     message::{Message, SimulationMessage},
     theme::ElementType,
 };
 use crate::app::{simulation::SimulationTarget, theme::AppTheme};
+use crate::app::{state::App, theme::TextSize};
 
 /// Renders controls for stepping through the simulation input.
 pub fn panel<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> ElementType<'a> {
@@ -24,7 +24,7 @@ fn panel_column<'a>(
     let input_field = text_input("Enter an input string (e.g., abab)", &app.simulation.input)
         .on_input(|value| Message::Simulation(SimulationMessage::InputChanged(value)))
         .padding(8)
-        .size(16);
+        .size(TextSize::Body);
 
     let controls_row = step_controls(app, app.simulation_error.is_some());
     let mut section = column![input_field].spacing(6);
