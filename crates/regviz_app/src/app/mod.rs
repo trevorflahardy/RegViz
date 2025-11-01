@@ -3,6 +3,7 @@ mod message;
 mod parser;
 mod simulation;
 mod state;
+pub mod theme;
 mod update;
 mod view;
 

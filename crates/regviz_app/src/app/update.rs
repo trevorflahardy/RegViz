@@ -6,6 +6,7 @@ use super::message::{
 };
 use super::simulation::{SimulationTarget, build_dfa_trace, build_nfa_trace};
 use super::state::App;
+use iced::Task;
 use regviz_core::core::dfa;
 
 impl App {
@@ -13,28 +14,29 @@ impl App {
     ///
     /// This is the main state transition function. It processes user actions
     /// and updates the app state in response.
-    pub fn update(&mut self, message: Message) {
+    pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Input(input_msg) => match input_msg {
-                InputMessage::Changed(value) => self.handle_input_changed(value),
+                InputMessage::Changed(value) => self.handle_input_changed(value).into(),
             },
             Message::Simulation(sim_msg) => match sim_msg {
                 SimulationMessage::InputChanged(value) => {
-                    self.handle_simulation_input_changed(value)
+                    self.handle_simulation_input_changed(value).into()
                 }
-                SimulationMessage::StepForward => self.handle_simulation_step_forward(),
-                SimulationMessage::StepBackward => self.handle_simulation_step_backward(),
-                SimulationMessage::Reset => self.handle_simulation_reset(),
+                SimulationMessage::StepForward => self.handle_simulation_step_forward().into(),
+                SimulationMessage::StepBackward => self.handle_simulation_step_backward().into(),
+                SimulationMessage::Reset => self.handle_simulation_reset().into(),
                 // Target switching handled via ViewMessage::SelectRightPaneMode
             },
             Message::View(view_msg) => match view_msg {
-                ViewMessage::ToggleBox(kind) => self.handle_toggle_box(kind),
-                ViewMessage::ZoomChanged(value) => self.handle_zoom_changed(value),
-                ViewMessage::SelectRightPaneMode(mode) => self.handle_right_pane_mode(mode),
+                ViewMessage::ToggleBox(kind) => self.handle_toggle_box(kind).into(),
+                ViewMessage::ZoomChanged(value) => self.handle_zoom_changed(value).into(),
+                ViewMessage::SelectRightPaneMode(mode) => self.handle_right_pane_mode(mode).into(),
             },
             Message::PaneGrid(event) => match event {
                 PaneGridMessage::Resized(event) => {
                     self.panes.resize(event.split, event.ratio);
+                    ().into()
                 }
             },
         }

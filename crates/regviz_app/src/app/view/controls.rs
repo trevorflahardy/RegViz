@@ -4,12 +4,15 @@ use iced::{
 };
 use regviz_core::core::automaton::BoxKind;
 
-use crate::app::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR};
 use crate::app::message::{Message, ViewMessage};
 use crate::app::state::App;
+use crate::app::{
+    constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR},
+    theme::{AppTheme, ElementType},
+};
 
 /// Renders buttons for toggling bounding box visibility (NFA only).
-pub fn bounding_boxes(app: &App) -> Element<'_, Message> {
+pub fn bounding_boxes(app: &App) -> ElementType<'_> {
     let toggles = row![
         box_toggle_button(app, BoxKind::Literal, "Literal"),
         box_toggle_button(app, BoxKind::Concat, "Concat"),
@@ -27,7 +30,7 @@ pub fn bounding_boxes(app: &App) -> Element<'_, Message> {
 }
 
 /// Renders zoom controls with slider and percentage display.
-pub fn zoom(app: &App) -> Element<'_, Message> {
+pub fn zoom(app: &App) -> ElementType<'_> {
     let zoom_percentage = (app.zoom_factor * 100.0).round() as i32;
     let zoom_display = text(format!("Zoom: {zoom_percentage}%")).size(14);
 
@@ -45,7 +48,7 @@ pub fn zoom(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-fn box_toggle_button(app: &App, kind: BoxKind, label: &'static str) -> Element<'static, Message> {
+fn box_toggle_button<'a>(app: &App, kind: BoxKind, label: &'a str) -> ElementType<'a> {
     let is_visible = app.box_visibility.is_visible(kind);
     let button_text = format!("{}: {}", label, if is_visible { "✓" } else { "✗" });
 

@@ -6,8 +6,14 @@ edition = "2024"
 [dependencies]
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 tracing = "0.1"
-iced = { version = "0.13.1", features = ["tokio", "canvas", "advanced"] }
-iced_graphics = { version = "0.13.0", features = ["geometry"] }
+iced = { git = "https://github.com/iced-rs/iced", features = [
+    "tokio",
+    "canvas",
+    "advanced",
+] }
+iced_graphics = { git = "https://github.com/iced-rs/iced", features = [
+    "geometry",
+] }
 regviz_core = { path = "../regviz_core" }
 
 [[bin]]

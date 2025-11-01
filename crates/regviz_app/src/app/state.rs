@@ -1,12 +1,25 @@
-use iced::widget::pane_grid::{self, Axis};
+use iced::{
+    Element, Program, Task,
+    advanced::graphics::core::window::{Id as WindowId, Settings as WindowSettings},
+    widget::pane_grid::{self, Axis},
+};
 use regviz_core::core::BuildArtifacts;
 
 use super::constants::DEFAULT_ZOOM_FACTOR;
 use super::message::ViewMode;
 use super::simulation::SimulationState;
+use crate::app::message::Message;
+use crate::app::theme::AppTheme;
 use crate::graph::BoxVisibility;
 
 const PANEL_SPLIT_RATIO: f32 = 0.4;
+
+/// Identifiers for content in each pane of the `PaneGrid`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaneContent {
+    Controls,
+    Visualization,
+}
 
 /// Main application state.
 pub struct App {
@@ -36,6 +49,8 @@ pub struct App {
 
     /// Pane grid state for left (controls) and right (visualization) panes.
     pub panes: pane_grid::State<PaneContent>,
+
+    pub(crate) theme: AppTheme,
 }
 
 impl Default for App {
@@ -58,13 +73,51 @@ impl Default for App {
             simulation: SimulationState::default(),
             simulation_error: None,
             panes,
+            theme: AppTheme::Dark,
         }
     }
 }
 
-/// Identifiers for content in each pane of the `PaneGrid`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PaneContent {
-    Controls,
-    Visualization,
+impl Program for App {
+    type State = Self;
+    type Message = Message;
+    type Theme = AppTheme;
+    type Renderer = iced::Renderer;
+    type Executor = iced::executor::Default;
+
+    fn name() -> &'static str {
+        "RegViz - Regex Visualizer"
+    }
+
+    fn settings(&self) -> iced::Settings {
+        iced::Settings::default()
+    }
+
+    fn window(&self) -> Option<WindowSettings> {
+        Some(WindowSettings {
+            maximized: true,
+            resizable: true,
+            decorations: false,
+            transparent: true,
+            ..Default::default()
+        })
+    }
+
+    /// Responsible for initializing the application state and any startup tasks.
+    /// Currently, no startup tasks are needed.
+    fn boot(&self) -> (Self::State, Task<Self::Message>) {
+        (Self::State::default(), Task::none())
+    }
+
+    fn update(&self, state: &mut Self::State, message: Self::Message) -> Task<Self::Message> {
+        Self::State::update(state, message)
+    }
+
+    fn view<'a>(
+        &self,
+        state: &'a Self::State,
+        _window: WindowId,
+    ) -> Element<'a, Self::Message, Self::Theme, Self::Renderer> {
+        Self::State::view(state)
+    }
 }

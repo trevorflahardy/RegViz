@@ -1,12 +1,15 @@
 use iced::{
     Alignment, Element, Length,
     alignment::{Horizontal, Vertical},
-    widget::{Canvas, button, column, container, row, text},
+    widget::{Canvas, button, column, container, row, text, themer},
 };
 
-use crate::app::message::{Message, RightPaneMode, ViewMessage, ViewMode};
-use crate::app::simulation::SimulationTarget;
 use crate::app::state::App;
+use crate::app::{
+    message::{Message, RightPaneMode, ViewMessage, ViewMode},
+    theme::ElementType,
+};
+use crate::app::{simulation::SimulationTarget, theme::AppTheme};
 use crate::graph::layout::{DfaLayoutStrategy, NfaLayoutStrategy, TreeLayoutStrategy};
 use crate::graph::{AstGraph, BoxVisibility, GraphCanvas, Highlights, VisualDfa, VisualNfa};
 
@@ -14,7 +17,7 @@ use crate::graph::{AstGraph, BoxVisibility, GraphCanvas, Highlights, VisualDfa, 
 pub fn render<'a>(
     app: &'a App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
-) -> Element<'a, Message> {
+) -> ElementType<'a> {
     let canvas = match app.view_mode {
         ViewMode::Ast => render_ast_canvas(app, artifacts),
         ViewMode::Nfa => render_automaton_canvas(app, artifacts),
@@ -40,9 +43,9 @@ pub fn render<'a>(
 }
 
 fn render_ast_canvas<'a>(
-    app: &'a App,
+    app: &App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
-) -> Element<'a, Message> {
+) -> ElementType<'a> {
     let ast_graph = AstGraph::new(artifacts.ast.clone());
     let canvas: GraphCanvas<AstGraph, TreeLayoutStrategy> = GraphCanvas::new(
         ast_graph,
@@ -51,14 +54,16 @@ fn render_ast_canvas<'a>(
         TreeLayoutStrategy,
     );
 
-    Canvas::new(canvas)
+    let canvas_elem: Element<'_, Message, AppTheme> = Canvas::new(canvas)
         .width(Length::Fill)
         .height(Length::Fill)
-        .into()
+        .into();
+
+    themer(app.theme.into(), canvas_elem).into()
 }
 
 /// Renders an empty right pane when no artifacts are available.
-pub fn render_empty(app: &App) -> Element<'_, Message> {
+pub fn render_empty(app: &App) -> ElementType<'_> {
     let hint = text("Enter a regular expression to visualize")
         .height(Length::Fill)
         .align_y(Vertical::Top)
@@ -74,7 +79,7 @@ pub fn render_empty(app: &App) -> Element<'_, Message> {
     container(content).padding(20).height(Length::Fill).into()
 }
 
-fn bottom_tri_toggle(app: &App) -> Element<'_, Message> {
+fn bottom_tri_toggle(app: &App) -> ElementType<'_> {
     let is_ast = app.view_mode == ViewMode::Ast;
     let is_nfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Nfa;
     let is_dfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Dfa;
@@ -91,7 +96,7 @@ fn bottom_tri_toggle(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-fn tri_button(label: &str, active: bool, mode: RightPaneMode) -> Element<'static, Message> {
+fn tri_button(label: &str, active: bool, mode: RightPaneMode) -> ElementType<'_> {
     let mut text_label = label.to_string();
     if active {
         text_label.push_str(" ✓");
@@ -104,9 +109,9 @@ fn tri_button(label: &str, active: bool, mode: RightPaneMode) -> Element<'static
 }
 
 fn render_automaton_canvas<'a>(
-    app: &'a App,
+    app: &App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
-) -> Element<'a, Message> {
+) -> ElementType<'a> {
     match app.simulation.target {
         SimulationTarget::Nfa => {
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();

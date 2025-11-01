@@ -1,13 +1,13 @@
-use iced::{
-    Element,
-    widget::{column, text, text_input},
+use iced::widget::{column, text, text_input};
+
+use crate::app::state::App;
+use crate::app::{
+    message::{InputMessage, Message},
+    theme::ElementType,
 };
 
-use crate::app::message::{InputMessage, Message};
-use crate::app::state::App;
-
 /// Renders the regex input field and status text.
-pub fn render(app: &App) -> Element<'_, Message> {
+pub fn render(app: &App) -> ElementType<'_> {
     let input_field = text_input(
         "Enter a regular expression (e.g., a+b, (a+b)*c)",
         &app.input,
@@ -21,7 +21,7 @@ pub fn render(app: &App) -> Element<'_, Message> {
     column![input_field, status].spacing(8).into()
 }
 
-fn status_text(app: &App) -> Element<'_, Message> {
+fn status_text(app: &App) -> ElementType<'_> {
     match &app.error {
         Some(err) => text(format!("x  {err}")).size(14).into(),
         None => match &app.build_artifacts {

@@ -10,13 +10,15 @@ use iced::{
 
 use regviz_core::core::BuildArtifacts;
 
+use crate::app::theme::{AppTheme, ElementType};
+
 use super::message::{Message, PaneGridMessage, ViewMode};
 use super::simulation::SimulationTarget;
 use super::state::{App, PaneContent};
 
 impl App {
     /// Renders the entire application UI.
-    pub fn view(&self) -> Element<'_, Message> {
+    pub fn view(&self) -> ElementType<'_> {
         let grid = pane_grid::PaneGrid::new(&self.panes, |_, pane, _| match pane {
             PaneContent::Controls => pane_grid::Content::new(left_controls(self)),
             PaneContent::Visualization => pane_grid::Content::new(right_visual(self)),
@@ -31,7 +33,7 @@ impl App {
     }
 }
 
-fn render_mode_specific<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> Element<'a, Message> {
+fn render_mode_specific<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> ElementType<'a> {
     let mut controls_column = column![].spacing(10);
 
     if app.view_mode == ViewMode::Nfa {
@@ -47,7 +49,7 @@ fn render_mode_specific<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> Elem
     container(controls_column).align_x(Alignment::Start).into()
 }
 
-fn left_controls(app: &App) -> Element<'_, Message> {
+fn left_controls(app: &App) -> ElementType<'_> {
     let mut col = column![input::render(app)].spacing(10);
 
     if let Some(artifacts) = &app.build_artifacts {
@@ -62,7 +64,7 @@ fn left_controls(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-fn right_visual(app: &App) -> Element<'_, Message> {
+fn right_visual(app: &App) -> ElementType<'_> {
     if let Some(artifacts) = &app.build_artifacts {
         visualization::render(app, artifacts)
     } else {

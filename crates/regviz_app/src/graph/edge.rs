@@ -469,8 +469,8 @@ impl PositionedEdge {
                 content: self.data.label.clone(),
                 position: label_pos,
                 color: label_color(self.data.is_active, color),
-                horizontal_alignment: Horizontal::Center,
-                vertical_alignment: Vertical::Center,
+                align_x: Horizontal::Center.into(),
+                align_y: Vertical::Center.into(),
                 ..Text::default()
             });
         }
@@ -538,8 +538,8 @@ impl PositionedEdge {
             content: self.data.label.clone(),
             position: label_position,
             color: label_color(self.data.is_active, color),
-            horizontal_alignment: Horizontal::Center,
-            vertical_alignment: Vertical::Center,
+            align_x: Horizontal::Center.into(),
+            align_y: Vertical::Center.into(),
             ..Text::default()
         });
     }

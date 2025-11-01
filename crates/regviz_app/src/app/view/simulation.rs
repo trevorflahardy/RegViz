@@ -5,19 +5,22 @@ use iced::{
 
 use regviz_core::core::BuildArtifacts;
 
-use crate::app::message::{Message, SimulationMessage};
-use crate::app::simulation::SimulationTarget;
 use crate::app::state::App;
+use crate::app::{
+    message::{Message, SimulationMessage},
+    theme::ElementType,
+};
+use crate::app::{simulation::SimulationTarget, theme::AppTheme};
 
 /// Renders controls for stepping through the simulation input.
-pub fn panel<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> Element<'a, Message> {
+pub fn panel<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> ElementType<'a> {
     panel_column(app, artifacts).into()
 }
 
 fn panel_column<'a>(
     app: &'a App,
     _artifacts: &'a BuildArtifacts,
-) -> iced::widget::Column<'a, Message> {
+) -> iced::widget::Column<'a, Message, AppTheme> {
     let input_field = text_input("Enter an input string (e.g., abab)", &app.simulation.input)
         .on_input(|value| Message::Simulation(SimulationMessage::InputChanged(value)))
         .padding(8)
@@ -45,7 +48,7 @@ fn panel_column<'a>(
 
 // Target toggle buttons were moved to the right pane tri-toggle.
 
-fn step_controls(app: &App, disabled: bool) -> Element<'_, Message> {
+fn step_controls(app: &App, disabled: bool) -> ElementType<'_> {
     let mut prev_button = button(text("Prev").size(14)).padding([4, 12]);
     if !disabled && app.simulation.can_step_backward() {
         prev_button = prev_button.on_press(Message::Simulation(SimulationMessage::StepBackward));

@@ -1,5 +1,5 @@
-use iced::{Point, Vector, widget::canvas::Frame};
-use iced_graphics::geometry::Renderer;
+use iced::{Point, Vector};
+use iced_graphics::geometry::{Frame, Renderer as GeometryRenderer};
 
 /// Shared drawing context containing the active transform parameters.
 #[derive(Debug, Clone, Copy)]
@@ -24,5 +24,7 @@ impl DrawContext {
 /// Trait implemented by renderable items on the canvas.
 pub trait Drawable {
     /// Draws the element to the frame using the provided [`DrawContext`].
-    fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext);
+    fn draw<R>(&self, frame: &mut Frame<R>, ctx: &DrawContext)
+    where
+        R: GeometryRenderer;
 }

@@ -122,8 +122,8 @@ impl Drawable for PositionedNode {
                 content: self.data.label.clone(),
                 position: center,
                 color: label_color(highlight),
-                horizontal_alignment: Horizontal::Center,
-                vertical_alignment: Vertical::Center,
+                align_x: Horizontal::Center.into(),
+                align_y: Vertical::Center.into(),
                 ..Text::default()
             });
         }
