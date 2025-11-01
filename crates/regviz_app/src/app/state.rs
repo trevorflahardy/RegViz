@@ -7,7 +7,7 @@ use super::simulation::SimulationState;
 use crate::app::theme::AppTheme;
 use crate::graph::BoxVisibility;
 
-const PANEL_SPLIT_RATIO: f32 = 0.4;
+const PANEL_SPLIT_RATIO: f32 = 0.35;
 
 /// Identifiers for content in each pane of the `PaneGrid`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
