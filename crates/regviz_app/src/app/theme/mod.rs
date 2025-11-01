@@ -5,9 +5,12 @@ mod slider;
 mod text;
 mod text_input;
 
+use crate::app::message::Message;
 use iced::{Color, Element, theme};
 
-use crate::app::message::Message;
+// Re-exports for easier access in renderer modules
+pub use button::ButtonClass;
+pub use container::ContainerClass;
 
 pub type ElementType<'a> = Element<'a, Message, AppTheme>;
 

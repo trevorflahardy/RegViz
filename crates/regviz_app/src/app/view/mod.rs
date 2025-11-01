@@ -10,7 +10,7 @@ use iced::{
 
 use regviz_core::core::BuildArtifacts;
 
-use crate::app::theme::ElementType;
+use crate::app::theme::{ContainerClass, ElementType};
 
 use super::message::{Message, PaneGridMessage, ViewMode};
 use super::simulation::SimulationTarget;
@@ -29,7 +29,17 @@ impl App {
         .width(Length::Fill)
         .height(Length::Fill);
 
-        grid.into()
+        // Outer transparent container for window padding
+        container(
+            container(grid)
+                .class(ContainerClass::GlassEffect) // Use glass effect for semi-transparency
+                .width(Length::Fill)
+                .height(Length::Fill),
+        )
+        .padding(10) // Creates space around rounded container for transparency to show
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
     }
 }
 

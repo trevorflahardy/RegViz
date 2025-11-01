@@ -12,10 +12,10 @@ const BUTTON_DARK_PRIMARY: button::Style = button::Style {
         color: iced::Color::from_rgb(0_f32, 0_f32, 0_f32),
         width: 0_f32,
         radius: iced::border::Radius {
-            top_left: 4.0,
-            top_right: 4.0,
-            bottom_left: 4.0,
-            bottom_right: 4.0,
+            top_left: 15.0,
+            top_right: 15.0,
+            bottom_left: 15.0,
+            bottom_right: 15.0,
         },
     },
     shadow: iced::Shadow {
