@@ -45,8 +45,6 @@ fn main() -> iced::Result {
     application(|| (App::default(), Task::none()), App::update, App::view)
         .theme(|state: &App| Some(state.theme))
         .antialiasing(true)
-        .transparent(true) // Enable transparency for glass effect
-        .decorations(true) // Keep decorations for native titlebar with blur
         .title(|_: &App| String::from("RegViz - Regular Expression Visualizer"))
         .run()
 }

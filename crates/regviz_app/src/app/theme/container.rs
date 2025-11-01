@@ -1,6 +1,6 @@
 use super::AppTheme;
 use iced::widget::container;
-use iced::{Background, Border, Color};
+use iced::{Background, Border};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ContainerClass {
@@ -8,8 +8,6 @@ pub enum ContainerClass {
     Default,
     Rounded,
     RoundedLarge,
-    /// Semi-transparent background (90% opaque) for glass effect
-    GlassEffect,
 }
 
 impl<'a> From<container::StyleFn<'a, AppTheme>> for ContainerClass {
@@ -43,26 +41,6 @@ impl container::Catalog for AppTheme {
                     color: self.text_primary().scale_alpha(0.3),
                 },
             ),
-            ContainerClass::GlassEffect => {
-                // Create a semi-transparent background (90% opaque = 0.9 alpha)
-                // For more transparency, decrease this value (e.g., 0.85 = 85% opaque, 15% transparent)
-                const GLASS_OPACITY: f32 = 0.5;
-
-                let base_color = self.bg_low();
-                let glass_color = Color {
-                    a: GLASS_OPACITY,
-                    ..base_color
-                };
-
-                (
-                    Background::Color(glass_color),
-                    Border {
-                        radius: iced::border::Radius::new(20.0),
-                        width: 1.5,
-                        color: self.text_primary().scale_alpha(0.2),
-                    },
-                )
-            }
         };
 
         container::Style {
