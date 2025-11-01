@@ -10,7 +10,7 @@ use iced::{
 
 use regviz_core::core::BuildArtifacts;
 
-use crate::app::theme::{ContainerClass, ElementType, TextSize};
+use crate::app::theme::{ContainerClass, ElementType, TextClass, TextSize};
 
 use super::message::{Message, PaneGridMessage, ViewMode};
 use super::simulation::SimulationTarget;
@@ -58,7 +58,8 @@ fn left_controls(app: &App) -> ElementType<'_> {
         column![
             text!("Regular Expression Visualizer").size(TextSize::H1),
             text!("Build and visualize finite automata from regular expressions.")
-                .size(TextSize::Body),
+                .size(TextSize::Body)
+                .class(TextClass::Secondary),
         ],
         input::render(app)
     ]
