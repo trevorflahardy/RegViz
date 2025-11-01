@@ -14,7 +14,7 @@ mod app;
 mod graph;
 
 use app::App;
-use iced::{Program, application};
+use iced::{Task, application};
 
 /// Initializes debug tracing for development builds.
 ///
@@ -42,18 +42,12 @@ fn main() -> iced::Result {
     #[cfg(debug_assertions)]
     init_tracing();
 
-    // Iced does not expose a way to create an Application from
-    // a Program directly, but we need this for our custom Theme implementation.
-    // We'll create a mock Application instance using the builtin, manually
-    // overwrite the 'raw' attribute to use our App instead.
-    let app = App::default();
-    let settings = app.settings().clone();
-    let window_settings = app.window().clone().unwrap_or_default();
-
-    application(move || app.boot(), App::update, App::view)
-        .antialiasing(settings.antialiasing)
-        .window(window_settings)
+    application(|| (App::default(), Task::none()), App::update, App::view)
+        .theme(|state: &App| Some(state.theme))
+        .antialiasing(true)
         .centered()
         .transparent(true)
+        .decorations(false)
+        .title(|_: &App| String::from("RegViz - Regular Expression Visualizer"))
         .run()
 }
