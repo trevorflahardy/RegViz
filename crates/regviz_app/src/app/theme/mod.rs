@@ -9,6 +9,7 @@ use crate::app::message::Message;
 use iced::{Color, Element, theme};
 
 // Re-exports for easier access in renderer modules
+#[allow(unused_imports)]
 pub use button::ButtonClass;
 pub use container::ContainerClass;
 
