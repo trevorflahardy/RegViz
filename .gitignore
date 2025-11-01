@@ -22,3 +22,6 @@ target
 
 # Mac-specific
 .DS_Store
+
+# Environmental variables file
+.env
