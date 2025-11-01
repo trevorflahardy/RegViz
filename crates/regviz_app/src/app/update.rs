@@ -17,21 +17,43 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Input(input_msg) => match input_msg {
-                InputMessage::Changed(value) => self.handle_input_changed(value).into(),
+                InputMessage::Changed(value) => {
+                    self.handle_input_changed(value);
+                    ().into()
+                },
             },
             Message::Simulation(sim_msg) => match sim_msg {
                 SimulationMessage::InputChanged(value) => {
-                    self.handle_simulation_input_changed(value).into()
+                    self.handle_simulation_input_changed(value);
+                    ().into()
                 }
-                SimulationMessage::StepForward => self.handle_simulation_step_forward().into(),
-                SimulationMessage::StepBackward => self.handle_simulation_step_backward().into(),
-                SimulationMessage::Reset => self.handle_simulation_reset().into(),
+                SimulationMessage::StepForward => {
+                    self.handle_simulation_step_forward();
+                    ().into()
+                },
+                SimulationMessage::StepBackward => {
+                    self.handle_simulation_step_backward();
+                    ().into()
+                },
+                SimulationMessage::Reset => {
+                    self.handle_simulation_reset();
+                    ().into()
+                },
                 // Target switching handled via ViewMessage::SelectRightPaneMode
             },
             Message::View(view_msg) => match view_msg {
-                ViewMessage::ToggleBox(kind) => self.handle_toggle_box(kind).into(),
-                ViewMessage::ZoomChanged(value) => self.handle_zoom_changed(value).into(),
-                ViewMessage::SelectRightPaneMode(mode) => self.handle_right_pane_mode(mode).into(),
+                ViewMessage::ToggleBox(kind) => {
+                    self.handle_toggle_box(kind);
+                    ().into()
+                },
+                ViewMessage::ZoomChanged(value) => {
+                    self.handle_zoom_changed(value);
+                    ().into()
+                },
+                ViewMessage::SelectRightPaneMode(mode) => {
+                    self.handle_right_pane_mode(mode);
+                    ().into()
+                },
             },
             Message::PaneGrid(event) => match event {
                 PaneGridMessage::Resized(event) => {

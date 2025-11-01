@@ -470,7 +470,7 @@ impl PositionedEdge {
                 position: label_pos,
                 color: label_color(self.data.is_active, color),
                 align_x: Horizontal::Center.into(),
-                align_y: Vertical::Center.into(),
+                align_y: Vertical::Center,
                 ..Text::default()
             });
         }
@@ -539,7 +539,7 @@ impl PositionedEdge {
             position: label_position,
             color: label_color(self.data.is_active, color),
             align_x: Horizontal::Center.into(),
-            align_y: Vertical::Center.into(),
+            align_y: Vertical::Center,
             ..Text::default()
         });
     }

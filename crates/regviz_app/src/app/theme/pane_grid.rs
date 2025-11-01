@@ -6,7 +6,7 @@ impl pane_grid::Catalog for AppTheme {
     type Class<'a> = ();
 
     fn default<'a>() -> <Self as pane_grid::Catalog>::Class<'a> {
-        ()
+        
     }
 
     fn style(&self, _class: &<Self as pane_grid::Catalog>::Class<'_>) -> pane_grid::Style {

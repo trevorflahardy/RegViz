@@ -4,13 +4,13 @@ mod simulation;
 mod visualization;
 
 use iced::{
-    Alignment, Element, Length,
+    Alignment, Length,
     widget::{column, container, pane_grid},
 };
 
 use regviz_core::core::BuildArtifacts;
 
-use crate::app::theme::{AppTheme, ElementType};
+use crate::app::theme::ElementType;
 
 use super::message::{Message, PaneGridMessage, ViewMode};
 use super::simulation::SimulationTarget;

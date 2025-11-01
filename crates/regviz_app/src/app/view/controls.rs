@@ -1,5 +1,5 @@
 use iced::{
-    Alignment, Element, Length,
+    Alignment, Length,
     widget::{button, column, row, slider, text},
 };
 use regviz_core::core::automaton::BoxKind;
@@ -8,7 +8,7 @@ use crate::app::message::{Message, ViewMessage};
 use crate::app::state::App;
 use crate::app::{
     constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR},
-    theme::{AppTheme, ElementType},
+    theme::ElementType,
 };
 
 /// Renders buttons for toggling bounding box visibility (NFA only).

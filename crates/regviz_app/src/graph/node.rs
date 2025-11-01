@@ -123,7 +123,7 @@ impl Drawable for PositionedNode {
                 position: center,
                 color: label_color(highlight),
                 align_x: Horizontal::Center.into(),
-                align_y: Vertical::Center.into(),
+                align_y: Vertical::Center,
                 ..Text::default()
             });
         }

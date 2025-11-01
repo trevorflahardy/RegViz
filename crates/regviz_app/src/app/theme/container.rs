@@ -6,7 +6,7 @@ impl container::Catalog for AppTheme {
     type Class<'a> = ();
 
     fn default<'a>() -> Self::Class<'a> {
-        ()
+        
     }
 
     fn style(&self, _class: &Self::Class<'_>) -> container::Style {
