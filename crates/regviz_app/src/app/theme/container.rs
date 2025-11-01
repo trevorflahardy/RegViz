@@ -2,12 +2,13 @@ use super::AppTheme;
 use iced::widget::container;
 use iced::{Background, Border};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum ContainerClass {
     #[default]
     Default,
     Rounded,
     RoundedLarge,
+    FilledWith(iced::Color),
 }
 
 impl<'a> From<container::StyleFn<'a, AppTheme>> for ContainerClass {
@@ -41,6 +42,7 @@ impl container::Catalog for AppTheme {
                     color: self.text_primary().scale_alpha(0.3),
                 },
             ),
+            ContainerClass::FilledWith(color) => (Background::Color(*color), Border::default()),
         };
 
         container::Style {

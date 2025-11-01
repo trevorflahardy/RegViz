@@ -5,12 +5,12 @@ mod visualization;
 
 use iced::{
     Alignment, Length,
-    widget::{column, container, pane_grid},
+    widget::{column, container, pane_grid, text},
 };
 
 use regviz_core::core::BuildArtifacts;
 
-use crate::app::theme::{ContainerClass, ElementType};
+use crate::app::theme::{ContainerClass, ElementType, TextSize};
 
 use super::message::{Message, PaneGridMessage, ViewMode};
 use super::simulation::SimulationTarget;
@@ -54,17 +54,26 @@ fn render_mode_specific<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> Elem
 }
 
 fn left_controls(app: &App) -> ElementType<'_> {
-    let mut col = column![input::render(app)].spacing(10);
+    let mut col = column![
+        column![
+            text!("Regular Expression Visualizer").size(TextSize::H1),
+            text!("Build and visualize finite automata from regular expressions.")
+                .size(TextSize::Body),
+        ],
+        input::render(app)
+    ]
+    .spacing(10);
 
     if let Some(artifacts) = &app.build_artifacts {
         col = col.push(render_mode_specific(app, artifacts));
     }
 
     container(col)
-        .padding(12)
+        .padding(15)
         .align_x(Alignment::Start)
         .width(Length::Fill)
         .height(Length::Fill)
+        .class(ContainerClass::FilledWith(app.theme.bg_mid()))
         .into()
 }
 

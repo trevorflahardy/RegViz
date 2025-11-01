@@ -7,7 +7,7 @@ const BUTTON_DARK_PRIMARY: button::Style = button::Style {
         46.0 / 255.0,
         44.0 / 255.0,
     ))),
-    text_color: AppTheme::TEXT_DARK,
+    text_color: AppTheme::TEXT_PRIMARY_DARK,
     border: iced::Border {
         color: iced::Color::from_rgb(0_f32, 0_f32, 0_f32),
         width: 0_f32,

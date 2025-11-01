@@ -12,6 +12,8 @@ use iced::{Color, Element, theme};
 #[allow(unused_imports)]
 pub use button::ButtonClass;
 pub use container::ContainerClass;
+#[allow(unused_imports)]
+pub use text::{TextClass, TextSize};
 
 pub type ElementType<'a> = Element<'a, Message, AppTheme>;
 
@@ -23,7 +25,7 @@ pub enum AppTheme {
 }
 
 impl AppTheme {
-    const TEXT_DARK: Color = Color::from_rgb(230.0 / 255.0, 230.0 / 255.0, 230.0 / 255.0);
+    const TEXT_PRIMARY_DARK: Color = Color::from_rgb(230.0 / 255.0, 230.0 / 255.0, 230.0 / 255.0);
 
     pub const THEME_DARK_PALETTE: theme::Palette = theme::Palette {
         background: iced::Color::from_rgb(19.0 / 255.0, 26.0 / 255.0, 32.0 / 255.0),
@@ -46,7 +48,7 @@ impl theme::Base for AppTheme {
     fn base(&self) -> iced::theme::Style {
         iced::theme::Style {
             background_color: Self::THEME_DARK_PALETTE.background,
-            text_color: Self::TEXT_DARK,
+            text_color: Self::TEXT_PRIMARY_DARK,
         }
     }
 
@@ -90,7 +92,7 @@ impl AppTheme {
     // Text colors
     pub fn text_primary(&self) -> Color {
         match self {
-            AppTheme::Dark => Self::TEXT_DARK,
+            AppTheme::Dark => Self::TEXT_PRIMARY_DARK,
         }
     }
 
@@ -147,6 +149,25 @@ impl AppTheme {
     pub fn graph_edge_active(&self) -> Color {
         match self {
             AppTheme::Dark => Color::from_rgb(0.95, 0.65, 0.35),
+        }
+    }
+
+    // User feedback colors
+    pub fn success(&self) -> Color {
+        match self {
+            AppTheme::Dark => Color::from_rgb(0.2, 0.7, 0.4),
+        }
+    }
+
+    pub fn warning(&self) -> Color {
+        match self {
+            AppTheme::Dark => Color::from_rgb(0.95, 0.65, 0.2),
+        }
+    }
+
+    pub fn error(&self) -> Color {
+        match self {
+            AppTheme::Dark => Color::from_rgb(0.9, 0.2, 0.2),
         }
     }
 }
