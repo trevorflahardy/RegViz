@@ -1,6 +1,7 @@
 use iced::widget::{column, text, text_input};
 
 use crate::app::state::App;
+use crate::app::theme::{TextClass, TextSize};
 use crate::app::{
     message::{InputMessage, Message},
     theme::ElementType,
@@ -14,7 +15,7 @@ pub fn render(app: &App) -> ElementType<'_> {
     )
     .on_input(|value| Message::Input(InputMessage::Changed(value)))
     .padding(8)
-    .size(16);
+    .size(TextSize::Body);
 
     let status = status_text(app);
 
@@ -30,10 +31,12 @@ fn status_text(app: &App) -> ElementType<'_> {
                 artifacts.nfa.states.len(),
                 artifacts.alphabet
             ))
-            .size(14)
+            .size(TextSize::Body)
+            .class(TextClass::Success)
             .into(),
             None => text("Enter a regular expression to visualize")
-                .size(14)
+                .size(TextSize::Body)
+                .class(TextClass::Warning)
                 .into(),
         },
     }
