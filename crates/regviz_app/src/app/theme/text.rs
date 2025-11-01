@@ -1,6 +1,7 @@
 use super::AppTheme;
 use iced::{Pixels, widget::text};
 
+#[allow(dead_code)]
 pub enum TextSize {
     H1,
     H2,
