@@ -1,3 +1,5 @@
+use iced::Font;
+
 mod ast;
 mod bbox;
 mod canvas;
@@ -9,6 +11,12 @@ pub mod layout;
 mod nfa;
 mod node;
 mod style;
+
+/// Font used for all text rendered on the graph canvas.
+///
+/// Web builds do not have access to system fonts, so we explicitly request the
+/// bundled Fira Sans family provided by the `iced` crate.
+pub const CANVAS_FONT: Font = Font::with_name("Fira Sans");
 
 pub use ast::AstGraph;
 pub use bbox::GraphBox;

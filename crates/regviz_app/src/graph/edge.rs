@@ -8,7 +8,7 @@ use regviz_core::core::automaton::StateId;
 
 use crate::app::theme::AppTheme;
 
-use super::{DrawContext, Drawable};
+use super::{CANVAS_FONT, DrawContext, Drawable};
 
 /// Distance between the edge segment and its label in logical units.
 /// With centered text alignment, this needs to be smaller than before.
@@ -475,6 +475,7 @@ impl PositionedEdge {
             content: self.data.label.clone(),
             position: label_pos,
             color,
+            font: CANVAS_FONT,
             align_x: Horizontal::Center.into(),
             align_y: Vertical::Center,
             ..Text::default()
@@ -543,6 +544,7 @@ impl PositionedEdge {
             content: self.data.label.clone(),
             position: label_position,
             color,
+            font: CANVAS_FONT,
             align_x: Horizontal::Center.into(),
             align_y: Vertical::Center,
             ..Text::default()

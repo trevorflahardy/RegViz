@@ -4,7 +4,7 @@ use regviz_core::core::automaton::{self, BoxId, BoxKind, StateId};
 
 use crate::app::theme::{AppTheme, TextSize};
 
-use super::{DrawContext, Drawable, color_for_box};
+use super::{CANVAS_FONT, DrawContext, Drawable, color_for_box};
 
 /// Metadata describing a bounding box that groups multiple states together.
 #[derive(Debug, Clone)]
@@ -78,6 +78,7 @@ impl Drawable for PositionedBox {
             position: Point::new(label_pos.x, label_pos.y),
             color: theme.text_primary(),
             size: TextSize::Small.into(),
+            font: CANVAS_FONT,
             ..Text::default()
         });
     }
