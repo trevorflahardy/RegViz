@@ -9,8 +9,8 @@ mod text_input;
 use crate::app::{
     message::Message,
     theme::colors::{
-        AMBER_500, GRAY_50, GRAY_100, GRAY_200, GRAY_300, GRAY_500, GRAY_700, GRAY_950, GREEN_400,
-        GREEN_500, RED_400, RED_500, SKY_500, SKY_800, SLATE_900,
+        AMBER_500, GRAY_50, GRAY_200, GRAY_300, GRAY_500, GRAY_950, GREEN_400, GREEN_500, RED_400,
+        RED_500, SKY_500, SKY_800, SLATE_900,
     },
 };
 use iced::{Color, Element, theme};
@@ -114,7 +114,7 @@ impl AppTheme {
 
     pub fn text_secondary(&self) -> Color {
         match self {
-            AppTheme::Dark => GRAY_200,
+            AppTheme::Dark => GRAY_300,
         }
     }
 

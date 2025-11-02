@@ -2,7 +2,7 @@ use iced::{Color, Point, Rectangle, border::Radius};
 use iced_graphics::geometry::{Frame, Path, Renderer as GeometryRenderer, Stroke, Text};
 use regviz_core::core::automaton::{self, BoxId, BoxKind, StateId};
 
-use crate::app::theme::AppTheme;
+use crate::app::theme::{AppTheme, TextSize};
 
 use super::{DrawContext, Drawable, color_for_box};
 
@@ -48,12 +48,7 @@ pub struct PositionedBox {
 }
 
 impl Drawable for PositionedBox {
-    fn draw<R: GeometryRenderer>(
-        &self,
-        frame: &mut Frame<R>,
-        ctx: &DrawContext,
-        _theme: &AppTheme,
-    ) {
+    fn draw<R: GeometryRenderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext, theme: &AppTheme) {
         let top_left = ctx.transform_point(Point::new(self.rect.x, self.rect.y));
         let bottom_right = ctx.transform_point(Point::new(
             self.rect.x + self.rect.width,
@@ -73,15 +68,16 @@ impl Drawable for PositionedBox {
         frame.stroke(
             &rect,
             Stroke::default()
-                .with_width(2.0)
-                .with_color(Color::from_rgba(0.15, 0.15, 0.15, 0.8)),
+                .with_width(1.0)
+                .with_color(theme.text_secondary()),
         );
 
         let label_pos = ctx.transform_point(self.label_position);
         frame.fill_text(Text {
             content: self.data.label().to_string(),
             position: Point::new(label_pos.x, label_pos.y),
-            color: Color::from_rgba(0.05, 0.05, 0.05, 0.95),
+            color: theme.text_primary(),
+            size: TextSize::Small.into(),
             ..Text::default()
         });
     }
