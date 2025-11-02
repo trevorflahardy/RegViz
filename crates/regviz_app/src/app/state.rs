@@ -1,8 +1,20 @@
+use iced::widget::pane_grid::{self, Axis};
 use regviz_core::core::BuildArtifacts;
 
 use super::constants::DEFAULT_ZOOM_FACTOR;
 use super::message::ViewMode;
+use super::simulation::SimulationState;
+use crate::app::theme::AppTheme;
 use crate::graph::BoxVisibility;
+
+const PANEL_SPLIT_RATIO: f32 = 0.35;
+
+/// Identifiers for content in each pane of the `PaneGrid`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaneContent {
+    Controls,
+    Visualization,
+}
 
 /// Main application state.
 pub struct App {
@@ -23,17 +35,40 @@ pub struct App {
 
     /// Currently active visualization mode.
     pub view_mode: ViewMode,
+
+    /// Interactive simulation state for stepping through input strings.
+    pub simulation: SimulationState,
+
+    /// Validation error for the simulation input, if any.
+    pub simulation_error: Option<String>,
+
+    /// Pane grid state for left (controls) and right (visualization) panes.
+    pub panes: pane_grid::State<PaneContent>,
+
+    pub(crate) theme: AppTheme,
 }
 
 impl Default for App {
     fn default() -> Self {
+        // Initialize two-pane layout: left controls | right visualization
+        let (mut panes, left) = pane_grid::State::new(PaneContent::Controls);
+        let (_pane, split) = panes
+            .split(Axis::Vertical, left, PaneContent::Visualization)
+            .expect("split pane should succeed");
+
+        panes.resize(split, PANEL_SPLIT_RATIO);
+
         Self {
             input: String::new(),
             error: None,
             build_artifacts: None,
-            box_visibility: BoxVisibility::default(),
+            box_visibility: BoxVisibility::minimized(),
             zoom_factor: DEFAULT_ZOOM_FACTOR,
             view_mode: ViewMode::Nfa, // Default to NFA view
+            simulation: SimulationState::default(),
+            simulation_error: None,
+            panes,
+            theme: AppTheme::Dark,
         }
     }
 }

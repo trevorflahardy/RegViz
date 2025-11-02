@@ -1,9 +1,5 @@
-use iced::{
-    Color, Point, Rectangle,
-    border::Radius,
-    widget::canvas::{Frame, Path, Stroke, Text},
-};
-use iced_graphics::geometry::Renderer;
+use iced::{Color, Point, Rectangle, border::Radius};
+use iced_graphics::geometry::{Frame, Path, Renderer as GeometryRenderer, Stroke, Text};
 use regviz_core::core::automaton::{self, BoxId, BoxKind, StateId};
 
 use super::{DrawContext, Drawable, color_for_box};
@@ -50,7 +46,7 @@ pub struct PositionedBox {
 }
 
 impl Drawable for PositionedBox {
-    fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
+    fn draw<R: GeometryRenderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
         let top_left = ctx.transform_point(Point::new(self.rect.x, self.rect.y));
         let bottom_right = ctx.transform_point(Point::new(
             self.rect.x + self.rect.width,

@@ -4,6 +4,7 @@ use iced_graphics::geometry::Renderer;
 
 use super::layout::LayoutStrategy;
 use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout};
+use crate::app::theme::AppTheme;
 
 /// Interactive canvas responsible for rendering graphs with zoom support.
 ///
@@ -37,11 +38,11 @@ impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
     }
 }
 
-impl<G, S, Message, R> Program<Message, iced::Theme, R> for GraphCanvas<G, S>
+impl<G, S, Message, R> Program<Message, AppTheme, R> for GraphCanvas<G, S>
 where
     G: Graph,
     S: LayoutStrategy,
-    R: Renderer,
+    R: Renderer + iced_graphics::geometry::Renderer,
 {
     type State = ();
 
@@ -49,7 +50,7 @@ where
         &self,
         _state: &Self::State,
         renderer: &R,
-        _theme: &iced::Theme,
+        _theme: &AppTheme,
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry<R>> {
@@ -79,11 +80,11 @@ where
     fn update(
         &self,
         _state: &mut Self::State,
-        _event: canvas::Event,
+        _event: &iced::Event,
         _bounds: Rectangle,
         _cursor: mouse::Cursor,
-    ) -> (iced::event::Status, Option<Message>) {
-        (iced::event::Status::Ignored, None)
+    ) -> Option<iced::widget::Action<Message>> {
+        None
     }
 }
 

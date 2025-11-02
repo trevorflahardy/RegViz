@@ -1,3 +1,4 @@
+pub mod dfa;
 pub mod nfa;
 /// Layout algorithms for graph visualization.
 ///
@@ -14,6 +15,7 @@ pub mod nfa;
 /// The layout strategies.
 pub mod tree;
 
+pub use dfa::DfaLayoutStrategy;
 pub use nfa::NfaLayoutStrategy;
 pub use tree::TreeLayoutStrategy;
 
@@ -74,6 +76,18 @@ impl Default for BoxVisibility {
 }
 
 impl BoxVisibility {
+    #[allow(dead_code)]
+    pub fn minimized() -> Self {
+        Self {
+            literal: false,
+            concat: false,
+            alternation: false,
+            kleene_star: false,
+            kleene_plus: false,
+            optional: false,
+        }
+    }
+
     /// Returns whether a bounding box of the provided [`BoxKind`] should be shown.
     #[must_use]
     pub fn is_visible(&self, kind: BoxKind) -> bool {
