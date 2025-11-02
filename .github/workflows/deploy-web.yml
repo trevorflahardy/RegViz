@@ -17,6 +17,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - uses: Swatinem/rust-cache@v2
       - name: Cargo Test
         run: cargo test --workspace --locked --all-targets
 
@@ -29,6 +30,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - uses: Swatinem/rust-cache@v2
       - name: Install wasm target
         run: rustup target add wasm32-unknown-unknown
       - name: Install Trunk
