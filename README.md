@@ -12,7 +12,7 @@ While tools for visualizing regular expressions and automata exist, most are out
 
 ## Native App (Downloadable)
 
-The native desktop app is the primary distribution. It runs with Iced/WGPU.
+The native desktop app is the primary distribution. It runs with Iced.
 
 Build and run (debug):
 
