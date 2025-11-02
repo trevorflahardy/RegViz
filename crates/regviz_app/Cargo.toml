@@ -3,10 +3,8 @@ name = "regviz_app"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 [dependencies]
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 tracing = "0.1"
 iced = { git = "https://github.com/iced-rs/iced", features = [
     "tokio",
@@ -18,14 +16,6 @@ iced_graphics = { git = "https://github.com/iced-rs/iced", features = [
 ] }
 regviz_core = { path = "../regviz_core" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
-web-sys = { version = "0.3", features = ["console"] }
-console_error_panic_hook = "0.1"
-console_log = "1.0"
-log = "0.4"
-# Enable WebGL backend for iced_wgpu on the web target
-iced_wgpu = { version = "0.13.0", features = ["webgl"] }
+[[bin]]
+name = "regviz_app"
+path = "src/main.rs"

@@ -16,14 +16,14 @@ mod graph;
 use app::App;
 use iced::{Task, application};
 
-/// Initializes debug tracing for development builds (native only).
+/// Initializes debug tracing for development builds.
 ///
 /// This function sets up structured logging using the `tracing` crate,
 /// which helps with debugging and understanding program flow. The trace
 /// level can be controlled via the `RUST_LOG` environment variable.
 ///
-/// Only compiled in debug builds for performance reasons, and not for WASM.
-#[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+/// Only compiled in debug builds for performance reasons.
+#[cfg(debug_assertions)]
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
 
@@ -39,7 +39,7 @@ fn init_tracing() {
 /// Initializes tracing (in debug mode) and starts the Iced event loop
 /// with the RegViz application.
 fn main() -> iced::Result {
-    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+    #[cfg(debug_assertions)]
     init_tracing();
 
     application(|| (App::default(), Task::none()), App::update, App::view)
