@@ -8,18 +8,13 @@ use regviz_core::core::sim;
 use crate::graph::{EdgeHighlight, Highlights, StateHighlight};
 
 /// Specifies which automaton should drive the simulation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SimulationTarget {
     /// Drive the simulation using the Thompson NFA.
+    #[default]
     Nfa,
     /// Drive the simulation using the determinised DFA.
     Dfa,
-}
-
-impl Default for SimulationTarget {
-    fn default() -> Self {
-        Self::Nfa
-    }
 }
 
 /// Snapshot describing the automaton after consuming a prefix of the input.
@@ -84,8 +79,7 @@ impl SimulationTrace {
 }
 
 /// Reactive state used by the UI to drive step-by-step simulation.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct SimulationState {
     /// Input string provided by the user.
     pub input: String,
@@ -95,7 +89,6 @@ pub struct SimulationState {
     pub target: SimulationTarget,
     trace: Option<SimulationTrace>,
 }
-
 
 impl SimulationState {
     /// Replaces the current trace and clamps the cursor to the new bounds.

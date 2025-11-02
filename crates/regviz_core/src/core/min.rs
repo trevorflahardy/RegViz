@@ -81,10 +81,11 @@ impl<'a> PartitionRefinement<'a> {
     fn collect_involved(&self, class_idx: usize, symbol_idx: usize) -> HashSet<usize> {
         let mut involved = HashSet::new();
         for state in 0..self.dfa.trans.len() {
-            if let Some(dst) = self.dfa.trans[state][symbol_idx] {
-                if self.state_class[dst as usize] == class_idx {
-                    involved.insert(state);
-                }
+            let Some(dst) = self.dfa.trans[state][symbol_idx] else {
+                continue;
+            };
+            if self.state_class[dst as usize] == class_idx {
+                involved.insert(state);
             }
         }
         involved
