@@ -1,7 +1,3 @@
-// Shared modules for the library build (WASM target)
-mod app;
-mod graph;
-
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -21,4 +17,3 @@ pub fn start() {
         app::App::view,
     );
 }
-

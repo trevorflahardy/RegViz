@@ -139,10 +139,10 @@ impl Builder {
         let id = self.adjacency.len() as StateId;
         self.adjacency.push(Vec::new());
         let box_id = self.box_stack.last().copied();
-        if let Some(current) = box_id {
-            if let Some(bbox) = self.boxes.get_mut(current as usize) {
-                bbox.states.push(id);
-            }
+        if let Some(current) = box_id
+            && let Some(bbox) = self.boxes.get_mut(current as usize)
+        {
+            bbox.states.push(id);
         }
         self.states.push(State { id, box_id });
         id

@@ -20,9 +20,9 @@ impl TextSize {
     }
 }
 
-impl Into<Pixels> for TextSize {
-    fn into(self) -> Pixels {
-        Pixels::from(self.to_size() as u32)
+impl From<TextSize> for Pixels {
+    fn from(val: TextSize) -> Self {
+        Pixels::from(val.to_size() as u32)
     }
 }
 
@@ -51,23 +51,18 @@ impl text::Catalog for AppTheme {
         match class {
             TextClass::Primary => text::Style {
                 color: Some(self.text_primary()),
-                ..text::Style::default()
             },
             TextClass::Secondary => text::Style {
                 color: Some(self.text_secondary()),
-                ..text::Style::default()
             },
             TextClass::Success => text::Style {
                 color: Some(self.success()),
-                ..text::Style::default()
             },
             TextClass::Warning => text::Style {
                 color: Some(self.warning()),
-                ..text::Style::default()
             },
             TextClass::Error => text::Style {
                 color: Some(self.error()),
-                ..text::Style::default()
             },
         }
     }
