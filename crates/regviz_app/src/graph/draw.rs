@@ -1,6 +1,8 @@
 use iced::{Point, Vector};
 use iced_graphics::geometry::{Frame, Renderer as GeometryRenderer};
 
+use crate::app::theme::AppTheme;
+
 /// Shared drawing context containing the active transform parameters.
 #[derive(Debug, Clone, Copy)]
 pub struct DrawContext {
@@ -24,7 +26,7 @@ impl DrawContext {
 /// Trait implemented by renderable items on the canvas.
 pub trait Drawable {
     /// Draws the element to the frame using the provided [`DrawContext`].
-    fn draw<R>(&self, frame: &mut Frame<R>, ctx: &DrawContext)
+    fn draw<R>(&self, frame: &mut Frame<R>, ctx: &DrawContext, theme: &AppTheme)
     where
         R: GeometryRenderer;
 }

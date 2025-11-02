@@ -7,7 +7,7 @@ use regviz_core::core::BuildArtifacts;
 
 use crate::app::{
     message::{Message, SimulationMessage},
-    theme::ElementType,
+    theme::{ElementType, TextClass},
 };
 use crate::app::{simulation::SimulationTarget, theme::AppTheme};
 use crate::app::{state::App, theme::TextSize};
@@ -34,7 +34,7 @@ fn panel_column<'a>(
     } = panel_messages(app);
 
     if let Some(error) = validation {
-        section = section.push(text(error).size(14));
+        section = section.push(text(error).class(TextClass::Error).size(TextSize::Body));
     }
 
     section = section.push(controls_row);
