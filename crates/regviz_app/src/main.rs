@@ -14,6 +14,7 @@ mod app;
 mod graph;
 
 use app::App;
+use iced::{Task, application};
 
 /// Initializes debug tracing for development builds.
 ///
@@ -32,6 +33,7 @@ fn init_tracing() {
         .try_init()
         .ok();
 }
+
 /// Application entry point.
 ///
 /// Initializes tracing (in debug mode) and starts the Iced event loop
@@ -40,9 +42,10 @@ fn main() -> iced::Result {
     #[cfg(debug_assertions)]
     init_tracing();
 
-    iced::run(
-        "RegViz - Regular Expression Visualizer",
-        App::update,
-        App::view,
-    )
+    application(|| (App::default(), Task::none()), App::update, App::view)
+        .theme(|state: &App| Some(state.theme))
+        .antialiasing(true)
+        .decorations(true)
+        .title(|_: &App| String::from("RegViz - Regular Expression Visualizer"))
+        .run()
 }

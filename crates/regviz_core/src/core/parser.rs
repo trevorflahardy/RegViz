@@ -259,10 +259,10 @@ impl Display for Ast {
         // Print the AST in unambiguous S-expression format
         match self {
             Ast::Epsilon => write!(f, "ε"),
-            Ast::Atom(c) => write!(f, "{}", c),
-            Ast::Concat(lhs, rhs) => write!(f, "(. {} {})", lhs, rhs),
-            Ast::Alt(lhs, rhs) => write!(f, "(+ {} {})", lhs, rhs),
-            Ast::Star(inner) => write!(f, "(* {})", inner),
+            Ast::Atom(c) => write!(f, "{c}"),
+            Ast::Concat(lhs, rhs) => write!(f, "(. {lhs} {rhs})"),
+            Ast::Alt(lhs, rhs) => write!(f, "(+ {lhs} {rhs})"),
+            Ast::Star(inner) => write!(f, "(* {inner})"),
         }
     }
 }

@@ -89,9 +89,9 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
     *next_id += 1;
 
     let label = match ast {
-        Ast::Atom(c) => format!("'{}'", c),
+        Ast::Atom(c) => format!("'{c}'"),
         Ast::Concat(_, _) => "·".to_string(), // Concatenation operator
-        Ast::Alt(_, _) => "|".to_string(),
+        Ast::Alt(_, _) => "+".to_string(),
         Ast::Star(_) => "*".to_string(),
         Ast::Epsilon => "ε".to_string(),
     };
@@ -102,6 +102,7 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
         is_start: false,
         is_accept: false,
         box_id: None,
+        highlight: None,
     });
 
     // Recursively process children

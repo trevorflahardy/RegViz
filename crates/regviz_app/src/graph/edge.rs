@@ -1,5 +1,5 @@
 use iced::{
-    Point, Vector,
+    Color, Point, Vector,
     alignment::{Horizontal, Vertical},
     widget::canvas::{Frame, Path, Stroke, Text},
 };
@@ -15,6 +15,10 @@ const LABEL_DISTANCE: f32 = 13.0;
 const ARROW_HEAD_LENGTH: f32 = 10.0;
 /// Half-width of the arrow head at its base.
 const ARROW_HEAD_HALF_WIDTH: f32 = ARROW_HEAD_LENGTH * 0.5;
+
+const INACTIVE_EDGE_STROKE_WIDTH: f32 = 1.3;
+const ACTIVE_EDGE_STROKE_WIDTH: f32 = 2.4;
+const ACTIVE_ARROW_ALPHA: f32 = 0.35;
 
 /// Edge curvature style for different types of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +42,8 @@ pub struct GraphEdge {
     pub label: String,
     /// Curvature style for this edge.
     pub curve: EdgeCurve,
+    /// Whether this edge was traversed in the current simulation step.
+    pub is_active: bool,
 }
 
 impl GraphEdge {
@@ -49,6 +55,7 @@ impl GraphEdge {
             to,
             label,
             curve: EdgeCurve::Straight,
+            is_active: false,
         }
     }
 
@@ -60,7 +67,15 @@ impl GraphEdge {
             to,
             label,
             curve,
+            is_active: false,
         }
+    }
+
+    /// Marks the edge as active (or inactive) for the current simulation step.
+    #[must_use]
+    pub fn with_active(mut self, is_active: bool) -> Self {
+        self.is_active = is_active;
+        self
     }
 }
 
@@ -163,6 +178,17 @@ impl Drawable for PositionedEdge {
         let from_radius = self.from_radius * ctx.zoom;
         let to_radius = self.to_radius * ctx.zoom;
 
+        let stroke_color = if self.data.is_active {
+            active_edge_color()
+        } else {
+            default_edge_color()
+        };
+        let stroke_width = if self.data.is_active {
+            ACTIVE_EDGE_STROKE_WIDTH
+        } else {
+            INACTIVE_EDGE_STROKE_WIDTH
+        };
+
         match self.data.curve {
             EdgeCurve::Straight => {
                 self.draw_straight_edge(
@@ -173,6 +199,8 @@ impl Drawable for PositionedEdge {
                     from_radius,
                     to_radius,
                     ctx,
+                    stroke_color,
+                    stroke_width,
                 );
             }
             EdgeCurve::CurveDown => {
@@ -184,6 +212,8 @@ impl Drawable for PositionedEdge {
                     to_radius,
                     true,
                     ctx,
+                    stroke_color,
+                    stroke_width,
                 );
             }
             EdgeCurve::CurveUp => {
@@ -195,6 +225,8 @@ impl Drawable for PositionedEdge {
                     to_radius,
                     false,
                     ctx,
+                    stroke_color,
+                    stroke_width,
                 );
             }
         }
@@ -222,6 +254,8 @@ impl PositionedEdge {
         from_radius: f32,
         to_radius: f32,
         ctx: &DrawContext,
+        stroke_color: Color,
+        stroke_width: f32,
     ) {
         // Adjust the start point: move from node center outward by the node radius
         let from = Point::new(
@@ -237,13 +271,18 @@ impl PositionedEdge {
 
         // Draw the main line connecting the two states
         let line = Path::line(from, to);
-        frame.stroke(&line, Stroke::default().with_width(1.3));
+        frame.stroke(
+            &line,
+            Stroke::default()
+                .with_width(stroke_width)
+                .with_color(stroke_color),
+        );
 
         // Draw arrow head at destination
-        self.draw_arrow_head(frame, to, unit);
+        self.draw_arrow_head(frame, to, unit, stroke_color);
 
         // Draw label
-        self.draw_label(frame, ctx);
+        self.draw_label(frame, ctx, stroke_color);
     }
 
     /// Draws a curved edge using a quadratic Bezier curve.
@@ -270,6 +309,8 @@ impl PositionedEdge {
         to_radius: f32,
         curve_down: bool,
         ctx: &DrawContext,
+        stroke_color: Color,
+        stroke_width: f32,
     ) {
         // Calculate the perpendicular offset for the control point
         let direction = Vector::new(to_center.x - from_center.x, to_center.y - from_center.y);
@@ -350,13 +391,26 @@ impl PositionedEdge {
             builder.move_to(start);
             builder.quadratic_curve_to(control, end);
         });
-        frame.stroke(&curve_path, Stroke::default().with_width(1.3));
+        frame.stroke(
+            &curve_path,
+            Stroke::default()
+                .with_width(stroke_width)
+                .with_color(stroke_color),
+        );
 
         // Draw arrow head at the end point with the correct tangent direction
-        self.draw_arrow_head(frame, end, end_tangent_unit);
+        self.draw_arrow_head(frame, end, end_tangent_unit, stroke_color);
 
         // Draw label on the curve - calculate position based on curve midpoint
-        self.draw_curved_label(frame, from_center, control, to_center, curve_down, ctx);
+        self.draw_curved_label(
+            frame,
+            from_center,
+            control,
+            to_center,
+            curve_down,
+            ctx,
+            stroke_color,
+        );
     }
 
     /// Draws an arrow head at the specified point, oriented in the given direction.
@@ -365,7 +419,13 @@ impl PositionedEdge {
     /// - `frame`: Canvas frame to draw on
     /// - `tip`: Point where the arrow tip should be
     /// - `direction`: Unit vector indicating the direction the arrow points
-    fn draw_arrow_head<R: Renderer>(&self, frame: &mut Frame<R>, tip: Point, direction: Vector) {
+    fn draw_arrow_head<R: Renderer>(
+        &self,
+        frame: &mut Frame<R>,
+        tip: Point,
+        direction: Vector,
+        color: Color,
+    ) {
         let normal = perpendicular(direction);
 
         // Left wing: move back along the direction, then offset perpendicular
@@ -387,8 +447,14 @@ impl PositionedEdge {
             builder.line_to(right);
             builder.close();
         });
-        frame.fill(&arrow_head, iced::Color::WHITE);
-        frame.stroke(&arrow_head, Stroke::default().with_width(1.0));
+        frame.fill(
+            &arrow_head,
+            Color::from_rgba(color.r, color.g, color.b, ACTIVE_ARROW_ALPHA),
+        );
+        frame.stroke(
+            &arrow_head,
+            Stroke::default().with_width(1.0).with_color(color),
+        );
     }
 
     /// Draws the edge label at the pre-calculated label position.
@@ -396,15 +462,15 @@ impl PositionedEdge {
     /// # Arguments
     /// - `frame`: Canvas frame to draw on
     /// - `ctx`: Drawing context with zoom/pan information
-    fn draw_label<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
+    fn draw_label<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext, color: Color) {
         if !self.data.label.is_empty() {
             let label_pos = ctx.transform_point(self.label_position);
             frame.fill_text(Text {
                 content: self.data.label.clone(),
                 position: label_pos,
-                color: iced::Color::from_rgb(0.1, 0.1, 0.1),
-                horizontal_alignment: Horizontal::Center,
-                vertical_alignment: Vertical::Center,
+                color: label_color(self.data.is_active, color),
+                align_x: Horizontal::Center.into(),
+                align_y: Vertical::Center,
                 ..Text::default()
             });
         }
@@ -421,6 +487,7 @@ impl PositionedEdge {
     /// - `p2`: End point of the curve (screen coordinates)
     /// - `curve_down`: Whether the curve bends downward
     /// - `ctx`: Drawing context with zoom/pan information (used for zoom scaling)
+    #[allow(clippy::too_many_arguments)]
     fn draw_curved_label<R: Renderer>(
         &self,
         frame: &mut Frame<R>,
@@ -429,6 +496,7 @@ impl PositionedEdge {
         p2: Point,
         curve_down: bool,
         ctx: &DrawContext,
+        color: Color,
     ) {
         if self.data.label.is_empty() {
             return;
@@ -444,7 +512,7 @@ impl PositionedEdge {
 
         if tangent_len <= f32::EPSILON {
             // Fallback to regular label positioning if tangent is degenerate
-            self.draw_label(frame, ctx);
+            self.draw_label(frame, ctx, color);
             return;
         }
 
@@ -469,9 +537,9 @@ impl PositionedEdge {
         frame.fill_text(Text {
             content: self.data.label.clone(),
             position: label_position,
-            color: iced::Color::from_rgb(0.1, 0.1, 0.1),
-            horizontal_alignment: Horizontal::Center,
-            vertical_alignment: Vertical::Center,
+            color: label_color(self.data.is_active, color),
+            align_x: Horizontal::Center.into(),
+            align_y: Vertical::Center,
             ..Text::default()
         });
     }
@@ -573,4 +641,24 @@ fn quadratic_bezier_point(p0: Point, p1: Point, p2: Point, t: f32) -> Point {
         mt2 * p0.x + 2.0 * mt * t * p1.x + t2 * p2.x,
         mt2 * p0.y + 2.0 * mt * t * p1.y + t2 * p2.y,
     )
+}
+
+fn active_edge_color() -> Color {
+    Color::from_rgb8(46, 125, 50)
+}
+
+fn default_edge_color() -> Color {
+    Color::from_rgb(0.25, 0.25, 0.25)
+}
+
+fn label_color(active: bool, active_color: Color) -> Color {
+    if active {
+        Color::from_rgb(
+            active_color.r * 0.8,
+            active_color.g * 0.8,
+            active_color.b * 0.8,
+        )
+    } else {
+        Color::from_rgb(0.1, 0.1, 0.1)
+    }
 }

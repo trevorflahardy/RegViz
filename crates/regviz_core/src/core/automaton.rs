@@ -28,7 +28,7 @@ impl fmt::Display for EdgeLabel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             EdgeLabel::Eps => write!(f, "ε"),
-            EdgeLabel::Sym(c) => write!(f, "{}", c),
+            EdgeLabel::Sym(c) => write!(f, "{c}"),
         }
     }
 }

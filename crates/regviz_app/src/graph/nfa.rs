@@ -2,56 +2,102 @@ use regviz_core::core::automaton::{BoxKind, EdgeLabel};
 use regviz_core::core::nfa::Nfa;
 use std::collections::HashMap;
 
-use super::{Graph, GraphBox, GraphEdge, GraphNode, edge::EdgeCurve};
+use super::{Graph, GraphBox, GraphEdge, GraphNode, Highlights, edge::EdgeCurve};
 
 impl Graph for Nfa {
     fn nodes(&self) -> Vec<GraphNode> {
-        self.states
-            .iter()
-            .map(|state| {
-                GraphNode::new(
-                    state.id,
-                    state.id.to_string(),
-                    self.start == state.id,
-                    self.accepts.contains(&state.id),
-                    state.box_id,
-                )
-            })
-            .collect()
+        let empty = Highlights::default();
+        build_nodes(self, &empty)
     }
 
     fn edges(&self) -> Vec<GraphEdge> {
-        // Build a map of box_id -> box for easy lookup
-        let box_map: HashMap<_, _> = self.boxes.iter().map(|b| (b.id, b)).collect();
-
-        let mut edges = Vec::new();
-        for state in &self.states {
-            let transitions = self.transitions(state.id);
-            for transition in transitions {
-                let label: String = match transition.label {
-                    EdgeLabel::Eps => "ε".to_string(),
-                    EdgeLabel::Sym(ch) => ch.to_string(),
-                };
-
-                // Determine if this edge should be curved based on star closure patterns
-                let curve = determine_edge_curve(
-                    state.id,
-                    transition.to,
-                    &transition.label,
-                    state.box_id,
-                    &box_map,
-                    self,
-                );
-
-                edges.push(GraphEdge::with_curve(state.id, transition.to, label, curve));
-            }
-        }
-        edges
+        let empty = Highlights::default();
+        build_edges(self, &empty)
     }
 
     fn boxes(&self) -> Vec<GraphBox> {
         self.boxes.clone().into_iter().map(Into::into).collect()
     }
+}
+
+/// Visual wrapper that augments an NFA with highlight metadata for rendering.
+#[derive(Debug, Clone)]
+pub struct VisualNfa {
+    nfa: Nfa,
+    highlights: Highlights,
+}
+
+impl VisualNfa {
+    /// Creates a new highlighted NFA ready for visualization.
+    #[must_use]
+    pub fn new(nfa: Nfa, highlights: Highlights) -> Self {
+        Self { nfa, highlights }
+    }
+}
+
+impl Graph for VisualNfa {
+    fn nodes(&self) -> Vec<GraphNode> {
+        build_nodes(&self.nfa, &self.highlights)
+    }
+
+    fn edges(&self) -> Vec<GraphEdge> {
+        build_edges(&self.nfa, &self.highlights)
+    }
+
+    fn boxes(&self) -> Vec<GraphBox> {
+        self.nfa.boxes.clone().into_iter().map(Into::into).collect()
+    }
+}
+
+fn build_nodes(nfa: &Nfa, highlights: &Highlights) -> Vec<GraphNode> {
+    nfa.states
+        .iter()
+        .map(|state| {
+            let highlight = highlights.state_style(state.id);
+            GraphNode::new(
+                state.id,
+                state.id.to_string(),
+                nfa.start == state.id,
+                nfa.accepts.contains(&state.id),
+                state.box_id,
+            )
+            .with_highlight(highlight)
+        })
+        .collect()
+}
+
+fn build_edges(nfa: &Nfa, highlights: &Highlights) -> Vec<GraphEdge> {
+    // Build a map of box_id -> box for easy lookup
+    let box_map: HashMap<_, _> = nfa.boxes.iter().map(|b| (b.id, b)).collect();
+
+    let mut edges = Vec::new();
+    for state in &nfa.states {
+        let transitions = nfa.transitions(state.id);
+        for transition in transitions {
+            let label = transition.label;
+            let label_text: String = match label {
+                EdgeLabel::Eps => "ε".to_string(),
+                EdgeLabel::Sym(ch) => ch.to_string(),
+            };
+
+            // Determine if this edge should be curved based on star closure patterns
+            let curve = determine_edge_curve(
+                state.id,
+                transition.to,
+                &transition.label,
+                state.box_id,
+                &box_map,
+                nfa,
+            );
+
+            let is_active = highlights.is_edge_active(state.id, transition.to, label);
+            edges.push(
+                GraphEdge::with_curve(state.id, transition.to, label_text, curve)
+                    .with_active(is_active),
+            );
+        }
+    }
+    edges
 }
 
 /// Determines the curvature style for an edge based on its role in the NFA structure.
