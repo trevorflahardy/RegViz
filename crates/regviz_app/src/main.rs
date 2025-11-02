@@ -23,7 +23,7 @@ use iced::{Task, application};
 /// level can be controlled via the `RUST_LOG` environment variable.
 ///
 /// Only compiled in debug builds for performance reasons.
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
 
@@ -39,8 +39,15 @@ fn init_tracing() {
 /// Initializes tracing (in debug mode) and starts the Iced event loop
 /// with the RegViz application.
 fn main() -> iced::Result {
-    #[cfg(debug_assertions)]
+    // Debug assertions and not wasm32
+    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     init_tracing();
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        console_error_panic_hook::set_once();
+        console_log::init_with_level(log::Level::Debug).expect("could not initialize logger");
+    }
 
     application(|| (App::default(), Task::none()), App::update, App::view)
         .theme(|state: &App| Some(state.theme))

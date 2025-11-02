@@ -1,0 +1,6 @@
+[build]
+target = "index.html"
+dist = "../../dist/"    # output folder
+release = true          # build in release mode
+public_url = "/RegViz/" # prefix for GitHub Pages
+minify = "on_release"   # minify the output

@@ -38,8 +38,7 @@ impl App {
                 SimulationMessage::Reset => {
                     self.handle_simulation_reset();
                     ().into()
-                }
-                // Target switching handled via ViewMessage::SelectRightPaneMode
+                } // Target switching handled via ViewMessage::SelectRightPaneMode
             },
             Message::View(view_msg) => match view_msg {
                 ViewMessage::ToggleBox(kind) => {

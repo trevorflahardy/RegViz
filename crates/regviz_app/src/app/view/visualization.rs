@@ -7,11 +7,13 @@ use iced::{
 use crate::app::state::App;
 use crate::app::{
     message::{Message, RightPaneMode, ViewMessage, ViewMode},
-    theme::ElementType,
+    theme::{ButtonClass, ElementType, TextClass, TextSize},
 };
 use crate::app::{simulation::SimulationTarget, theme::AppTheme};
 use crate::graph::layout::{DfaLayoutStrategy, NfaLayoutStrategy, TreeLayoutStrategy};
 use crate::graph::{AstGraph, BoxVisibility, GraphCanvas, Highlights, VisualDfa, VisualNfa};
+
+use super::controls;
 
 /// Renders the active visualization (AST or automaton).
 pub fn render<'a>(
@@ -31,8 +33,10 @@ pub fn render<'a>(
         },
     };
 
-    let title = text(title_text).size(18);
-    let bottom = bottom_tri_toggle(app);
+    let title = text(title_text)
+        .size(TextSize::H2)
+        .class(TextClass::Primary);
+    let bottom = bottom_controls(app);
 
     let content = column![title, canvas, bottom]
         .spacing(12)
@@ -66,10 +70,12 @@ fn render_ast_canvas<'a>(
 pub fn render_empty(app: &App) -> ElementType<'_> {
     let hint = text("Enter a regular expression to visualize")
         .height(Length::Fill)
+        .size(TextSize::Body)
+        .class(TextClass::Secondary)
         .align_y(Vertical::Top)
         .align_x(Horizontal::Center);
 
-    let bottom = bottom_tri_toggle(app);
+    let bottom = bottom_controls(app);
 
     let content = column![hint, bottom]
         .spacing(12)
@@ -79,16 +85,20 @@ pub fn render_empty(app: &App) -> ElementType<'_> {
     container(content).padding(20).height(Length::Fill).into()
 }
 
-fn bottom_tri_toggle(app: &App) -> ElementType<'_> {
+fn bottom_controls(app: &App) -> ElementType<'_> {
     let is_ast = app.view_mode == ViewMode::Ast;
     let is_nfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Nfa;
     let is_dfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Dfa;
 
-    let ast = tri_button("AST", is_ast, RightPaneMode::Ast);
-    let nfa = tri_button("NFA", is_nfa, RightPaneMode::Nfa);
-    let dfa = tri_button("DFA", is_dfa, RightPaneMode::Dfa);
+    let selector = selector_buttons(is_nfa, is_dfa, is_ast);
+    let selector_elem: Element<'_, Message, AppTheme> = selector.into();
+    let zoom_controls = controls::zoom(app);
 
-    let row = row![nfa, dfa, ast].spacing(12).align_y(Alignment::Center);
+    let row = row![selector_elem, zoom_controls]
+        .spacing(16)
+        .align_y(Alignment::Center)
+        .width(Length::Fill);
+
     container(row)
         .align_x(Horizontal::Center)
         .align_y(Vertical::Bottom)
@@ -96,13 +106,33 @@ fn bottom_tri_toggle(app: &App) -> ElementType<'_> {
         .into()
 }
 
-fn tri_button(label: &str, active: bool, mode: RightPaneMode) -> ElementType<'_> {
-    let mut text_label = label.to_string();
-    if active {
-        text_label.push_str(" ✓");
-    }
+fn selector_buttons<'a>(
+    is_nfa: bool,
+    is_dfa: bool,
+    is_ast: bool,
+) -> iced::widget::Row<'a, Message, AppTheme> {
+    row![
+        tri_button("NFA", is_nfa, RightPaneMode::Nfa),
+        tri_button("DFA", is_dfa, RightPaneMode::Dfa),
+        tri_button("AST", is_ast, RightPaneMode::Ast),
+    ]
+    .spacing(12)
+    .align_y(Alignment::Center)
+}
 
-    button(text(text_label).size(14))
+fn tri_button(label: &str, active: bool, mode: RightPaneMode) -> ElementType<'_> {
+    let label_text = text(label).size(TextSize::Body).class(if active {
+        TextClass::Primary
+    } else {
+        TextClass::Secondary
+    });
+
+    button(label_text)
+        .class(if active {
+            ButtonClass::Primary
+        } else {
+            ButtonClass::Secondary
+        })
         .padding([4, 12])
         .on_press(Message::View(ViewMessage::SelectRightPaneMode(mode)))
         .into()
@@ -130,7 +160,10 @@ fn render_automaton_canvas<'a>(
         }
         SimulationTarget::Dfa => {
             let Some(dfa) = artifacts.dfa.clone() else {
-                return text("Determinized DFA is not available").into();
+                return text("Determinized DFA is not available")
+                    .size(TextSize::Body)
+                    .class(TextClass::Warning)
+                    .into();
             };
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
             let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);

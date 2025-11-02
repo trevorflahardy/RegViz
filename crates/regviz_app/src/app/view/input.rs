@@ -24,10 +24,13 @@ pub fn render(app: &App) -> ElementType<'_> {
 
 fn status_text(app: &App) -> ElementType<'_> {
     match &app.error {
-        Some(err) => text(format!("x  {err}")).size(14).into(),
+        Some(err) => text(format!("Error: {err}"))
+            .size(TextSize::Body)
+            .class(TextClass::Error)
+            .into(),
         None => match &app.build_artifacts {
             Some(artifacts) => text(format!(
-                "✓ Parsed successfully | {} states | Alphabet: {:?}",
+                "Parsed successfully | {} states | Alphabet: {:?}",
                 artifacts.nfa.states.len(),
                 artifacts.alphabet
             ))

@@ -5,9 +5,7 @@ use iced::{Border, Color};
 impl slider::Catalog for AppTheme {
     type Class<'a> = ();
 
-    fn default<'a>() -> Self::Class<'a> {
-        
-    }
+    fn default<'a>() -> Self::Class<'a> {}
 
     fn style(&self, _class: &Self::Class<'_>, status: slider::Status) -> slider::Style {
         let base = slider::Style {

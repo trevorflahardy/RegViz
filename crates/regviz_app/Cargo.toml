@@ -4,17 +4,34 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
-tracing = "0.1"
 iced = { git = "https://github.com/iced-rs/iced", features = [
     "tokio",
     "canvas",
     "advanced",
+    "fira-sans",
 ] }
 iced_graphics = { git = "https://github.com/iced-rs/iced", features = [
     "geometry",
 ] }
 regviz_core = { path = "../regviz_core" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tracing = "0.1"
+
+# Renderer: enable the WebGL backend only for the wasm target
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+iced = { git = "https://github.com/iced-rs/iced", features = [
+    "tokio",
+    "canvas",
+    "advanced",
+    "wgpu",
+    "webgl",
+] }
+console_error_panic_hook = "0.1"
+console_log = "1"
+log = "0.4.28"
+wasm-bindgen = "0.2"
 
 [[bin]]
 name = "regviz_app"
