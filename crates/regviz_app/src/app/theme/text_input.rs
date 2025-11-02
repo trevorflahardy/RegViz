@@ -5,9 +5,7 @@ use iced::{Background, Border};
 impl text_input::Catalog for AppTheme {
     type Class<'a> = ();
 
-    fn default<'a>() -> Self::Class<'a> {
-        
-    }
+    fn default<'a>() -> Self::Class<'a> {}
 
     fn style(&self, _class: &Self::Class<'_>, status: text_input::Status) -> text_input::Style {
         let base = text_input::Style {

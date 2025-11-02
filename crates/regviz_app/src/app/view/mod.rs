@@ -48,8 +48,6 @@ fn render_mode_specific<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> Elem
         }
     }
 
-    controls_column = controls_column.push(controls::zoom(app));
-
     container(controls_column).align_x(Alignment::Start).into()
 }
 

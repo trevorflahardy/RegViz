@@ -5,12 +5,12 @@ use iced::{
 
 use regviz_core::core::BuildArtifacts;
 
+use crate::app::state::App;
 use crate::app::{
     message::{Message, SimulationMessage},
-    theme::{ElementType, TextClass},
+    theme::{ButtonClass, ElementType, TextClass, TextSize},
 };
 use crate::app::{simulation::SimulationTarget, theme::AppTheme};
-use crate::app::{state::App, theme::TextSize};
 
 /// Renders controls for stepping through the simulation input.
 pub fn panel<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> ElementType<'a> {
@@ -40,7 +40,7 @@ fn panel_column<'a>(
     section = section.push(controls_row);
 
     for message in summary {
-        section = section.push(text(message).size(14));
+        section = section.push(text(message.text).class(message.class).size(TextSize::Body));
     }
 
     section
@@ -49,18 +49,39 @@ fn panel_column<'a>(
 // Target toggle buttons were moved to the right pane tri-toggle.
 
 fn step_controls(app: &App, disabled: bool) -> ElementType<'_> {
-    let mut prev_button = button(text("Prev").size(14)).padding([4, 12]);
-    if !disabled && app.simulation.can_step_backward() {
+    let prev_active = !disabled && app.simulation.can_step_backward();
+    let mut prev_button = button(text("Prev").size(TextSize::Body))
+        .class(if prev_active {
+            ButtonClass::Primary
+        } else {
+            ButtonClass::Secondary
+        })
+        .padding([4, 12]);
+    if prev_active {
         prev_button = prev_button.on_press(Message::Simulation(SimulationMessage::StepBackward));
     }
 
-    let mut reset_button = button(text("Reset").size(14)).padding([4, 12]);
-    if !disabled {
+    let reset_active = !disabled;
+    let mut reset_button = button(text("Reset").size(TextSize::Body))
+        .class(if reset_active {
+            ButtonClass::Primary
+        } else {
+            ButtonClass::Secondary
+        })
+        .padding([4, 12]);
+    if reset_active {
         reset_button = reset_button.on_press(Message::Simulation(SimulationMessage::Reset));
     }
 
-    let mut next_button = button(text("Next").size(14)).padding([4, 12]);
-    if !disabled && app.simulation.can_step_forward() {
+    let next_active = !disabled && app.simulation.can_step_forward();
+    let mut next_button = button(text("Next").size(TextSize::Body))
+        .class(if next_active {
+            ButtonClass::Primary
+        } else {
+            ButtonClass::Secondary
+        })
+        .padding([4, 12]);
+    if next_active {
         next_button = next_button.on_press(Message::Simulation(SimulationMessage::StepForward));
     }
 
@@ -70,7 +91,9 @@ fn step_controls(app: &App, disabled: bool) -> ElementType<'_> {
         prev_button,
         reset_button,
         next_button,
-        text(step_label).size(14),
+        text(step_label)
+            .size(TextSize::Body)
+            .class(TextClass::Secondary),
     ]
     .spacing(10)
     .align_y(Alignment::Center)
@@ -142,9 +165,14 @@ fn acceptance_hint(app: &App) -> bool {
     app.simulation.cursor + 1 == total_steps && step.accepted
 }
 
+struct SummaryMessage {
+    text: String,
+    class: TextClass,
+}
+
 struct PanelMessages {
     validation: Option<String>,
-    summary: Vec<String>,
+    summary: Vec<SummaryMessage>,
 }
 
 fn panel_messages(app: &App) -> PanelMessages {
@@ -156,21 +184,33 @@ fn panel_messages(app: &App) -> PanelMessages {
     }
 }
 
-fn summary_messages(app: &App) -> Vec<String> {
+fn summary_messages(app: &App) -> Vec<SummaryMessage> {
     let mut messages = Vec::new();
 
     if let Some(summary) = summary_line(app) {
-        messages.push(summary);
+        messages.push(SummaryMessage {
+            text: summary,
+            class: TextClass::Secondary,
+        });
     }
 
     if let Some(states) = active_states_line(app) {
-        messages.push(states);
+        messages.push(SummaryMessage {
+            text: states,
+            class: TextClass::Secondary,
+        });
     }
 
     if app.simulation.is_current_rejection() {
-        messages.push("Input string is not accepted.".to_string());
+        messages.push(SummaryMessage {
+            text: "Input string is not accepted.".to_string(),
+            class: TextClass::Error,
+        });
     } else if acceptance_hint(app) {
-        messages.push("Input string is accepted.".to_string());
+        messages.push(SummaryMessage {
+            text: "Input string is accepted.".to_string(),
+            class: TextClass::Success,
+        });
     }
 
     messages
