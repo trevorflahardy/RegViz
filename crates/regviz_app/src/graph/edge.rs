@@ -542,7 +542,7 @@ impl PositionedEdge {
         frame.fill_text(Text {
             content: self.data.label.clone(),
             position: label_position,
-            color: label_color(self.data.is_active, color),
+            color,
             align_x: Horizontal::Center.into(),
             align_y: Vertical::Center,
             ..Text::default()
@@ -646,16 +646,4 @@ fn quadratic_bezier_point(p0: Point, p1: Point, p2: Point, t: f32) -> Point {
         mt2 * p0.x + 2.0 * mt * t * p1.x + t2 * p2.x,
         mt2 * p0.y + 2.0 * mt * t * p1.y + t2 * p2.y,
     )
-}
-
-fn label_color(active: bool, active_color: Color) -> Color {
-    if active {
-        Color::from_rgb(
-            active_color.r * 0.8,
-            active_color.g * 0.8,
-            active_color.b * 0.8,
-        )
-    } else {
-        Color::from_rgb(0.1, 0.1, 0.1)
-    }
 }
