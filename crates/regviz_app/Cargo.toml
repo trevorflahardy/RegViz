@@ -12,6 +12,7 @@ iced = { git = "https://github.com/iced-rs/iced", features = [
 ] }
 iced_graphics = { git = "https://github.com/iced-rs/iced", features = [
     "geometry",
+    "fira-sans",
 ] }
 regviz_core = { path = "../regviz_core" }
 
@@ -27,6 +28,7 @@ iced = { git = "https://github.com/iced-rs/iced", features = [
     "advanced",
     "wgpu",
     "webgl",
+    "fira-sans",
 ] }
 console_error_panic_hook = "0.1"
 console_log = "1"
