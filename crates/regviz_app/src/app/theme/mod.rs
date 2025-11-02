@@ -1,11 +1,18 @@
 mod button;
+mod colors;
 mod container;
 mod pane_grid;
 mod slider;
 mod text;
 mod text_input;
 
-use crate::app::message::Message;
+use crate::app::{
+    message::Message,
+    theme::colors::{
+        AMBER_500, GRAY_50, GRAY_200, GRAY_500, GRAY_950, GREEN_400, GREEN_500, RED_400, RED_500,
+        SKY_500, SKY_800, SLATE_900,
+    },
+};
 use iced::{Color, Element, theme};
 
 // Re-exports for easier access in renderer modules
@@ -25,12 +32,15 @@ pub enum AppTheme {
 }
 
 impl AppTheme {
-    const TEXT_PRIMARY_DARK: Color = Color::from_rgb(230.0 / 255.0, 230.0 / 255.0, 230.0 / 255.0);
+    const PRIMARY: Color = SKY_500;
 
-    pub const THEME_DARK_PALETTE: theme::Palette = theme::Palette {
-        background: iced::Color::from_rgb(19.0 / 255.0, 26.0 / 255.0, 32.0 / 255.0),
-        text: iced::Color::from_rgb(230.0 / 255.0, 230.0 / 255.0, 230.0 / 255.0),
-        ..theme::Palette::DARK
+    const DARK_COLOR_PALETTE: theme::Palette = theme::Palette {
+        background: SLATE_900,
+        text: GRAY_50,
+        primary: Self::PRIMARY,
+        success: GREEN_500,
+        warning: AMBER_500,
+        danger: RED_500,
     };
 }
 
@@ -47,14 +57,14 @@ impl theme::Base for AppTheme {
 
     fn base(&self) -> iced::theme::Style {
         iced::theme::Style {
-            background_color: Self::THEME_DARK_PALETTE.background,
-            text_color: Self::TEXT_PRIMARY_DARK,
+            background_color: SLATE_900,
+            text_color: GRAY_50,
         }
     }
 
     fn palette(&self) -> Option<theme::Palette> {
         match self {
-            AppTheme::Dark => Some(Self::THEME_DARK_PALETTE),
+            AppTheme::Dark => Some(Self::DARK_COLOR_PALETTE),
         }
     }
 }
@@ -63,7 +73,7 @@ impl From<AppTheme> for iced::Theme {
     fn from(theme: AppTheme) -> Self {
         match theme {
             AppTheme::Dark => {
-                iced::Theme::custom("REGVIZ_DARK".to_string(), AppTheme::THEME_DARK_PALETTE)
+                iced::Theme::custom("REGVIZ_DARK".to_string(), AppTheme::DARK_COLOR_PALETTE)
             }
         }
     }
@@ -92,82 +102,106 @@ impl AppTheme {
     // Text colors
     pub fn text_primary(&self) -> Color {
         match self {
-            AppTheme::Dark => Self::TEXT_PRIMARY_DARK,
+            AppTheme::Dark => GRAY_50,
+        }
+    }
+
+    pub fn text_primary_inverse(&self) -> Color {
+        match self {
+            AppTheme::Dark => GRAY_950,
         }
     }
 
     pub fn text_secondary(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.7, 0.7, 0.7),
+            AppTheme::Dark => GRAY_200,
         }
     }
 
     pub fn text_dim(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.5, 0.5, 0.5),
+            AppTheme::Dark => GRAY_200,
         }
     }
 
     // Accent colors
     pub fn accent(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.35, 0.65, 0.95),
+            AppTheme::Dark => Self::PRIMARY,
         }
     }
 
     pub fn accent_dim(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.25, 0.45, 0.75),
+            AppTheme::Dark => SKY_800,
         }
     }
 
     // Graph visualization colors
     pub fn graph_node_default(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.3, 0.3, 0.35),
+            AppTheme::Dark => GRAY_50,
         }
     }
 
     pub fn graph_node_active(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.35, 0.65, 0.95),
+            AppTheme::Dark => GREEN_500,
         }
     }
 
-    pub fn graph_node_accept(&self) -> Color {
+    pub fn graph_node_rejected(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.2, 0.7, 0.4),
+            AppTheme::Dark => RED_500,
+        }
+    }
+
+    pub fn graph_node_outline_default(&self) -> Color {
+        match self {
+            AppTheme::Dark => GRAY_500,
+        }
+    }
+
+    pub fn graph_node_outline_active(&self) -> Color {
+        match self {
+            AppTheme::Dark => GREEN_400,
+        }
+    }
+
+    pub fn graph_node_outline_rejected(&self) -> Color {
+        match self {
+            AppTheme::Dark => RED_400,
         }
     }
 
     pub fn graph_edge_default(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.5, 0.5, 0.5),
+            AppTheme::Dark => GRAY_50,
         }
     }
 
     pub fn graph_edge_active(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.95, 0.65, 0.35),
+            AppTheme::Dark => GREEN_500,
         }
     }
 
     // User feedback colors
     pub fn success(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.2, 0.7, 0.4),
+            AppTheme::Dark => Self::DARK_COLOR_PALETTE.success,
         }
     }
 
     pub fn warning(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.95, 0.65, 0.2),
+            AppTheme::Dark => Self::DARK_COLOR_PALETTE.warning,
         }
     }
 
     pub fn error(&self) -> Color {
         match self {
-            AppTheme::Dark => Color::from_rgb(0.9, 0.2, 0.2),
+            AppTheme::Dark => Self::DARK_COLOR_PALETTE.danger,
         }
     }
 }
