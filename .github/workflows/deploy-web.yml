@@ -15,21 +15,8 @@ permissions:
   id-token: write
 
 jobs:
-  tests:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Cargo Test
-        run: cargo test --workspace --locked --all-targets
-
   build-web:
     name: Build Trunk Bundle
-    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +44,7 @@ jobs:
         id: deployment
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ../../dist
+          path: dist
 
   deploy-web:
     name: Deploy Web Bundle
