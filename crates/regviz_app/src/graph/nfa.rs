@@ -103,7 +103,7 @@ fn build_edges(nfa: &Nfa, highlights: &Highlights) -> Vec<GraphEdge> {
 /// Determines the curvature style for an edge based on its role in the NFA structure.
 ///
 /// For star closures, Thompson's construction creates:
-/// ```
+/// ```text
 ///        ┌────────ε (bypass, curve down)─────┐
 ///        ↓                                    ↓
 /// START ──ε→ inner_start ──'a'→ inner_accept ──ε→ ACCEPT
