@@ -29,7 +29,3 @@ console_log = "1.0"
 log = "0.4"
 # Enable WebGL backend for iced_wgpu on the web target
 iced_wgpu = { version = "0.13.0", features = ["webgl"] }
-
-[[bin]]
-name = "regviz_app"
-path = "src/main.rs"

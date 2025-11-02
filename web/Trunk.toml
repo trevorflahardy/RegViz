@@ -1,6 +1,0 @@
-# Trunk configuration for the web build of RegViz.
-# Intentionally minimal; GitHub Actions sets --public-url based on the repo name.
-
-[build]
-# No default public_url; CI overrides with --public-url "/<repo>/".
-
