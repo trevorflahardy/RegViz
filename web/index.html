@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RegViz</title>
+    <!-- Trunk will build the Rust crate at crates/regviz_app for the web -->
+    <link data-trunk rel="rust" data-cargo-manifest="../crates/regviz_app/Cargo.toml" />
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #0f0f11;
+        color: #eaeaea;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+      }
+      body { display: flex; }
+      canvas { outline: none; }
+    </style>
+  </head>
+  <body>
+    <!-- Iced will take over the document body -->
+  </body>
+  </html>
+
