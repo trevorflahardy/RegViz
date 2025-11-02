@@ -6,6 +6,8 @@ use iced::{
 use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::StateId;
 
+use crate::app::theme::AppTheme;
+
 use super::{DrawContext, Drawable};
 
 /// Distance between the edge segment and its label in logical units.
@@ -157,7 +159,7 @@ impl Drawable for PositionedEdge {
     /// 4. Draws the edge path (line or curve)
     /// 5. Draws an arrow head at the destination
     /// 6. Renders the transition label
-    fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
+    fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext, theme: &AppTheme) {
         // Transform logical coordinates to screen coordinates based on zoom/pan
         let from_center = ctx.transform_point(self.from);
         let to_center = ctx.transform_point(self.to);
@@ -179,10 +181,11 @@ impl Drawable for PositionedEdge {
         let to_radius = self.to_radius * ctx.zoom;
 
         let stroke_color = if self.data.is_active {
-            active_edge_color()
+            theme.graph_edge_active()
         } else {
-            default_edge_color()
+            theme.graph_edge_default()
         };
+
         let stroke_width = if self.data.is_active {
             ACTIVE_EDGE_STROKE_WIDTH
         } else {
@@ -463,17 +466,19 @@ impl PositionedEdge {
     /// - `frame`: Canvas frame to draw on
     /// - `ctx`: Drawing context with zoom/pan information
     fn draw_label<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext, color: Color) {
-        if !self.data.label.is_empty() {
-            let label_pos = ctx.transform_point(self.label_position);
-            frame.fill_text(Text {
-                content: self.data.label.clone(),
-                position: label_pos,
-                color: label_color(self.data.is_active, color),
-                align_x: Horizontal::Center.into(),
-                align_y: Vertical::Center,
-                ..Text::default()
-            });
+        if self.data.label.is_empty() {
+            return;
         }
+
+        let label_pos = ctx.transform_point(self.label_position);
+        frame.fill_text(Text {
+            content: self.data.label.clone(),
+            position: label_pos,
+            color,
+            align_x: Horizontal::Center.into(),
+            align_y: Vertical::Center,
+            ..Text::default()
+        });
     }
 
     /// Draws the label for a curved edge at the curve's midpoint.
@@ -537,7 +542,7 @@ impl PositionedEdge {
         frame.fill_text(Text {
             content: self.data.label.clone(),
             position: label_position,
-            color: label_color(self.data.is_active, color),
+            color,
             align_x: Horizontal::Center.into(),
             align_y: Vertical::Center,
             ..Text::default()
@@ -641,24 +646,4 @@ fn quadratic_bezier_point(p0: Point, p1: Point, p2: Point, t: f32) -> Point {
         mt2 * p0.x + 2.0 * mt * t * p1.x + t2 * p2.x,
         mt2 * p0.y + 2.0 * mt * t * p1.y + t2 * p2.y,
     )
-}
-
-fn active_edge_color() -> Color {
-    Color::from_rgb8(46, 125, 50)
-}
-
-fn default_edge_color() -> Color {
-    Color::from_rgb(0.25, 0.25, 0.25)
-}
-
-fn label_color(active: bool, active_color: Color) -> Color {
-    if active {
-        Color::from_rgb(
-            active_color.r * 0.8,
-            active_color.g * 0.8,
-            active_color.b * 0.8,
-        )
-    } else {
-        Color::from_rgb(0.1, 0.1, 0.1)
-    }
 }

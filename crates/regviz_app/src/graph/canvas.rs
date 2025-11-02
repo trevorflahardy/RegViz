@@ -50,7 +50,7 @@ where
         &self,
         _state: &Self::State,
         renderer: &R,
-        _theme: &AppTheme,
+        theme: &AppTheme,
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry<R>> {
@@ -65,13 +65,13 @@ where
         let mut frame = Frame::new(renderer, bounds.size());
 
         for bbox in &layout.boxes {
-            bbox.draw(&mut frame, &ctx);
+            bbox.draw(&mut frame, &ctx, &theme);
         }
         for edge in &layout.edges {
-            edge.draw(&mut frame, &ctx);
+            edge.draw(&mut frame, &ctx, &theme);
         }
         for node in &layout.nodes {
-            node.draw(&mut frame, &ctx);
+            node.draw(&mut frame, &ctx, &theme);
         }
 
         vec![frame.into_geometry()]

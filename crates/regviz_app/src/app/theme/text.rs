@@ -7,6 +7,8 @@ pub enum TextSize {
     H2,
     H3,
     Body,
+    // Small body, for accents
+    Small,
 }
 
 impl TextSize {
@@ -16,6 +18,7 @@ impl TextSize {
             TextSize::H2 => 20,
             TextSize::H3 => 18,
             TextSize::Body => 14,
+            TextSize::Small => 12,
         }
     }
 }

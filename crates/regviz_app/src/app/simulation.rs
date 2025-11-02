@@ -197,19 +197,32 @@ pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
 
     let mut current: HashSet<StateId> = HashSet::new();
     current.insert(nfa.start);
-    current = sim::epsilon_closure(&current, nfa);
+
+    // Track initial epsilon transitions
+    let mut initial_eps_edges = HashSet::new();
+    let mut stack: Vec<StateId> = vec![nfa.start];
+    while let Some(state) = stack.pop() {
+        for transition in nfa.transitions(state) {
+            if transition.label == EdgeLabel::Eps && current.insert(transition.to) {
+                initial_eps_edges.insert(EdgeHighlight::new(state, transition.to, EdgeLabel::Eps));
+                stack.push(transition.to);
+            }
+        }
+    }
+
     let initial_accepting = current.iter().any(|state| nfa.accepts.contains(state));
     steps.push(SimulationStep::new(
         0,
         None,
         current.clone(),
-        HashSet::new(),
+        initial_eps_edges,
         initial_accepting,
     ));
 
     for (idx, symbol) in symbols.iter().enumerate() {
         let mut traversed = HashSet::new();
 
+        // Track symbol transitions
         for state in &current {
             for transition in nfa.transitions(*state) {
                 if transition.label == EdgeLabel::Sym(*symbol) {
@@ -223,7 +236,19 @@ pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
         }
 
         let moved = sim::move_on(&current, *symbol, nfa);
-        let next = sim::epsilon_closure(&moved, nfa);
+
+        // Track epsilon transitions after move
+        let mut next = moved.clone();
+        let mut stack: Vec<StateId> = moved.iter().copied().collect();
+        while let Some(state) = stack.pop() {
+            for transition in nfa.transitions(state) {
+                if transition.label == EdgeLabel::Eps && next.insert(transition.to) {
+                    traversed.insert(EdgeHighlight::new(state, transition.to, EdgeLabel::Eps));
+                    stack.push(transition.to);
+                }
+            }
+        }
+
         let accepting = next.iter().any(|state| nfa.accepts.contains(state));
 
         steps.push(SimulationStep::new(
