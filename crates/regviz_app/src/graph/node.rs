@@ -4,6 +4,8 @@ use iced::{Color, Point};
 use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::{BoxId, StateId};
 
+use crate::app::theme::AppTheme;
+
 use super::{DrawContext, Drawable, StateHighlight};
 
 /// Width of the gap between the outer and inner circle for accepting states.
@@ -93,13 +95,13 @@ impl PositionedNode {
 }
 
 impl Drawable for PositionedNode {
-    fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext) {
+    fn draw<R: Renderer>(&self, frame: &mut Frame<R>, ctx: &DrawContext, theme: &AppTheme) {
         let center = ctx.transform_point(self.position);
         let radius = self.radius * ctx.zoom;
         let circle = Path::circle(center, radius);
         let highlight = self.data.highlight;
-        let fill_color = highlight_fill_color(highlight);
-        let outline_color = highlight_outline_color(highlight);
+        let fill_color = highlight_fill_color(highlight, theme);
+        let outline_color = highlight_outline_color(highlight, theme);
 
         frame.fill(&circle, fill_color);
         frame.stroke(
@@ -121,7 +123,7 @@ impl Drawable for PositionedNode {
             frame.fill_text(Text {
                 content: self.data.label.clone(),
                 position: center,
-                color: label_color(highlight),
+                color: theme.text_primary_inverse(),
                 align_x: Horizontal::Center.into(),
                 align_y: Vertical::Center,
                 ..Text::default()
@@ -173,46 +175,18 @@ fn draw_start_arrow<R: Renderer>(
     );
 }
 
-fn active_node_fill() -> Color {
-    Color::from_rgb8(129, 199, 132)
-}
-
-fn active_node_outline() -> Color {
-    Color::from_rgb8(56, 142, 60)
-}
-
-fn default_node_outline() -> Color {
-    Color::from_rgb(0.15, 0.15, 0.15)
-}
-
-fn rejected_node_fill() -> Color {
-    Color::from_rgb8(239, 154, 154)
-}
-
-fn rejected_node_outline() -> Color {
-    Color::from_rgb8(198, 40, 40)
-}
-
-fn highlight_fill_color(highlight: Option<StateHighlight>) -> Color {
+fn highlight_fill_color(highlight: Option<StateHighlight>, theme: &AppTheme) -> Color {
     match highlight {
-        Some(StateHighlight::Active) => active_node_fill(),
-        Some(StateHighlight::Rejected) => rejected_node_fill(),
-        None => Color::WHITE,
+        Some(StateHighlight::Active) => theme.graph_node_active(),
+        Some(StateHighlight::Rejected) => theme.graph_node_rejected(),
+        None => theme.graph_node_default(),
     }
 }
 
-fn highlight_outline_color(highlight: Option<StateHighlight>) -> Color {
+fn highlight_outline_color(highlight: Option<StateHighlight>, theme: &AppTheme) -> Color {
     match highlight {
-        Some(StateHighlight::Active) => active_node_outline(),
-        Some(StateHighlight::Rejected) => rejected_node_outline(),
-        None => default_node_outline(),
-    }
-}
-
-fn label_color(highlight: Option<StateHighlight>) -> Color {
-    match highlight {
-        Some(StateHighlight::Active) => Color::from_rgb8(15, 63, 21),
-        Some(StateHighlight::Rejected) => Color::from_rgb8(97, 13, 20),
-        None => Color::from_rgb(0.1, 0.1, 0.1),
+        Some(StateHighlight::Active) => theme.graph_node_outline_active(),
+        Some(StateHighlight::Rejected) => theme.graph_node_outline_rejected(),
+        None => theme.graph_node_outline_default(),
     }
 }
