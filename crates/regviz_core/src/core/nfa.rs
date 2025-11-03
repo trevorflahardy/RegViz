@@ -178,6 +178,7 @@ impl Builder {
             Ast::Concat(lhs, rhs) => self.build_concat(lhs, rhs),
             Ast::Alt(lhs, rhs) => self.build_alternation(lhs, rhs),
             Ast::Star(inner) => self.build_star(inner),
+            Ast::Opt(inner) => self.build_optional(inner),
         }
     }
 
@@ -313,6 +314,34 @@ impl Builder {
             builder.add_edge(start, accept, EdgeLabel::Eps);
 
             builder.add_edge(inner_accept, inner_start, EdgeLabel::Eps);
+            builder.add_edge(inner_accept, accept, EdgeLabel::Eps);
+
+            Fragment { start, accept }
+        })
+    }
+
+    /// Builds an optional (zero or one occurrence) fragment from the given inner AST.
+    ///
+    /// # Arguments
+    ///
+    /// - `inner` (`Ast`) - The inner AST node to apply the optional operation on.
+    ///
+    /// # Returns
+    ///
+    /// - `Fragment` - The NFA fragment representing the optional operation.
+    fn build_optional(&mut self, inner: &Ast) -> Fragment {
+        self.with_box(BoxKind::Optional, move |builder| {
+            let frag = builder.build(inner);
+            let Fragment {
+                start: inner_start,
+                accept: inner_accept,
+            } = frag;
+            let start = builder.new_state();
+            let accept = builder.new_state();
+
+            builder.add_edge(start, inner_start, EdgeLabel::Eps);
+            builder.add_edge(start, accept, EdgeLabel::Eps);
+
             builder.add_edge(inner_accept, accept, EdgeLabel::Eps);
 
             Fragment { start, accept }
@@ -637,6 +666,87 @@ mod tests {
                     },
                 ],
                 // 9 -> no edges
+                vec![],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_optional_literal() {
+        let ast = Ast::build("a?").unwrap();
+        let nfa = Nfa::build(&ast);
+        // State creation order:
+        // Literal 'a': start 0 accept 1 (+1 edge)
+        // Optional wrapper: start 2 accept 3 (+3 edges)
+        assert_eq!(nfa.states.len(), 4);
+        assert_eq!(nfa.start, 2);
+        assert_eq!(nfa.accepts, vec![3]);
+        // edges: 0->1 (Sym 'a'), 1->3 (Eps), 2->0 (Eps), 2->3 (Eps) => total 4 edges
+        assert_eq!(nfa.edges.len(), 4);
+        assert_eq!(
+            nfa.adjacency,
+            vec![
+                // 0 -> 'a' -> 1
+                vec![Transition {
+                    to: 1,
+                    label: EdgeLabel::Sym('a'),
+                }],
+                // 1 -> eps -> 3
+                vec![Transition {
+                    to: 3,
+                    label: EdgeLabel::Eps,
+                }],
+                // 2 -> eps -> 0
+                //   -> eps -> 3
+                vec![
+                    Transition {
+                        to: 0,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 3,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 3 -> no edges
+                vec![],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_optional_epsilon() {
+        // "\\e?" = optional epsilon
+        let ast = Ast::build("\\e?").unwrap();
+        let nfa = Nfa::build(&ast);
+        // Epsilon fragment: state 0 (start & accept)
+        // Optional wrapper: start 1 accept 2
+        // Edges: 0->2 (Eps), 1->0 (Eps), 1->2 (Eps) => 3 edges
+        assert_eq!(nfa.states.len(), 3);
+        assert_eq!(nfa.start, 1);
+        assert_eq!(nfa.accepts, vec![2]);
+        assert_eq!(nfa.edges.len(), 3);
+        assert_eq!(
+            nfa.adjacency,
+            vec![
+                // 0 -> eps -> 2
+                vec![Transition {
+                    to: 2,
+                    label: EdgeLabel::Eps,
+                }],
+                // 1 -> eps -> 0
+                //   -> eps -> 2
+                vec![
+                    Transition {
+                        to: 0,
+                        label: EdgeLabel::Eps,
+                    },
+                    Transition {
+                        to: 2,
+                        label: EdgeLabel::Eps,
+                    },
+                ],
+                // 2 -> no edges
                 vec![],
             ]
         );

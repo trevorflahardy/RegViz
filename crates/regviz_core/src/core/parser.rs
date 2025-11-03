@@ -18,6 +18,8 @@ pub enum Ast {
     Alt(Box<Ast>, Box<Ast>),
     /// Zero-or-more repetition.
     Star(Box<Ast>),
+    /// Optional
+    Opt(Box<Ast>),
 }
 
 /// Infix operator definition for Pratt parsing.
@@ -61,7 +63,7 @@ impl OpToken {
                 right_bp: 4,
                 build: |l, r| Ast::Concat(Box::new(l), Box::new(r)),
             }),
-            Self::Star => None,
+            _ => None,
         }
     }
 
@@ -72,6 +74,10 @@ impl OpToken {
             Self::Star => Some(PostfixOp {
                 bp: 5,
                 build: |operand| Ast::Star(Box::new(operand)),
+            }),
+            Self::Opt => Some(PostfixOp {
+                bp: 5,
+                build: |operand| Ast::Opt(Box::new(operand)),
             }),
             _ => None,
         }
@@ -120,6 +126,7 @@ impl Ast {
         // We capture the token index `idx` (char index) for error reporting.
         let (token, idx) = lexer.advance();
         let mut lhs = match token {
+            Token::Epsilon => Ast::Epsilon,
             Token::Literal(c) => Ast::Atom(c),
             Token::Op(op_token) => {
                 if let Some(prefix_op) = op_token.prefix() {
@@ -183,7 +190,7 @@ impl Ast {
         loop {
             let (token, idx) = lexer.peek();
             let (op_token, is_explicit) = match token {
-                Token::Literal(_) | Token::LParen => {
+                Token::Literal(_) | Token::Epsilon | Token::LParen => {
                     // Implicit concatenation
                     (OpToken::Dot, false)
                 }
@@ -263,6 +270,7 @@ impl Display for Ast {
             Ast::Concat(lhs, rhs) => write!(f, "(. {lhs} {rhs})"),
             Ast::Alt(lhs, rhs) => write!(f, "(+ {lhs} {rhs})"),
             Ast::Star(inner) => write!(f, "(* {inner})"),
+            Ast::Opt(inner) => write!(f, "(? {inner})"),
         }
     }
 }
@@ -491,5 +499,65 @@ mod tests {
                 at: 3,
             }))
         );
+    }
+
+    #[test]
+    fn test_single_epsilon_input() {
+        let ast = Ast::build("\\e").unwrap();
+        assert_eq!(ast.to_string(), "ε");
+    }
+
+    #[test]
+    fn test_epsilon_concatenation_right() {
+        let ast = Ast::build("\\ea").unwrap();
+        assert_eq!(ast.to_string(), "(. ε a)");
+    }
+
+    #[test]
+    fn test_epsilon_concatenation_left() {
+        let ast = Ast::build("a\\e").unwrap();
+        assert_eq!(ast.to_string(), "(. a ε)");
+    }
+
+    #[test]
+    fn test_double_epsilon_concatenation() {
+        let ast = Ast::build("\\e\\e").unwrap();
+        assert_eq!(ast.to_string(), "(. ε ε)");
+    }
+
+    #[test]
+    fn test_epsilon_star() {
+        let ast = Ast::build("\\e*").unwrap();
+        assert_eq!(ast.to_string(), "(* ε)");
+    }
+
+    #[test]
+    fn test_epsilon_alternation() {
+        let ast = Ast::build("\\e+a").unwrap();
+        assert_eq!(ast.to_string(), "(+ ε a)");
+        let ast = Ast::build("a+\\e").unwrap();
+        assert_eq!(ast.to_string(), "(+ a ε)");
+    }
+
+    #[test]
+    fn test_parentheses_with_epsilon() {
+        let ast = Ast::build("(\\e)").unwrap();
+        assert_eq!(ast.to_string(), "ε");
+        let ast = Ast::build("(\\e)a").unwrap();
+        assert_eq!(ast.to_string(), "(. ε a)");
+        let ast = Ast::build("(a+\\e)").unwrap();
+        assert_eq!(ast.to_string(), "(+ a ε)");
+        let ast = Ast::build("(\\e\\e)a").unwrap();
+        assert_eq!(ast.to_string(), "(. (. ε ε) a)");
+        let ast = Ast::build("((a+\\e)\\e)*b").unwrap();
+        assert_eq!(ast.to_string(), "(. (* (. (+ a ε) ε)) b)");
+    }
+
+    #[test]
+    fn test_explicit_dot_with_epsilon() {
+        let ast = Ast::build("\\e.a").unwrap();
+        assert_eq!(ast.to_string(), "(. ε a)");
+        let ast = Ast::build("a.\\e.b").unwrap();
+        assert_eq!(ast.to_string(), "(. (. a ε) b)");
     }
 }

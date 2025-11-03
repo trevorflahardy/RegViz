@@ -94,6 +94,7 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
         Ast::Alt(_, _) => "+".to_string(),
         Ast::Star(_) => "*".to_string(),
         Ast::Epsilon => "ε".to_string(),
+        Ast::Opt(_) => "?".to_string(),
     };
 
     nodes.push(GraphNode {
@@ -113,7 +114,7 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
             collect_nodes(left, nodes, next_id);
             collect_nodes(right, nodes, next_id);
         }
-        Ast::Star(inner) => {
+        Ast::Star(inner) | Ast::Opt(inner) => {
             collect_nodes(inner, nodes, next_id);
         }
     }
@@ -149,7 +150,7 @@ fn collect_edges(ast: &Ast, edges: &mut Vec<GraphEdge>, next_id: &mut u32) -> u3
             edges.push(GraphEdge::new(current_id, left_id, "L".to_string()));
             edges.push(GraphEdge::new(current_id, right_id, "R".to_string()));
         }
-        Ast::Star(inner) => {
+        Ast::Star(inner) | Ast::Opt(inner) => {
             let child_id = collect_edges(inner, edges, next_id);
             // AST edges are always straight (they're not automaton transitions)
             edges.push(GraphEdge::new(current_id, child_id, String::new()));

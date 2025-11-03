@@ -4,6 +4,8 @@ use crate::errors::{LexError, LexErrorKind};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Token {
+    /// Epsilon
+    Epsilon,
     /// A literal character
     Literal(char),
     /// A special operator token
@@ -19,6 +21,7 @@ pub enum Token {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Token::Epsilon => write!(f, "ε"),
             Token::Literal(c) => write!(f, "{c}"),
             Token::Op(op) => write!(f, "{op}"),
             Token::LParen => write!(f, "("),
@@ -36,6 +39,8 @@ pub enum OpToken {
     Star,
     /// '.' operator (concatenation)
     Dot,
+    /// '?' operator (optional)
+    Opt,
 }
 
 impl Display for OpToken {
@@ -44,6 +49,7 @@ impl Display for OpToken {
             OpToken::Plus => "+",
             OpToken::Star => "*",
             OpToken::Dot => ".",
+            OpToken::Opt => "?",
         };
         write!(f, "{symbol}")
     }
@@ -73,7 +79,14 @@ impl Lexer {
                     if let Some((next_idx, next_ch)) = chars.next() {
                         // Update idx to point to the escaped character
                         idx = next_idx;
-                        Token::Literal(next_ch)
+
+                        // Check for epsilon escape
+                        if next_ch == 'e' {
+                            Token::Epsilon
+                        } else {
+                            // Treat next character as literal
+                            Token::Literal(next_ch)
+                        }
                     } else {
                         return Err(LexError {
                             at: idx,
@@ -84,6 +97,7 @@ impl Lexer {
                 '.' => Token::Op(OpToken::Dot),
                 '+' => Token::Op(OpToken::Plus),
                 '*' => Token::Op(OpToken::Star),
+                '?' => Token::Op(OpToken::Opt),
                 '(' => Token::LParen,
                 ')' => Token::RParen,
                 // Skip whitespace
