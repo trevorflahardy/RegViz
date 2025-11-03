@@ -5,16 +5,21 @@ mod visualization;
 
 use iced::{
     Alignment, Length,
-    widget::{column, container, pane_grid, text},
+    widget::{button, column, container, pane_grid, row, text},
 };
 
 use regviz_core::core::BuildArtifacts;
 
-use crate::app::theme::{ContainerClass, ElementType, TextClass, TextSize};
+use crate::app::{
+    message::InputMessage,
+    theme::{ContainerClass, ElementType, TextClass, TextSize},
+};
 
 use super::message::{Message, PaneGridMessage, ViewMode};
 use super::simulation::SimulationTarget;
 use super::state::{App, PaneContent};
+
+const INPUT_EXAMPLES: &[&str] = &["a+b", "\\e", "(a+b)*c", "ab+cd?", "a(bc)*d+e?"];
 
 impl App {
     /// Renders the entire application UI.
@@ -58,6 +63,31 @@ fn left_controls(app: &App) -> ElementType<'_> {
             text!("Build and visualize finite automata from regular expressions.")
                 .size(TextSize::Body)
                 .class(TextClass::Secondary),
+        ],
+        text(
+            "\
+Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are supported:
+1. '\\e': epsilon
+2. '(', ')': for grouping
+3. '+': alternation
+4. '*': kleene star
+5. '.': concatenation
+"
+        )
+        .font(iced::Font::with_name("JetBrains Mono"))
+        .size(TextSize::Body)
+        .class(TextClass::Secondary),
+        column![
+            text("Examples:")
+                .size(TextSize::H3)
+                .class(TextClass::Primary),
+            row(INPUT_EXAMPLES.iter().map(|&example| {
+                button(example)
+                    .on_press(Message::Input(InputMessage::Changed(example.to_string())))
+                    .into()
+            }))
+            .spacing(8)
+            .wrap(),
         ],
         input::render(app)
     ]

@@ -17,14 +17,7 @@ pub enum LexErrorKind {
     #[error("dangling escape character")]
     DanglingEscape,
     #[error(
-        "invalid character '{0}'. 
-Only alphanumeric characters and reserved characters:
-1. '\\e': epsilon
-2. '(', ')': for grouping
-3. '+': alternation
-4. '*': Kleene star
-5. '.': Concatenation
-are allowed"
+        "invalid character '{0}'. Only alphanumeric characters and reserved characters ('\\e', '(', ')', '+', '*', '.') are allowed"
     )]
     InvalidCharacter(char),
 }

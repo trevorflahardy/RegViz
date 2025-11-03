@@ -16,7 +16,7 @@ mod style;
 ///
 /// Web builds do not have access to system fonts, so we explicitly request the
 /// bundled Fira Sans family provided by the `iced` crate.
-pub const CANVAS_FONT: Font = Font::with_name("Fira Sans");
+const CANVAS_FONT: Font = Font::with_name("Fira Sans");
 
 pub use ast::AstGraph;
 pub use bbox::GraphBox;
