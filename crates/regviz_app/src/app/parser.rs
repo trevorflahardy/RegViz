@@ -31,8 +31,8 @@ impl App {
                 self.refresh_simulation_trace();
             }
             Err(e) => {
-                // Lex error
-                self.error = Some(format!("Build error: {e}"));
+                // Build error (lex or parse)
+                self.error = Some(e);
                 self.build_artifacts = None;
                 self.simulation.clear_trace();
                 self.simulation_error = None;

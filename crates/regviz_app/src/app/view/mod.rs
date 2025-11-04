@@ -51,7 +51,7 @@ Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are
 5. '.': concatenation
 "
         )
-        .font(iced::Font::with_name("JetBrains Mono"))
+        .font(iced::Font::MONOSPACE)
         .size(TextSize::Small)
         .class(TextClass::Secondary),
     ]

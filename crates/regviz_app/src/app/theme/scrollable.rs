@@ -22,9 +22,12 @@ impl scrollable::Catalog for AppTheme {
 
     fn style(&self, _class: &Self::Class<'_>, status: scrollable::Status) -> scrollable::Style {
         let scroller_color = match status {
-            scrollable::Status::Active { .. } => self.bg_mid(),
-            scrollable::Status::Hovered { .. } => self.bg_high(),
-            scrollable::Status::Dragged { .. } => self.bg_low(),
+            // Completely invisible when idle
+            scrollable::Status::Active { .. } => Color::TRANSPARENT,
+            // Semi-transparent when hovered
+            scrollable::Status::Hovered { .. } => AppTheme::with_alpha(self.text_dim(), 0.3),
+            // Visible when dragging
+            scrollable::Status::Dragged { .. } => self.text_dim(),
         };
 
         scrollable::Style {

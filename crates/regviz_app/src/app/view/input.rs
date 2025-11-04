@@ -1,13 +1,15 @@
 use iced::{
-    Length,
-    widget::{column, text, text_input},
+    Font, Length,
+    widget::{column, container, scrollable, text, text_input},
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::app::{
     message::{InputMessage, Message},
     state::App,
-    theme::{ElementType, TextClass, TextInputClass, TextSize},
+    theme::{ContainerClass, ElementType, TextClass, TextInputClass, TextSize},
 };
+use regviz_core::errors::BuildError;
 
 /// Renders the regex input field and status text.
 pub fn render(app: &App) -> ElementType<'_> {
@@ -33,10 +35,7 @@ pub fn render(app: &App) -> ElementType<'_> {
 
 fn status_text(app: &App) -> ElementType<'_> {
     match &app.error {
-        Some(err) => text(format!("Error: {err}"))
-            .size(TextSize::Small)
-            .class(TextClass::Error)
-            .into(),
+        Some(err) => error_box(&app.input, err),
         None => match &app.build_artifacts {
             Some(artifacts) => text(format!(
                 "Parsed successfully | {} states | Alphabet: {:?}",
@@ -52,4 +51,48 @@ fn status_text(app: &App) -> ElementType<'_> {
                 .into(),
         },
     }
+}
+
+/// Displays an error with the input and an arrow pointing to the error position.
+fn error_box<'a>(input: &'a str, err: &'a BuildError) -> ElementType<'a> {
+    let error_index = match err {
+        BuildError::Lex(lex_err) => lex_err.at,
+        BuildError::Parse(parse_err) => parse_err.at,
+    };
+
+    // Calculate visual width up to error position using unicode-width
+    let text_before_error = &input[..error_index.min(input.len())];
+    let visual_width = UnicodeWidthStr::width(text_before_error);
+
+    // Create arrow line with padding
+    let arrow_padding = " ".repeat(visual_width);
+    let arrow_line = format!("{}^", arrow_padding);
+
+    let error_display = column![
+        text(input)
+            .size(TextSize::Small)
+            .font(Font::MONOSPACE)
+            .class(TextClass::Primary),
+        text(arrow_line)
+            .size(TextSize::Small)
+            .font(Font::MONOSPACE)
+            .class(TextClass::Error),
+        text(format!("Error: {}", err))
+            .size(TextSize::Small)
+            .class(TextClass::Error),
+    ]
+    .spacing(2);
+
+    let scrollable_error = scrollable(error_display)
+        .direction(scrollable::Direction::Horizontal(Default::default()))
+        .width(Length::Fill);
+
+    container(scrollable_error)
+        .padding(8)
+        .class(ContainerClass::FilledWith(
+            // Use a slightly different background for the error box
+            iced::Color::from_rgba(0.6, 0.2, 0.2, 0.2),
+        ))
+        .width(Length::Fill)
+        .into()
 }

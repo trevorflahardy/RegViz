@@ -206,4 +206,9 @@ impl AppTheme {
             AppTheme::Dark => Self::DARK_COLOR_PALETTE.danger,
         }
     }
+
+    /// Make any color semi-transparent by setting alpha channel
+    pub fn with_alpha(color: Color, alpha: f32) -> Color {
+        Color::from_rgba(color.r, color.g, color.b, alpha.clamp(0.0, 1.0))
+    }
 }

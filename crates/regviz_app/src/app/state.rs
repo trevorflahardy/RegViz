@@ -1,6 +1,6 @@
 use iced::widget::pane_grid::{self, Axis};
 use iced::{Point, Vector};
-use regviz_core::core::BuildArtifacts;
+use regviz_core::{core::BuildArtifacts, errors::BuildError};
 
 use super::constants::DEFAULT_ZOOM_FACTOR;
 use super::message::ViewMode;
@@ -22,8 +22,8 @@ pub struct App {
     /// Current regex input from the user.
     pub input: String,
 
-    /// Error message from lexing or parsing, if any.
-    pub error: Option<String>,
+    /// Error from lexing or parsing, if any.
+    pub error: Option<BuildError>,
 
     /// Successfully built AST, NFA, and alphabet, if available.
     pub build_artifacts: Option<BuildArtifacts>,
