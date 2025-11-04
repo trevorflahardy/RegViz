@@ -1,6 +1,9 @@
-use regviz_core::core::automaton::EdgeLabel;
+use std::collections::HashMap;
+
+use regviz_core::core::automaton::{EdgeLabel, StateId};
 use regviz_core::core::dfa::Dfa;
 
+use super::edge::LabelBias;
 use super::{Graph, GraphBox, GraphEdge, GraphNode, Highlights};
 
 /// Visual wrapper around a DFA with highlight metadata for simulation playback.
@@ -67,5 +70,46 @@ fn build_edges(dfa: &Dfa, alphabet: &[char], highlights: &Highlights) -> Vec<Gra
             edges.push(GraphEdge::new(*state_id, next, label).with_active(is_active));
         }
     }
+    adjust_bidirectional_labels(&mut edges);
     edges
+}
+
+fn adjust_bidirectional_labels(edges: &mut [GraphEdge]) {
+    let mut paired: HashMap<(StateId, StateId), (Vec<usize>, Vec<usize>)> = HashMap::new();
+
+    for (idx, edge) in edges.iter().enumerate() {
+        if edge.from == edge.to {
+            continue;
+        }
+        let (a, b) = if edge.from < edge.to {
+            (edge.from, edge.to)
+        } else {
+            (edge.to, edge.from)
+        };
+        let entry = paired
+            .entry((a, b))
+            .or_insert_with(|| (Vec::new(), Vec::new()));
+        if edge.from <= edge.to {
+            entry.0.push(idx);
+        } else {
+            entry.1.push(idx);
+        }
+    }
+
+    for (_, (forward, backward)) in paired {
+        if forward.is_empty() || backward.is_empty() {
+            continue;
+        }
+
+        for idx in forward {
+            if let Some(edge) = edges.get_mut(idx) {
+                edge.label_bias = LabelBias::Primary;
+            }
+        }
+        for idx in backward {
+            if let Some(edge) = edges.get_mut(idx) {
+                edge.label_bias = LabelBias::Secondary;
+            }
+        }
+    }
 }

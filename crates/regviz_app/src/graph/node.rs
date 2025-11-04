@@ -1,6 +1,6 @@
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas::{Frame, Path, Stroke, Text};
-use iced::{Color, Point};
+use iced::{Color, Pixels, Point};
 use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::{BoxId, StateId};
 
@@ -18,12 +18,22 @@ const START_ARROW_HEAD_OFFSET: f32 = 1.0;
 const START_ARROW_HEAD_LENGTH: f32 = 6.0;
 /// Half-height of the arrow head used to form the triangle.
 const START_ARROW_HEAD_HALF_HEIGHT: f32 = 4.0;
+/// Minimum scale for the start arrow head to prevent it becoming invisible.
+const START_ARROW_MIN_SCALE: f32 = 0.4;
+/// Maximum scale for the start arrow head to avoid excessive growth.
+const START_ARROW_MAX_SCALE: f32 = 4.0;
 /// Stroke width applied to node outlines.
 const NODE_OUTLINE_WIDTH: f32 = 1.5;
 /// Stroke width applied to auxiliary shapes such as the accepting ring and start arrow.
 const AUXILIARY_STROKE_WIDTH: f32 = 1.2;
 /// Stroke width used for the start arrow shaft.
 const START_ARROW_STROKE_WIDTH: f32 = 1.3;
+/// Base font size for node labels before zoom is applied.
+const NODE_LABEL_BASE_SIZE: f32 = 18.0;
+/// Minimum font size for node labels.
+const NODE_LABEL_MIN_SIZE: f32 = 10.0;
+/// Maximum font size for node labels.
+const NODE_LABEL_MAX_SIZE: f32 = 52.0;
 
 /// Visual representation of a state in the rendered graph.
 #[derive(Debug, Clone)]
@@ -112,14 +122,17 @@ impl Drawable for PositionedNode {
         );
 
         if self.data.is_accept {
-            draw_accepting_ring(frame, center, radius);
+            draw_accepting_ring(frame, center, radius, ctx.zoom);
         }
 
         if self.data.is_start {
-            draw_start_arrow(frame, center, radius, outline_color);
+            draw_start_arrow(frame, center, radius, outline_color, ctx.zoom);
         }
 
         if !self.data.label.is_empty() {
+            let font_size = Pixels::from(
+                (NODE_LABEL_BASE_SIZE * ctx.zoom).clamp(NODE_LABEL_MIN_SIZE, NODE_LABEL_MAX_SIZE),
+            );
             frame.fill_text(Text {
                 content: self.data.label.clone(),
                 position: center,
@@ -127,14 +140,20 @@ impl Drawable for PositionedNode {
                 font: CANVAS_FONT,
                 align_x: Horizontal::Center.into(),
                 align_y: Vertical::Center,
+                size: font_size,
                 ..Text::default()
             });
         }
     }
 }
 
-fn draw_accepting_ring<R: Renderer>(frame: &mut Frame<R>, center: Point, radius: f32) {
-    let inner = Path::circle(center, radius - ACCEPT_RING_GAP);
+fn draw_accepting_ring<R: Renderer>(frame: &mut Frame<R>, center: Point, radius: f32, zoom: f32) {
+    let gap = (ACCEPT_RING_GAP * zoom).clamp(1.0, radius.max(1.0));
+    let inner_radius = (radius - gap).max(0.0);
+    if inner_radius <= 0.0 {
+        return;
+    }
+    let inner = Path::circle(center, inner_radius);
     frame.stroke(&inner, Stroke::default().with_width(AUXILIARY_STROKE_WIDTH));
 }
 
@@ -143,6 +162,7 @@ fn draw_start_arrow<R: Renderer>(
     center: Point,
     radius: f32,
     outline_color: Color,
+    zoom: f32,
 ) {
     let arrow_tail = Point::new(center.x - radius * START_ARROW_DISTANCE_FACTOR, center.y);
     let arrow_tip = Point::new(center.x - radius * START_ARROW_HEAD_OFFSET, center.y);
@@ -154,17 +174,14 @@ fn draw_start_arrow<R: Renderer>(
             .with_color(outline_color),
     );
 
-    let head_base = Point::new(arrow_tip.x - START_ARROW_HEAD_LENGTH, arrow_tip.y);
+    let arrow_scale = zoom.clamp(START_ARROW_MIN_SCALE, START_ARROW_MAX_SCALE);
+    let head_length = START_ARROW_HEAD_LENGTH * arrow_scale;
+    let head_half_height = START_ARROW_HEAD_HALF_HEIGHT * arrow_scale;
+    let head_base = Point::new(arrow_tip.x - head_length, arrow_tip.y);
     let head = Path::new(|builder| {
         builder.move_to(arrow_tip);
-        builder.line_to(Point::new(
-            head_base.x,
-            head_base.y - START_ARROW_HEAD_HALF_HEIGHT,
-        ));
-        builder.line_to(Point::new(
-            head_base.x,
-            head_base.y + START_ARROW_HEAD_HALF_HEIGHT,
-        ));
+        builder.line_to(Point::new(head_base.x, head_base.y - head_half_height));
+        builder.line_to(Point::new(head_base.x, head_base.y + head_half_height));
         builder.close();
     });
     frame.fill(&head, Color::WHITE);

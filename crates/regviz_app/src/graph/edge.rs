@@ -1,5 +1,5 @@
 use iced::{
-    Color, Point, Vector,
+    Color, Pixels, Point, Vector,
     alignment::{Horizontal, Vertical},
     widget::canvas::{Frame, Path, Stroke, Text},
 };
@@ -14,9 +14,19 @@ use super::{CANVAS_FONT, DrawContext, Drawable};
 /// With centered text alignment, this needs to be smaller than before.
 const LABEL_DISTANCE: f32 = 13.0;
 /// Length of each arrow head side.
-const ARROW_HEAD_LENGTH: f32 = 10.0;
+const ARROW_HEAD_BASE_LENGTH: f32 = 10.0;
 /// Half-width of the arrow head at its base.
-const ARROW_HEAD_HALF_WIDTH: f32 = ARROW_HEAD_LENGTH * 0.5;
+const ARROW_HEAD_BASE_HALF_WIDTH: f32 = ARROW_HEAD_BASE_LENGTH * 0.5;
+/// Minimum scale applied to arrow lengths to keep them legible when zoomed out.
+const ARROW_HEAD_MIN_SCALE: f32 = 0.4;
+/// Maximum scale applied to arrow lengths to avoid overly large heads.
+const ARROW_HEAD_MAX_SCALE: f32 = 4.0;
+/// Base font size for edge labels (in logical units before zoom is applied).
+const EDGE_LABEL_BASE_SIZE: f32 = 14.0;
+/// Minimum font size to keep labels readable at tiny zoom levels.
+const EDGE_LABEL_MIN_SIZE: f32 = 10.0;
+/// Maximum font size to avoid excessively large labels at high zoom.
+const EDGE_LABEL_MAX_SIZE: f32 = 42.0;
 
 const INACTIVE_EDGE_STROKE_WIDTH: f32 = 1.3;
 const ACTIVE_EDGE_STROKE_WIDTH: f32 = 2.4;
@@ -33,6 +43,15 @@ pub enum EdgeCurve {
     CurveUp,
 }
 
+/// Orientation for labels relative to the edge line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LabelBias {
+    /// Place the label on the primary (default) side of the edge.
+    Primary,
+    /// Place the label on the opposite side of the edge.
+    Secondary,
+}
+
 /// Renderable description of a transition between two states.
 #[derive(Debug, Clone)]
 pub struct GraphEdge {
@@ -46,6 +65,8 @@ pub struct GraphEdge {
     pub curve: EdgeCurve,
     /// Whether this edge was traversed in the current simulation step.
     pub is_active: bool,
+    /// Orientation bias for edge labels.
+    pub label_bias: LabelBias,
 }
 
 impl GraphEdge {
@@ -58,6 +79,7 @@ impl GraphEdge {
             label,
             curve: EdgeCurve::Straight,
             is_active: false,
+            label_bias: LabelBias::Primary,
         }
     }
 
@@ -70,6 +92,7 @@ impl GraphEdge {
             label,
             curve,
             is_active: false,
+            label_bias: LabelBias::Primary,
         }
     }
 
@@ -106,7 +129,8 @@ impl PositionedEdge {
     /// drawn from the edge of the source node to the edge of the destination node.
     #[must_use]
     pub fn new(data: GraphEdge, from: Point, to: Point) -> Self {
-        let label_position = compute_label_anchor(from, to);
+        let bias = data.label_bias;
+        let label_position = compute_label_anchor(from, to, bias);
         Self {
             data,
             from,
@@ -133,7 +157,8 @@ impl PositionedEdge {
         from_radius: f32,
         to_radius: f32,
     ) -> Self {
-        let label_position = compute_label_anchor(from, to);
+        let bias = data.label_bias;
+        let label_position = compute_label_anchor(from, to, bias);
         Self {
             data,
             from,
@@ -282,7 +307,7 @@ impl PositionedEdge {
         );
 
         // Draw arrow head at destination
-        self.draw_arrow_head(frame, to, unit, stroke_color);
+        self.draw_arrow_head(frame, to, unit, stroke_color, ctx);
 
         // Draw label
         self.draw_label(frame, ctx, stroke_color);
@@ -329,14 +354,16 @@ impl PositionedEdge {
         // For horizontal edges (left to right), this gives an upward normal
         let normal = perpendicular(unit);
 
-        // Control point offset: position it perpendicular to the line between nodes
-        // Reduce the control offset to prevent curves from extending too far outside bounding boxes
-        // Use a smaller factor to keep curves more contained
+        // Control point offset: position it perpendicular to the line between nodes.
+        // Reduce the control offset to prevent curves from extending too far outside bounding boxes.
+        // Use a smaller factor to keep curves more contained.
         let max_curve_height = length * 0.25; // Limit curve height to 25% of distance between nodes
+        // Positive offset moves in the direction of `normal`. For a left-to-right edge, the normal
+        // points downward in screen coordinates, so a positive offset bends the curve downward.
         let base_control_offset = if curve_down {
-            -max_curve_height // Negative = downward
+            max_curve_height
         } else {
-            max_curve_height // Positive = upward
+            -max_curve_height
         };
 
         // Midpoint between nodes
@@ -402,7 +429,7 @@ impl PositionedEdge {
         );
 
         // Draw arrow head at the end point with the correct tangent direction
-        self.draw_arrow_head(frame, end, end_tangent_unit, stroke_color);
+        self.draw_arrow_head(frame, end, end_tangent_unit, stroke_color, ctx);
 
         // Draw label on the curve - calculate position based on curve midpoint
         self.draw_curved_label(
@@ -428,19 +455,23 @@ impl PositionedEdge {
         tip: Point,
         direction: Vector,
         color: Color,
+        ctx: &DrawContext,
     ) {
         let normal = perpendicular(direction);
+        let scale = ctx.zoom.clamp(ARROW_HEAD_MIN_SCALE, ARROW_HEAD_MAX_SCALE);
+        let arrow_length = ARROW_HEAD_BASE_LENGTH * scale;
+        let arrow_half_width = ARROW_HEAD_BASE_HALF_WIDTH * scale;
 
         // Left wing: move back along the direction, then offset perpendicular
         let left = Point::new(
-            tip.x - direction.x * ARROW_HEAD_LENGTH + normal.x * ARROW_HEAD_HALF_WIDTH,
-            tip.y - direction.y * ARROW_HEAD_LENGTH + normal.y * ARROW_HEAD_HALF_WIDTH,
+            tip.x - direction.x * arrow_length + normal.x * arrow_half_width,
+            tip.y - direction.y * arrow_length + normal.y * arrow_half_width,
         );
 
         // Right wing: move back along the direction, then offset opposite perpendicular
         let right = Point::new(
-            tip.x - direction.x * ARROW_HEAD_LENGTH - normal.x * ARROW_HEAD_HALF_WIDTH,
-            tip.y - direction.y * ARROW_HEAD_LENGTH - normal.y * ARROW_HEAD_HALF_WIDTH,
+            tip.x - direction.x * arrow_length - normal.x * arrow_half_width,
+            tip.y - direction.y * arrow_length - normal.y * arrow_half_width,
         );
 
         // Create a filled triangle for the arrow head
@@ -471,6 +502,9 @@ impl PositionedEdge {
         }
 
         let label_pos = ctx.transform_point(self.label_position);
+        let font_size = Pixels::from(
+            (EDGE_LABEL_BASE_SIZE * ctx.zoom).clamp(EDGE_LABEL_MIN_SIZE, EDGE_LABEL_MAX_SIZE),
+        );
         frame.fill_text(Text {
             content: self.data.label.clone(),
             position: label_pos,
@@ -478,6 +512,7 @@ impl PositionedEdge {
             font: CANVAS_FONT,
             align_x: Horizontal::Center.into(),
             align_y: Vertical::Center,
+            size: font_size,
             ..Text::default()
         });
     }
@@ -547,6 +582,9 @@ impl PositionedEdge {
             font: CANVAS_FONT,
             align_x: Horizontal::Center.into(),
             align_y: Vertical::Center,
+            size: Pixels::from(
+                (EDGE_LABEL_BASE_SIZE * ctx.zoom).clamp(EDGE_LABEL_MIN_SIZE, EDGE_LABEL_MAX_SIZE),
+            ),
             ..Text::default()
         });
     }
@@ -555,15 +593,17 @@ impl PositionedEdge {
 /// Calculates where to place the label text for an edge connecting two points.
 ///
 /// The label is positioned at the midpoint of the edge, offset perpendicular to the
-/// edge direction. The offset is always placed "above" the edge (negative y direction)
-/// to keep labels readable and consistent.
+/// edge direction. For the primary orientation, the offset is placed "above" the edge
+/// (negative y direction in screen space). For the secondary orientation, the offset
+/// mirrors to the opposite side.
 ///
 /// # Algorithm
 /// 1. Find the midpoint between the two endpoints
 /// 2. Calculate the perpendicular (normal) vector to the edge direction
-/// 3. Flip the normal if it points downward (so labels always appear above)
-/// 4. Offset the midpoint by LABEL_DISTANCE in the normal direction
-fn compute_label_anchor(from: Point, to: Point) -> Point {
+/// 3. Flip the normal if it points downward (so primary labels appear above)
+/// 4. Optionally mirror the normal for the secondary orientation
+/// 5. Offset the midpoint by `LABEL_DISTANCE` in the normal direction
+fn compute_label_anchor(from: Point, to: Point, bias: LabelBias) -> Point {
     // Calculate the midpoint of the edge
     let mid = Point::new((from.x + to.x) * 0.5, (from.y + to.y) * 0.5);
 
@@ -573,7 +613,12 @@ fn compute_label_anchor(from: Point, to: Point) -> Point {
 
     // If the two points are basically the same, just place label above
     if length <= f32::EPSILON {
-        return Point::new(mid.x, mid.y - LABEL_DISTANCE);
+        let offset = if matches!(bias, LabelBias::Secondary) {
+            LABEL_DISTANCE
+        } else {
+            -LABEL_DISTANCE
+        };
+        return Point::new(mid.x, mid.y + offset);
     }
 
     // Get the perpendicular (normal) vector - rotated 90° from the edge direction
@@ -581,6 +626,10 @@ fn compute_label_anchor(from: Point, to: Point) -> Point {
 
     // Flip the normal if it points downward (positive y) so labels always appear above
     if normal.y > 0.0 {
+        normal = Vector::new(-normal.x, -normal.y);
+    }
+
+    if matches!(bias, LabelBias::Secondary) {
         normal = Vector::new(-normal.x, -normal.y);
     }
 
