@@ -21,6 +21,7 @@ pub use button::ButtonClass;
 pub use container::ContainerClass;
 #[allow(unused_imports)]
 pub use text::{TextClass, TextSize};
+pub use text_input::TextInputClass;
 
 pub type ElementType<'a> = Element<'a, Message, AppTheme>;
 

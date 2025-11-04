@@ -1,48 +1,60 @@
 use super::AppTheme;
-use iced::widget::button;
+use iced::{Background, Color, Vector, widget::button};
 
-const BUTTON_DARK_PRIMARY: button::Style = button::Style {
-    background: Some(iced::Background::Color(iced::Color::from_rgb(
-        44.0 / 255.0,
-        46.0 / 255.0,
-        44.0 / 255.0,
-    ))),
-    text_color: AppTheme::DARK_COLOR_PALETTE.text,
-    border: iced::Border {
-        color: iced::Color::from_rgb(0_f32, 0_f32, 0_f32),
-        width: 0_f32,
-        radius: iced::border::Radius {
-            top_left: 15.0,
-            top_right: 15.0,
-            bottom_left: 15.0,
-            bottom_right: 15.0,
+const BUTTON_RADIUS: f32 = 8.0;
+
+fn lighten(color: Color, amount: f32) -> Color {
+    let amount = amount.clamp(0.0, 1.0);
+    Color::from_rgba(
+        color.r + (1.0 - color.r) * amount,
+        color.g + (1.0 - color.g) * amount,
+        color.b + (1.0 - color.b) * amount,
+        color.a,
+    )
+}
+
+fn darken(color: Color, amount: f32) -> Color {
+    let amount = amount.clamp(0.0, 1.0);
+    Color::from_rgba(
+        color.r * (1.0 - amount),
+        color.g * (1.0 - amount),
+        color.b * (1.0 - amount),
+        color.a,
+    )
+}
+
+fn base_style(background: Color, text: Color, border: Color) -> button::Style {
+    button::Style {
+        background: Some(Background::Color(background)),
+        text_color: text,
+        border: iced::Border {
+            color: border,
+            width: 1.0,
+            radius: iced::border::Radius::from(BUTTON_RADIUS),
         },
-    },
-    shadow: iced::Shadow {
-        color: iced::Color::from_rgba(0_f32, 0_f32, 0_f32, 0.2),
-        offset: iced::Vector::new(0.0, 2.0),
-        blur_radius: 4.0,
-    },
-    snap: false,
-};
+        shadow: iced::Shadow {
+            color: Color::TRANSPARENT,
+            offset: Vector::new(0.0, 0.0),
+            blur_radius: 0.0,
+        },
+        snap: false,
+    }
+}
 
-const BUTTON_DARK_SECONDARY: button::Style = button::Style {
-    background: Some(iced::Background::Color(iced::Color::from_rgb(
-        64.0 / 255.0,
-        66.0 / 255.0,
-        64.0 / 255.0,
-    ))),
-    ..BUTTON_DARK_PRIMARY
-};
+fn primary_style(theme: &AppTheme) -> button::Style {
+    let accent = theme.accent();
+    base_style(accent, theme.text_primary(), darken(accent, 0.3))
+}
 
-const BUTTON_DARK_DANGER: button::Style = button::Style {
-    background: Some(iced::Background::Color(iced::Color::from_rgb(
-        150.0 / 255.0,
-        30.0 / 255.0,
-        30.0 / 255.0,
-    ))),
-    ..BUTTON_DARK_PRIMARY
-};
+fn secondary_style(theme: &AppTheme) -> button::Style {
+    let bg = theme.bg_high();
+    base_style(bg, theme.text_primary(), darken(bg, 0.25))
+}
+
+fn danger_style(theme: &AppTheme) -> button::Style {
+    let danger = theme.error();
+    base_style(danger, theme.text_primary(), darken(danger, 0.2))
+}
 
 #[derive(Debug, Default, Clone)]
 pub enum ButtonClass {
@@ -69,18 +81,31 @@ impl button::Catalog for AppTheme {
 
     fn style(&self, class: &Self::Class<'_>, status: button::Status) -> button::Style {
         let mut style: button::Style = match class {
-            ButtonClass::Primary => BUTTON_DARK_PRIMARY,
-            ButtonClass::Secondary => BUTTON_DARK_SECONDARY,
-            ButtonClass::Danger => BUTTON_DARK_DANGER,
+            ButtonClass::Primary => primary_style(self),
+            ButtonClass::Secondary => secondary_style(self),
+            ButtonClass::Danger => danger_style(self),
         };
 
-        // adjust opacity on hover/press
-        if status == button::Status::Hovered {
-            style.background = style.background.map(|bg| bg.scale_alpha(0.9_f32));
-        }
-        if status == button::Status::Pressed {
-            style.background = style.background.map(|bg| bg.scale_alpha(0.8_f32));
-        }
+        match status {
+            button::Status::Hovered => {
+                if let Some(Background::Color(color)) = style.background {
+                    style.background = Some(Background::Color(lighten(color, 0.08)));
+                }
+            }
+            button::Status::Pressed => {
+                if let Some(Background::Color(color)) = style.background {
+                    style.background = Some(Background::Color(darken(color, 0.1)));
+                }
+            }
+            button::Status::Disabled => {
+                if let Some(Background::Color(color)) = style.background {
+                    style.background = Some(Background::Color(lighten(color, 0.35)));
+                }
+                style.text_color = self.text_dim();
+                style.border.color = lighten(style.border.color, 0.35);
+            }
+            button::Status::Active => {}
+        };
 
         style
     }

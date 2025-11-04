@@ -4,7 +4,7 @@ use iced::{
 };
 use regviz_core::core::automaton::BoxKind;
 
-use crate::app::message::{Message, ViewMessage};
+use crate::app::message::{Message, ViewMessage, ViewMode};
 use crate::app::state::App;
 use crate::app::{
     constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR},
@@ -13,13 +13,14 @@ use crate::app::{
 
 /// Renders buttons for toggling bounding box visibility (NFA only).
 pub fn bounding_boxes(app: &App) -> ElementType<'_> {
+    let enabled = matches!(app.view_mode, ViewMode::Nfa);
     let toggles = row![
-        box_toggle_button(app, BoxKind::Literal, "Literal"),
-        box_toggle_button(app, BoxKind::Concat, "Concat"),
-        box_toggle_button(app, BoxKind::Alternation, "Alt"),
-        box_toggle_button(app, BoxKind::KleeneStar, "Star"),
-        box_toggle_button(app, BoxKind::KleenePlus, "Plus"),
-        box_toggle_button(app, BoxKind::Optional, "Optional"),
+        box_toggle_button(app, BoxKind::Literal, "Literal", enabled),
+        box_toggle_button(app, BoxKind::Concat, "Concat", enabled),
+        box_toggle_button(app, BoxKind::Alternation, "Alt", enabled),
+        box_toggle_button(app, BoxKind::KleeneStar, "Star", enabled),
+        box_toggle_button(app, BoxKind::KleenePlus, "Plus", enabled),
+        box_toggle_button(app, BoxKind::Optional, "Optional", enabled),
     ]
     .spacing(8)
     .wrap();
@@ -56,21 +57,32 @@ pub fn zoom(app: &App) -> ElementType<'_> {
         .into()
 }
 
-fn box_toggle_button<'a>(app: &App, kind: BoxKind, label: &'a str) -> ElementType<'a> {
+fn box_toggle_button<'a>(
+    app: &App,
+    kind: BoxKind,
+    label: &'a str,
+    enabled: bool,
+) -> ElementType<'a> {
     let is_visible = app.box_visibility.is_visible(kind);
-    let text_label = text(label).size(TextSize::Body).class(if is_visible {
-        TextClass::Primary
-    } else {
-        TextClass::Secondary
-    });
+    let text_label = text(label)
+        .size(TextSize::Body)
+        .class(if enabled && is_visible {
+            TextClass::Primary
+        } else {
+            TextClass::Secondary
+        });
 
-    button(text_label)
-        .class(if is_visible {
+    let mut toggle = button(text_label)
+        .class(if enabled && is_visible {
             ButtonClass::Primary
         } else {
             ButtonClass::Secondary
         })
-        .padding([4, 10])
-        .on_press(Message::View(ViewMessage::ToggleBox(kind)))
-        .into()
+        .padding([6, 12]);
+
+    if enabled {
+        toggle = toggle.on_press(Message::View(ViewMessage::ToggleBox(kind)));
+    }
+
+    toggle.into()
 }

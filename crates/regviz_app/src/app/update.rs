@@ -98,6 +98,10 @@ impl App {
 
     /// Updates the simulation input string and rebuilds the trace.
     fn handle_simulation_input_changed(&mut self, input: String) {
+        if self.build_artifacts.is_none() {
+            return;
+        }
+
         self.simulation.input = input;
         self.simulation.reset_cursor();
         self.refresh_simulation_trace();

@@ -5,18 +5,15 @@ mod visualization;
 
 use iced::{
     Alignment, Length,
-    widget::{button, column, container, pane_grid, row, text},
+    widget::{Space, button, column, container, pane_grid, row, text},
 };
-
-use regviz_core::core::BuildArtifacts;
 
 use crate::app::{
     message::InputMessage,
-    theme::{ContainerClass, ElementType, TextClass, TextSize},
+    theme::{ButtonClass, ContainerClass, ElementType, TextClass, TextSize},
 };
 
-use super::message::{Message, PaneGridMessage, ViewMode};
-use super::simulation::SimulationTarget;
+use super::message::{Message, PaneGridMessage};
 use super::state::{App, PaneContent};
 
 const INPUT_EXAMPLES: &[&str] = &["a+b", "\\e", "(a+b)*c", "ab+cd?", "a(bc)*d+e?"];
@@ -42,28 +39,8 @@ impl App {
     }
 }
 
-fn render_mode_specific<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> ElementType<'a> {
-    let mut controls_column = column![].spacing(10);
-
-    if app.view_mode == ViewMode::Nfa {
-        controls_column = controls_column.push(simulation::panel(app, artifacts));
-
-        if app.simulation.target == SimulationTarget::Nfa {
-            controls_column = controls_column.push(controls::bounding_boxes(app));
-        }
-    }
-
-    container(controls_column).align_x(Alignment::Start).into()
-}
-
-fn left_controls(app: &App) -> ElementType<'_> {
-    let mut col = column![
-        column![
-            text!("Regular Expression Visualizer").size(TextSize::H1),
-            text!("Build and visualize finite automata from regular expressions.")
-                .size(TextSize::Body)
-                .class(TextClass::Secondary),
-        ],
+fn information_block() -> ElementType<'static> {
+    column![
         text(
             "\
 Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are supported:
@@ -75,29 +52,46 @@ Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are
 "
         )
         .font(iced::Font::with_name("JetBrains Mono"))
-        .size(TextSize::Body)
+        .size(TextSize::Small)
         .class(TextClass::Secondary),
+    ]
+    .spacing(8)
+    .into()
+}
+
+fn left_controls(app: &App) -> ElementType<'_> {
+    let examples_row = row(INPUT_EXAMPLES.iter().map(|&example| {
+        button(example)
+            .class(ButtonClass::Secondary)
+            .on_press(Message::Input(InputMessage::Changed(example.to_string())))
+            .into()
+    }))
+    .spacing(8)
+    .wrap();
+
+    let content = column![
+        column![
+            text!("Regular Expression Visualizer").size(TextSize::H1),
+            text!("Build and visualize finite automata from regular expressions.")
+                .size(TextSize::Body)
+                .class(TextClass::Secondary),
+        ]
+        .spacing(4),
+        information_block(),
         column![
             text("Examples:")
                 .size(TextSize::H3)
                 .class(TextClass::Primary),
-            row(INPUT_EXAMPLES.iter().map(|&example| {
-                button(example)
-                    .on_press(Message::Input(InputMessage::Changed(example.to_string())))
-                    .into()
-            }))
-            .spacing(8)
-            .wrap(),
-        ],
-        input::render(app)
+            examples_row,
+        ]
+        .spacing(8),
+        input::render(app),
+        Space::new().height(Length::Fill),
+        simulation::panel(app),
     ]
-    .spacing(10);
+    .spacing(16);
 
-    if let Some(artifacts) = &app.build_artifacts {
-        col = col.push(render_mode_specific(app, artifacts));
-    }
-
-    container(col)
+    container(content)
         .padding(15)
         .align_x(Alignment::Start)
         .width(Length::Fill)

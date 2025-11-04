@@ -1,110 +1,138 @@
 use iced::{
-    Alignment,
-    widget::{button, column, row, text, text_input},
+    Alignment, Length,
+    widget::{Space, button, column, row, text, text_input},
 };
-
-use regviz_core::core::BuildArtifacts;
 
 use crate::app::state::App;
 use crate::app::{
     message::{Message, SimulationMessage},
-    theme::{ButtonClass, ElementType, TextClass, TextSize},
+    theme::{ButtonClass, ElementType, TextClass, TextInputClass, TextSize},
 };
 use crate::app::{simulation::SimulationTarget, theme::AppTheme};
 
+use super::controls;
+
 /// Renders controls for stepping through the simulation input.
-pub fn panel<'a>(app: &'a App, artifacts: &'a BuildArtifacts) -> ElementType<'a> {
-    panel_column(app, artifacts).into()
+pub fn panel(app: &App) -> ElementType<'_> {
+    let ready = app.build_artifacts.is_some();
+    let (status_label, status_class) = simulation_status(app);
+
+    let header = row![
+        text("Simulation")
+            .size(TextSize::H3)
+            .class(TextClass::Primary),
+        Space::new().width(Length::Fill),
+        text(status_label).size(TextSize::Small).class(status_class),
+    ]
+    .align_y(Alignment::Center);
+
+    let input_section = simulation_input_section(app, ready);
+    let bounding_boxes = controls::bounding_boxes(app);
+
+    let disabled = !ready || app.simulation_error.is_some();
+    let controls_section = simulation_controls_section(app, disabled);
+
+    column![header, input_section, bounding_boxes, controls_section]
+        .spacing(12)
+        .into()
 }
 
-fn panel_column<'a>(
-    app: &'a App,
-    _artifacts: &'a BuildArtifacts,
-) -> iced::widget::Column<'a, Message, AppTheme> {
-    let input_field = text_input("Enter an input string (e.g., abab)", &app.simulation.input)
-        .on_input(|value| Message::Simulation(SimulationMessage::InputChanged(value)))
-        .padding(8)
-        .size(TextSize::Body);
-
-    let controls_row = step_controls(app, app.simulation_error.is_some());
-    let mut section = column![input_field].spacing(6);
-    let PanelMessages {
-        validation,
-        summary,
-    } = panel_messages(app);
-
-    if let Some(error) = validation {
-        section = section.push(text(error).class(TextClass::Error).size(TextSize::Body));
+fn simulation_status(app: &App) -> (String, TextClass) {
+    if app.build_artifacts.is_none() {
+        ("Regex required".to_string(), TextClass::Secondary)
+    } else if app.simulation_error.is_some() {
+        ("Input error".to_string(), TextClass::Error)
+    } else {
+        ("Ready".to_string(), TextClass::Success)
     }
-
-    section = section.push(controls_row);
-
-    for message in summary {
-        section = section.push(text(message.text).class(message.class).size(TextSize::Body));
-    }
-
-    section
 }
 
-// Target toggle buttons were moved to the right pane tri-toggle.
+fn simulation_input_section(app: &App, enabled: bool) -> ElementType<'_> {
+    let placeholder = if enabled {
+        "Enter a string to validate"
+    } else {
+        "Provide a regex to enable simulation"
+    };
 
-fn step_controls(app: &App, disabled: bool) -> ElementType<'_> {
+    let helper = if let Some(error) = &app.simulation_error {
+        text(error).size(TextSize::Small).class(TextClass::Error)
+    } else if !enabled {
+        text("Build a valid regular expression to unlock the simulation.")
+            .size(TextSize::Small)
+            .class(TextClass::Secondary)
+    } else {
+        text("Simulate against the currently selected automaton.")
+            .size(TextSize::Small)
+            .class(TextClass::Secondary)
+    };
+
+    column![
+        text("Test String")
+            .size(TextSize::H3)
+            .class(TextClass::Primary),
+        text_input(placeholder, &app.simulation.input)
+            .class(if app.simulation_error.is_some() {
+                TextInputClass::Invalid
+            } else {
+                TextInputClass::Default
+            })
+            .on_input_maybe(if enabled {
+                Some(|value| Message::Simulation(SimulationMessage::InputChanged(value)))
+            } else {
+                None
+            })
+            .padding([12, 16])
+            .size(TextSize::Body)
+            .width(Length::Fill),
+        helper,
+    ]
+    .spacing(6)
+    .into()
+}
+
+fn simulation_controls_section(app: &App, disabled: bool) -> ElementType<'_> {
+    let buttons = step_controls(app, disabled);
+    let mut content = column![buttons].spacing(6);
+
+    for message in summary_messages(app) {
+        content = content.push(
+            text(message.text)
+                .size(TextSize::Small)
+                .class(message.class),
+        );
+    }
+
+    content.into()
+}
+
+fn step_controls(app: &App, disabled: bool) -> iced::widget::Row<'_, Message, AppTheme> {
     let prev_active = !disabled && app.simulation.can_step_backward();
-    let mut prev_button = button(text("Prev").size(TextSize::Body))
-        .class(if prev_active {
-            ButtonClass::Primary
-        } else {
-            ButtonClass::Secondary
-        })
-        .padding([4, 12]);
+    let mut prev_button = button(text("Previous").size(TextSize::Body))
+        .class(ButtonClass::Primary)
+        .padding([10, 16]);
     if prev_active {
         prev_button = prev_button.on_press(Message::Simulation(SimulationMessage::StepBackward));
     }
 
     let reset_active = !disabled;
     let mut reset_button = button(text("Reset").size(TextSize::Body))
-        .class(if reset_active {
-            ButtonClass::Primary
-        } else {
-            ButtonClass::Secondary
-        })
-        .padding([4, 12]);
+        .class(ButtonClass::Primary)
+        .padding([10, 16]);
     if reset_active {
         reset_button = reset_button.on_press(Message::Simulation(SimulationMessage::Reset));
     }
 
     let next_active = !disabled && app.simulation.can_step_forward();
     let mut next_button = button(text("Next").size(TextSize::Body))
-        .class(if next_active {
-            ButtonClass::Primary
-        } else {
-            ButtonClass::Secondary
-        })
-        .padding([4, 12]);
+        .class(ButtonClass::Primary)
+        .padding([10, 16]);
     if next_active {
         next_button = next_button.on_press(Message::Simulation(SimulationMessage::StepForward));
     }
 
-    let step_label = step_label(app).unwrap_or_else(|| "Step –".to_string());
-
-    row![
-        prev_button,
-        reset_button,
-        next_button,
-        text(step_label)
-            .size(TextSize::Body)
-            .class(TextClass::Secondary),
-    ]
-    .spacing(10)
-    .align_y(Alignment::Center)
-    .into()
-}
-
-fn step_label(app: &App) -> Option<String> {
-    let step = app.simulation.current_step()?;
-    let total = app.simulation.step_count()?;
-    let max_index = total.saturating_sub(1);
-    Some(format!("Step {} / {}", step.index, max_index))
+    row![prev_button, reset_button, next_button]
+        .spacing(12)
+        .align_y(Alignment::Center)
 }
 
 fn summary_line(app: &App) -> Option<String> {
@@ -168,20 +196,6 @@ fn acceptance_hint(app: &App) -> bool {
 struct SummaryMessage {
     text: String,
     class: TextClass,
-}
-
-struct PanelMessages {
-    validation: Option<String>,
-    summary: Vec<SummaryMessage>,
-}
-
-fn panel_messages(app: &App) -> PanelMessages {
-    let validation = app.simulation_error.clone();
-    let summary = summary_messages(app);
-    PanelMessages {
-        validation,
-        summary,
-    }
 }
 
 fn summary_messages(app: &App) -> Vec<SummaryMessage> {
