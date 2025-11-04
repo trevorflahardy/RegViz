@@ -1,12 +1,12 @@
 use std::collections::BTreeSet;
 
-use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR};
+use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR, ZOOM_STEP};
 use super::message::{
     InputMessage, Message, PaneGridMessage, RightPaneMode, SimulationMessage, ViewMessage, ViewMode,
 };
 use super::simulation::{SimulationTarget, build_dfa_trace, build_nfa_trace};
 use super::state::App;
-use iced::Task;
+use iced::{Point, Task, Vector};
 use regviz_core::core::dfa;
 
 impl App {
@@ -49,8 +49,28 @@ impl App {
                     self.handle_zoom_changed(value);
                     ().into()
                 }
+                ViewMessage::Zoom(delta) => {
+                    self.handle_zoom(delta);
+                    ().into()
+                }
                 ViewMessage::SelectRightPaneMode(mode) => {
                     self.handle_right_pane_mode(mode);
+                    ().into()
+                }
+                ViewMessage::StartPan(position) => {
+                    self.handle_start_pan(position);
+                    ().into()
+                }
+                ViewMessage::Pan(position) => {
+                    self.handle_pan(position);
+                    ().into()
+                }
+                ViewMessage::EndPan => {
+                    self.handle_end_pan();
+                    ().into()
+                }
+                ViewMessage::ResetView => {
+                    self.handle_reset_view();
                     ().into()
                 }
             },
@@ -77,6 +97,14 @@ impl App {
     /// Updates the zoom factor, clamping it to valid range.
     fn handle_zoom_changed(&mut self, value: f32) {
         self.zoom_factor = value.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
+    }
+
+    /// Handles mouse wheel scroll zoom (delta > 0 = zoom in, delta < 0 = zoom out).
+    fn handle_zoom(&mut self, delta: f32) {
+        // Each scroll "tick" adjusts zoom by 10%
+        let zoom_change = delta * ZOOM_STEP;
+        let new_zoom = self.zoom_factor + zoom_change;
+        self.zoom_factor = new_zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
     }
 
     /// Handles the combined bottom-right selection buttons.
@@ -212,5 +240,36 @@ impl App {
                 self.simulation.set_trace(Some(trace));
             }
         }
+    }
+
+    /// Starts a pan operation at the given cursor position.
+    fn handle_start_pan(&mut self, position: Point) {
+        self.dragging = true;
+        self.last_cursor_position = Some(position);
+    }
+
+    /// Updates the pan offset based on cursor movement.
+    fn handle_pan(&mut self, position: Point) {
+        if self.dragging {
+            if let Some(last_pos) = self.last_cursor_position {
+                let delta = Vector::new(position.x - last_pos.x, position.y - last_pos.y);
+                self.pan_offset = self.pan_offset + delta;
+                self.last_cursor_position = Some(position);
+            }
+        }
+    }
+
+    /// Ends the current pan operation.
+    fn handle_end_pan(&mut self) {
+        self.dragging = false;
+        self.last_cursor_position = None;
+    }
+
+    /// Resets the view to center with default zoom.
+    fn handle_reset_view(&mut self) {
+        self.pan_offset = Vector::ZERO;
+        self.zoom_factor = super::constants::DEFAULT_ZOOM_FACTOR;
+        self.dragging = false;
+        self.last_cursor_position = None;
     }
 }

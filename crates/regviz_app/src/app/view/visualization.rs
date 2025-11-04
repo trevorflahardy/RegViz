@@ -51,12 +51,20 @@ fn render_ast_canvas<'a>(
     artifacts: &'a regviz_core::core::BuildArtifacts,
 ) -> ElementType<'a> {
     let ast_graph = AstGraph::new(artifacts.ast.clone());
-    let canvas: GraphCanvas<AstGraph, TreeLayoutStrategy> = GraphCanvas::new(
+    let mut canvas: GraphCanvas<AstGraph, TreeLayoutStrategy> = GraphCanvas::new(
         ast_graph,
         BoxVisibility::default(),
         app.zoom_factor,
         TreeLayoutStrategy,
     );
+
+    // Apply pan state from app
+    canvas.set_pan_offset(app.pan_offset);
+    if app.dragging {
+        if let Some(pos) = app.last_cursor_position {
+            canvas.start_drag(pos);
+        }
+    }
 
     let canvas_elem: Element<'_, Message, AppTheme> = Canvas::new(canvas)
         .width(Length::Fill)
@@ -146,12 +154,20 @@ fn render_automaton_canvas<'a>(
         SimulationTarget::Nfa => {
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
             let graph = VisualNfa::new(artifacts.nfa.clone(), highlights);
-            let canvas: GraphCanvas<VisualNfa, NfaLayoutStrategy> = GraphCanvas::new(
+            let mut canvas: GraphCanvas<VisualNfa, NfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 app.box_visibility.clone(),
                 app.zoom_factor,
                 NfaLayoutStrategy,
             );
+
+            // Apply pan state from app
+            canvas.set_pan_offset(app.pan_offset);
+            if app.dragging {
+                if let Some(pos) = app.last_cursor_position {
+                    canvas.start_drag(pos);
+                }
+            }
 
             Canvas::new(canvas)
                 .width(Length::Fill)
@@ -167,12 +183,20 @@ fn render_automaton_canvas<'a>(
             };
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
             let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);
-            let canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
+            let mut canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 BoxVisibility::default(),
                 app.zoom_factor,
                 DfaLayoutStrategy,
             );
+
+            // Apply pan state from app
+            canvas.set_pan_offset(app.pan_offset);
+            if app.dragging {
+                if let Some(pos) = app.last_cursor_position {
+                    canvas.start_drag(pos);
+                }
+            }
 
             Canvas::new(canvas)
                 .width(Length::Fill)

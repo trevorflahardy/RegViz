@@ -50,7 +50,16 @@ pub fn zoom(app: &App) -> ElementType<'_> {
     .step(0.05)
     .width(Length::Fixed(200.0));
 
-    row![zoom_display, zoom_slider]
+    let reset_button = button(
+        text("Reset View")
+            .size(TextSize::Small)
+            .class(TextClass::Primary),
+    )
+    .class(ButtonClass::Secondary)
+    .padding([4, 12])
+    .on_press(Message::View(ViewMessage::ResetView));
+
+    row![zoom_display, zoom_slider, reset_button]
         .spacing(12)
         .align_y(Alignment::Center)
         .width(Length::Shrink)

@@ -1,3 +1,4 @@
+use iced::Point;
 use regviz_core::core::automaton::BoxKind;
 
 /// Messages emitted by view and canvas controls.
@@ -7,8 +8,18 @@ pub enum ViewMessage {
     ToggleBox(BoxKind),
     /// User adjusted the zoom slider.
     ZoomChanged(f32),
+    /// User scrolled mouse wheel to zoom (positive = zoom in, negative = zoom out).
+    Zoom(f32),
     /// Combined selection for bottom-right controls (NFA / DFA / AST).
     SelectRightPaneMode(RightPaneMode),
+    /// User started panning the canvas.
+    StartPan(Point),
+    /// User is panning the canvas.
+    Pan(Point),
+    /// User stopped panning the canvas.
+    EndPan,
+    /// User clicked reset view button to center and restore default zoom.
+    ResetView,
 }
 
 /// Available visualization modes.

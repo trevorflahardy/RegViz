@@ -1,5 +1,5 @@
 mod constants;
-mod message;
+pub mod message;
 mod parser;
 mod simulation;
 mod state;

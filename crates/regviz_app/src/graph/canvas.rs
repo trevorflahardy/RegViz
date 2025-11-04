@@ -1,9 +1,10 @@
 use iced::widget::canvas::{self, Frame, Program};
-use iced::{Rectangle, Size, Vector, mouse};
+use iced::{Point, Rectangle, Size, Vector, mouse};
 use iced_graphics::geometry::Renderer;
 
 use super::layout::LayoutStrategy;
 use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout};
+use crate::app::message::{Message, ViewMessage};
 use crate::app::theme::AppTheme;
 
 /// Interactive canvas responsible for rendering graphs with zoom support.
@@ -16,6 +17,12 @@ pub struct GraphCanvas<G: Graph, S: LayoutStrategy> {
     visibility: BoxVisibility,
     zoom_factor: f32,
     strategy: S,
+    /// Pan offset for dragging the canvas
+    pan_offset: Vector,
+    /// Track if currently dragging
+    dragging: bool,
+    /// Last cursor position during drag
+    last_cursor_position: Option<Point>,
 }
 
 impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
@@ -34,11 +41,25 @@ impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
             visibility,
             zoom_factor,
             strategy,
+            pan_offset: Vector::ZERO,
+            dragging: false,
+            last_cursor_position: None,
         }
+    }
+
+    /// Sets the pan offset for this canvas.
+    pub fn set_pan_offset(&mut self, offset: Vector) {
+        self.pan_offset = offset;
+    }
+
+    /// Starts a drag operation at the given cursor position.
+    pub fn start_drag(&mut self, position: Point) {
+        self.dragging = true;
+        self.last_cursor_position = Some(position);
     }
 }
 
-impl<G, S, Message, R> Program<Message, AppTheme, R> for GraphCanvas<G, S>
+impl<G, S, R> Program<Message, AppTheme, R> for GraphCanvas<G, S>
 where
     G: Graph,
     S: LayoutStrategy,
@@ -60,6 +81,8 @@ where
         let zoom = fit_zoom * self.zoom_factor;
 
         let translation = center_translation(bounds.size(), &layout, zoom);
+        // Apply pan offset to translation
+        let translation = translation + self.pan_offset;
         let ctx = DrawContext { zoom, translation };
 
         let mut frame = Frame::new(renderer, bounds.size());
@@ -80,11 +103,70 @@ where
     fn update(
         &self,
         _state: &mut Self::State,
-        _event: &iced::Event,
-        _bounds: Rectangle,
-        _cursor: mouse::Cursor,
-    ) -> Option<iced::widget::Action<Message>> {
+        event: &canvas::Event,
+        bounds: Rectangle,
+        cursor: mouse::Cursor,
+    ) -> Option<canvas::Action<Message>> {
+        match event {
+            canvas::Event::Mouse(mouse_event) => match mouse_event {
+                // Start dragging on left mouse button press
+                mouse::Event::ButtonPressed(mouse::Button::Left) => {
+                    if let Some(position) = cursor.position_in(bounds) {
+                        return Some(canvas::Action::publish(Message::View(
+                            ViewMessage::StartPan(position),
+                        )));
+                    }
+                }
+                // Pan while dragging
+                mouse::Event::CursorMoved { .. } => {
+                    if self.dragging {
+                        if let Some(position) = cursor.position_in(bounds) {
+                            return Some(canvas::Action::publish(Message::View(ViewMessage::Pan(
+                                position,
+                            ))));
+                        }
+                    }
+                }
+                // End dragging on mouse release
+                mouse::Event::ButtonReleased(mouse::Button::Left) => {
+                    if self.dragging {
+                        return Some(canvas::Action::publish(Message::View(ViewMessage::EndPan)));
+                    }
+                }
+                // Handle scroll wheel for zooming
+                mouse::Event::WheelScrolled { delta } => {
+                    if cursor.is_over(bounds) {
+                        let zoom_delta = match delta {
+                            // Positive delta for scrolling up (zoom in)
+                            mouse::ScrollDelta::Lines { y, .. } => *y,
+                            mouse::ScrollDelta::Pixels { y, .. } => y / 50.0, // Scale pixel deltas
+                        };
+                        return Some(canvas::Action::publish(Message::View(ViewMessage::Zoom(
+                            zoom_delta,
+                        ))));
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+
         None
+    }
+
+    fn mouse_interaction(
+        &self,
+        _state: &Self::State,
+        bounds: Rectangle,
+        cursor: mouse::Cursor,
+    ) -> mouse::Interaction {
+        if self.dragging {
+            mouse::Interaction::Grabbing
+        } else if cursor.is_over(bounds) {
+            mouse::Interaction::Grab
+        } else {
+            mouse::Interaction::default()
+        }
     }
 }
 

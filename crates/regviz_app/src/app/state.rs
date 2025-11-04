@@ -1,4 +1,5 @@
 use iced::widget::pane_grid::{self, Axis};
+use iced::{Point, Vector};
 use regviz_core::core::BuildArtifacts;
 
 use super::constants::DEFAULT_ZOOM_FACTOR;
@@ -46,6 +47,15 @@ pub struct App {
     pub panes: pane_grid::State<PaneContent>,
 
     pub(crate) theme: AppTheme,
+
+    /// Pan offset for dragging the canvas.
+    pub pan_offset: Vector,
+
+    /// Whether the canvas is currently being dragged.
+    pub dragging: bool,
+
+    /// Last cursor position during drag operation.
+    pub last_cursor_position: Option<Point>,
 }
 
 impl Default for App {
@@ -69,6 +79,9 @@ impl Default for App {
             simulation_error: None,
             panes,
             theme: AppTheme::Dark,
+            pan_offset: Vector::ZERO,
+            dragging: false,
+            last_cursor_position: None,
         }
     }
 }
