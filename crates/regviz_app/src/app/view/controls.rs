@@ -65,7 +65,7 @@ fn box_toggle_button<'a>(
 ) -> ElementType<'a> {
     let is_visible = app.box_visibility.is_visible(kind);
     let text_label = text(label)
-        .size(TextSize::Body)
+        .size(TextSize::Small)
         .class(if enabled && is_visible {
             TextClass::Primary
         } else {

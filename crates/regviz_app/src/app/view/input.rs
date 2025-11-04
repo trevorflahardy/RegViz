@@ -15,7 +15,7 @@ pub fn render(app: &App) -> ElementType<'_> {
         .size(TextSize::H3)
         .class(TextClass::Primary);
 
-    let input_field = text_input("e.g., (a|b)*c", &app.input)
+    let input_field = text_input("e.g., (a+b)c", &app.input)
         .class(if app.error.is_some() {
             TextInputClass::Invalid
         } else {

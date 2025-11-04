@@ -61,12 +61,12 @@ Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are
 
 fn left_controls(app: &App) -> ElementType<'_> {
     let examples_row = row(INPUT_EXAMPLES.iter().map(|&example| {
-        button(example)
+        button(text(example).size(TextSize::Small))
             .class(ButtonClass::Secondary)
             .on_press(Message::Input(InputMessage::Changed(example.to_string())))
             .into()
     }))
-    .spacing(8)
+    .spacing(6)
     .wrap();
 
     let content = column![
@@ -78,14 +78,9 @@ fn left_controls(app: &App) -> ElementType<'_> {
         ]
         .spacing(4),
         information_block(),
-        column![
-            text("Examples:")
-                .size(TextSize::H3)
-                .class(TextClass::Primary),
-            examples_row,
-        ]
-        .spacing(8),
         input::render(app),
+        examples_row,
+        simulation::test_string_input(app),
         Space::new().height(Length::Fill),
         simulation::panel(app),
     ]

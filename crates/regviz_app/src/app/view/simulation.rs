@@ -3,12 +3,12 @@ use iced::{
     widget::{Space, button, column, row, text, text_input},
 };
 
+use crate::app::simulation::SimulationTarget;
 use crate::app::state::App;
 use crate::app::{
     message::{Message, SimulationMessage},
     theme::{ButtonClass, ElementType, TextClass, TextInputClass, TextSize},
 };
-use crate::app::{simulation::SimulationTarget, theme::AppTheme};
 
 use super::controls;
 
@@ -26,15 +26,10 @@ pub fn panel(app: &App) -> ElementType<'_> {
     ]
     .align_y(Alignment::Center);
 
-    let input_section = simulation_input_section(app, ready);
-    let bounding_boxes = controls::bounding_boxes(app);
-
     let disabled = !ready || app.simulation_error.is_some();
     let controls_section = simulation_controls_section(app, disabled);
 
-    column![header, input_section, bounding_boxes, controls_section]
-        .spacing(12)
-        .into()
+    column![header, controls_section].spacing(12).into()
 }
 
 fn simulation_status(app: &App) -> (String, TextClass) {
@@ -47,7 +42,9 @@ fn simulation_status(app: &App) -> (String, TextClass) {
     }
 }
 
-fn simulation_input_section(app: &App, enabled: bool) -> ElementType<'_> {
+/// Renders the test string input field positioned near the regex input.
+pub fn test_string_input(app: &App) -> ElementType<'_> {
+    let enabled = app.build_artifacts.is_some();
     let placeholder = if enabled {
         "Enter a string to validate"
     } else {
@@ -65,6 +62,8 @@ fn simulation_input_section(app: &App, enabled: bool) -> ElementType<'_> {
             .size(TextSize::Small)
             .class(TextClass::Secondary)
     };
+
+    let bounding_boxes = controls::bounding_boxes(app);
 
     column![
         text("Test String")
@@ -85,14 +84,14 @@ fn simulation_input_section(app: &App, enabled: bool) -> ElementType<'_> {
             .size(TextSize::Body)
             .width(Length::Fill),
         helper,
+        bounding_boxes
     ]
     .spacing(6)
     .into()
 }
 
 fn simulation_controls_section(app: &App, disabled: bool) -> ElementType<'_> {
-    let buttons = step_controls(app, disabled);
-    let mut content = column![buttons].spacing(6);
+    let mut content = column![step_controls(app, disabled)].spacing(6);
 
     for message in summary_messages(app) {
         content = content.push(
@@ -105,27 +104,45 @@ fn simulation_controls_section(app: &App, disabled: bool) -> ElementType<'_> {
     content.into()
 }
 
-fn step_controls(app: &App, disabled: bool) -> iced::widget::Row<'_, Message, AppTheme> {
+fn step_controls(app: &App, disabled: bool) -> ElementType<'_> {
     let prev_active = !disabled && app.simulation.can_step_backward();
     let mut prev_button = button(text("Previous").size(TextSize::Body))
-        .class(ButtonClass::Primary)
-        .padding([10, 16]);
+        .class(if prev_active {
+            ButtonClass::Primary
+        } else {
+            ButtonClass::Secondary
+        })
+        .padding([10, 16])
+        .width(Length::Fill);
+
     if prev_active {
         prev_button = prev_button.on_press(Message::Simulation(SimulationMessage::StepBackward));
     }
 
     let reset_active = !disabled;
     let mut reset_button = button(text("Reset").size(TextSize::Body))
-        .class(ButtonClass::Primary)
-        .padding([10, 16]);
+        .class(if reset_active {
+            ButtonClass::Primary
+        } else {
+            ButtonClass::Secondary
+        })
+        .padding([10, 16])
+        .width(Length::Fill);
+
     if reset_active {
         reset_button = reset_button.on_press(Message::Simulation(SimulationMessage::Reset));
     }
 
     let next_active = !disabled && app.simulation.can_step_forward();
     let mut next_button = button(text("Next").size(TextSize::Body))
-        .class(ButtonClass::Primary)
-        .padding([10, 16]);
+        .class(if next_active {
+            ButtonClass::Primary
+        } else {
+            ButtonClass::Secondary
+        })
+        .padding([10, 16])
+        .width(Length::Fill);
+
     if next_active {
         next_button = next_button.on_press(Message::Simulation(SimulationMessage::StepForward));
     }
@@ -133,6 +150,8 @@ fn step_controls(app: &App, disabled: bool) -> iced::widget::Row<'_, Message, Ap
     row![prev_button, reset_button, next_button]
         .spacing(12)
         .align_y(Alignment::Center)
+        .width(Length::Fill)
+        .into()
 }
 
 fn summary_line(app: &App) -> Option<String> {
