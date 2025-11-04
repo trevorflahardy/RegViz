@@ -5,7 +5,7 @@ mod visualization;
 
 use iced::{
     Alignment, Length,
-    widget::{Space, button, column, container, pane_grid, row, text},
+    widget::{Space, button, column, container, pane_grid, row, scrollable, text},
 };
 
 use crate::app::{
@@ -86,7 +86,9 @@ fn left_controls(app: &App) -> ElementType<'_> {
     ]
     .spacing(16);
 
-    container(content)
+    let scrollable_content = scrollable(content).width(Length::Fill).height(Length::Fill);
+
+    container(scrollable_content)
         .padding(15)
         .align_x(Alignment::Start)
         .width(Length::Fill)

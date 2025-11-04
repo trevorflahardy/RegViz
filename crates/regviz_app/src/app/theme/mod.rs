@@ -2,6 +2,7 @@ mod button;
 mod colors;
 mod container;
 mod pane_grid;
+mod scrollable;
 mod slider;
 mod text;
 mod text_input;
