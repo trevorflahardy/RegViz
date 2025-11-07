@@ -60,10 +60,10 @@ fn render_ast_canvas<'a>(
 
     // Apply pan state from app
     canvas.set_pan_offset(app.pan_offset);
-    if app.dragging {
-        if let Some(pos) = app.last_cursor_position {
-            canvas.start_drag(pos);
-        }
+    if app.dragging
+        && let Some(pos) = app.last_cursor_position
+    {
+        canvas.start_drag(pos);
     }
 
     let canvas_elem: Element<'_, Message, AppTheme> = Canvas::new(canvas)
@@ -163,10 +163,10 @@ fn render_automaton_canvas<'a>(
 
             // Apply pan state from app
             canvas.set_pan_offset(app.pan_offset);
-            if app.dragging {
-                if let Some(pos) = app.last_cursor_position {
-                    canvas.start_drag(pos);
-                }
+            if app.dragging
+                && let Some(pos) = app.last_cursor_position
+            {
+                canvas.start_drag(pos);
             }
 
             Canvas::new(canvas)
@@ -192,10 +192,10 @@ fn render_automaton_canvas<'a>(
 
             // Apply pan state from app
             canvas.set_pan_offset(app.pan_offset);
-            if app.dragging {
-                if let Some(pos) = app.last_cursor_position {
-                    canvas.start_drag(pos);
-                }
+            if app.dragging
+                && let Some(pos) = app.last_cursor_position
+            {
+                canvas.start_drag(pos);
             }
 
             Canvas::new(canvas)
