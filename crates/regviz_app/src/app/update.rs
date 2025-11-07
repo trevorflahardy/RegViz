@@ -250,12 +250,12 @@ impl App {
 
     /// Updates the pan offset based on cursor movement.
     fn handle_pan(&mut self, position: Point) {
-        if self.dragging {
-            if let Some(last_pos) = self.last_cursor_position {
-                let delta = Vector::new(position.x - last_pos.x, position.y - last_pos.y);
-                self.pan_offset = self.pan_offset + delta;
-                self.last_cursor_position = Some(position);
-            }
+        if self.dragging
+            && let Some(last_pos) = self.last_cursor_position
+        {
+            let delta = Vector::new(position.x - last_pos.x, position.y - last_pos.y);
+            self.pan_offset = self.pan_offset + delta;
+            self.last_cursor_position = Some(position);
         }
     }
 
