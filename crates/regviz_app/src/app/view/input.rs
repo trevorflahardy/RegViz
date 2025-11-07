@@ -1,10 +1,11 @@
 use iced::{
-    Font, Length,
+    Length,
     widget::{column, container, scrollable, text, text_input},
 };
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::{
+    APP_FONT,
     message::{InputMessage, Message},
     state::App,
     theme::{ContainerClass, ElementType, TextClass, TextInputClass, TextSize},
@@ -71,11 +72,11 @@ fn error_box<'a>(input: &'a str, err: &'a BuildError) -> ElementType<'a> {
     let error_display = column![
         text(input)
             .size(TextSize::Small)
-            .font(Font::MONOSPACE)
+            .font(APP_FONT)
             .class(TextClass::Primary),
         text(arrow_line)
             .size(TextSize::Small)
-            .font(Font::MONOSPACE)
+            .font(APP_FONT)
             .class(TextClass::Error),
         text(format!("Error: {}", err))
             .size(TextSize::Small)

@@ -9,6 +9,7 @@ use iced::{
 };
 
 use crate::app::{
+    APP_FONT,
     message::InputMessage,
     theme::{ButtonClass, ContainerClass, ElementType, TextClass, TextSize},
 };
@@ -51,7 +52,7 @@ Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are
 5. '.': concatenation
 "
         )
-        .font(iced::Font::MONOSPACE)
+        .font(APP_FONT)
         .size(TextSize::Small)
         .class(TextClass::Secondary),
     ]
