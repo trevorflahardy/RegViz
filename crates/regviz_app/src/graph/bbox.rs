@@ -4,7 +4,8 @@ use regviz_core::core::automaton::{self, BoxId, BoxKind, StateId};
 
 use crate::app::theme::{AppTheme, TextSize};
 
-use super::{CANVAS_FONT, DrawContext, Drawable, color_for_box};
+use super::{DrawContext, Drawable, color_for_box};
+use crate::app::CANVAS_FONT;
 
 /// Metadata describing a bounding box that groups multiple states together.
 #[derive(Debug, Clone)]

@@ -6,7 +6,8 @@ use regviz_core::core::automaton::{BoxId, StateId};
 
 use crate::app::theme::AppTheme;
 
-use super::{CANVAS_FONT, DrawContext, Drawable, StateHighlight};
+use super::{DrawContext, Drawable, StateHighlight};
+use crate::app::CANVAS_FONT;
 
 /// Width of the gap between the outer and inner circle for accepting states.
 const ACCEPT_RING_GAP: f32 = 4.0;

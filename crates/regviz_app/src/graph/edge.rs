@@ -8,7 +8,8 @@ use regviz_core::core::automaton::StateId;
 
 use crate::app::theme::AppTheme;
 
-use super::{CANVAS_FONT, DrawContext, Drawable};
+use super::{DrawContext, Drawable};
+use crate::app::CANVAS_FONT;
 
 /// Distance between the edge segment and its label in logical units.
 /// With centered text alignment, this needs to be smaller than before.
