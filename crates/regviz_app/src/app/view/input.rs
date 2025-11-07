@@ -67,7 +67,7 @@ fn error_box<'a>(input: &'a str, err: &'a BuildError) -> ElementType<'a> {
 
     // Create arrow line with padding
     let arrow_padding = " ".repeat(visual_width);
-    let arrow_line = format!("{}^", arrow_padding);
+    let arrow_line = format!("{arrow_padding}^");
 
     let error_display = column![
         text(input)
