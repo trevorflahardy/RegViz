@@ -107,49 +107,46 @@ where
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> Option<canvas::Action<Message>> {
-        match event {
-            canvas::Event::Mouse(mouse_event) => match mouse_event {
-                // Start dragging on left mouse button press
-                mouse::Event::ButtonPressed(mouse::Button::Left) => {
+        if let canvas::Event::Mouse(mouse_event) = event { match mouse_event {
+            // Start dragging on left mouse button press
+            mouse::Event::ButtonPressed(mouse::Button::Left) => {
+                if let Some(position) = cursor.position_in(bounds) {
+                    return Some(canvas::Action::publish(Message::View(
+                        ViewMessage::StartPan(position),
+                    )));
+                }
+            }
+            // Pan while dragging
+            mouse::Event::CursorMoved { .. } => {
+                if self.dragging {
                     if let Some(position) = cursor.position_in(bounds) {
-                        return Some(canvas::Action::publish(Message::View(
-                            ViewMessage::StartPan(position),
-                        )));
-                    }
-                }
-                // Pan while dragging
-                mouse::Event::CursorMoved { .. } => {
-                    if self.dragging {
-                        if let Some(position) = cursor.position_in(bounds) {
-                            return Some(canvas::Action::publish(Message::View(ViewMessage::Pan(
-                                position,
-                            ))));
-                        }
-                    }
-                }
-                // End dragging on mouse release
-                mouse::Event::ButtonReleased(mouse::Button::Left) => {
-                    if self.dragging {
-                        return Some(canvas::Action::publish(Message::View(ViewMessage::EndPan)));
-                    }
-                }
-                // Handle scroll wheel for zooming
-                mouse::Event::WheelScrolled { delta } => {
-                    if cursor.is_over(bounds) {
-                        let zoom_delta = match delta {
-                            // Positive delta for scrolling up (zoom in)
-                            mouse::ScrollDelta::Lines { y, .. } => *y,
-                            mouse::ScrollDelta::Pixels { y, .. } => y / 50.0, // Scale pixel deltas
-                        };
-                        return Some(canvas::Action::publish(Message::View(ViewMessage::Zoom(
-                            zoom_delta,
+                        return Some(canvas::Action::publish(Message::View(ViewMessage::Pan(
+                            position,
                         ))));
                     }
                 }
-                _ => {}
-            },
+            }
+            // End dragging on mouse release
+            mouse::Event::ButtonReleased(mouse::Button::Left) => {
+                if self.dragging {
+                    return Some(canvas::Action::publish(Message::View(ViewMessage::EndPan)));
+                }
+            }
+            // Handle scroll wheel for zooming
+            mouse::Event::WheelScrolled { delta } => {
+                if cursor.is_over(bounds) {
+                    let zoom_delta = match delta {
+                        // Positive delta for scrolling up (zoom in)
+                        mouse::ScrollDelta::Lines { y, .. } => *y,
+                        mouse::ScrollDelta::Pixels { y, .. } => y / 50.0, // Scale pixel deltas
+                    };
+                    return Some(canvas::Action::publish(Message::View(ViewMessage::Zoom(
+                        zoom_delta,
+                    ))));
+                }
+            }
             _ => {}
-        }
+        } }
 
         None
     }

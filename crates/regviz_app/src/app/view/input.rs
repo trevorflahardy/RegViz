@@ -78,7 +78,7 @@ fn error_box<'a>(input: &'a str, err: &'a BuildError) -> ElementType<'a> {
             .size(TextSize::Small)
             .font(APP_FONT)
             .class(TextClass::Error),
-        text(format!("Error: {}", err))
+        text(format!("Error: {err}"))
             .size(TextSize::Small)
             .class(TextClass::Error),
     ]
