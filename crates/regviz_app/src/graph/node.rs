@@ -7,7 +7,7 @@ use regviz_core::core::automaton::{BoxId, StateId};
 use crate::app::theme::AppTheme;
 
 use super::{DrawContext, Drawable, StateHighlight};
-use crate::app::CANVAS_FONT;
+use crate::app::APP_FONT;
 
 /// Width of the gap between the outer and inner circle for accepting states.
 const ACCEPT_RING_GAP: f32 = 4.0;
@@ -138,7 +138,7 @@ impl Drawable for PositionedNode {
                 content: self.data.label.clone(),
                 position: center,
                 color: theme.text_primary_inverse(),
-                font: CANVAS_FONT,
+                font: APP_FONT,
                 align_x: Horizontal::Center.into(),
                 align_y: Vertical::Center,
                 size: font_size,
