@@ -17,8 +17,8 @@ fn main() {
     // Lex
     match parser::Ast::build(&pattern) {
         Ok(ast) => {
-            println!("Pattern: {}", pattern);
-            println!("AST: {}", ast);
+            println!("Pattern: {pattern}");
+            println!("AST: {ast}");
 
             // Build NFA
             let nfa = nfa::Nfa::build(&ast);
@@ -44,11 +44,11 @@ fn main() {
             if let Some(s) = input {
                 let nfa_accepts = sim::nfa_accepts(&nfa, &s);
                 let dfa_accepts = sim::simulate_dfa(&dfa, &s);
-                println!("Input: {:?}", s);
-                println!("NFA accepts: {}", nfa_accepts);
-                println!("DFA accepts: {}", dfa_accepts);
+                println!("Input: {s:?}");
+                println!("NFA accepts: {nfa_accepts}");
+                println!("DFA accepts: {dfa_accepts}");
             }
         }
-        Err(e) => eprintln!("Build error: {:?}", e),
+        Err(e) => eprintln!("Build error: {e:?}"),
     }
 }
