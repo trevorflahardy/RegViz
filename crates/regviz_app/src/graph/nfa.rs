@@ -77,7 +77,7 @@ fn build_edges(nfa: &Nfa, highlights: &Highlights) -> Vec<GraphEdge> {
             let label = transition.label;
             let label_text: String = match label {
                 EdgeLabel::Eps => "ε".to_string(),
-                EdgeLabel::Sym(ch) => ch.to_string(),
+                EdgeLabel::Sym(ch) => format!("'{}'", ch),
             };
 
             // Determine if this edge should be curved based on star closure patterns
