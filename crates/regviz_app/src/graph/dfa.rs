@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use regviz_core::core::automaton::{EdgeLabel, StateId};
 use regviz_core::core::dfa::Dfa;
 
-use super::edge::LabelBias;
+use super::edge::EdgeCurve;
 use super::{Graph, GraphBox, GraphEdge, GraphNode, Highlights};
 
 /// Visual wrapper around a DFA with highlight metadata for simulation playback.
@@ -58,18 +58,39 @@ fn build_nodes(dfa: &Dfa, highlights: &Highlights) -> Vec<GraphNode> {
 }
 
 fn build_edges(dfa: &Dfa, alphabet: &[char], highlights: &Highlights) -> Vec<GraphEdge> {
-    let mut edges = Vec::new();
+    // Group transitions between the same pair of states so multiple labels are
+    // rendered as a single comma-separated label. Also collect activity state.
+    let mut map: HashMap<(StateId, StateId), (Vec<char>, bool)> = HashMap::new();
     for (state_idx, state_id) in dfa.states.iter().enumerate() {
         for (symbol_idx, symbol) in alphabet.iter().enumerate() {
             let Some(next) = dfa.trans[state_idx][symbol_idx] else {
                 continue;
             };
-            let label = symbol.to_string();
             let edge_label = EdgeLabel::Sym(*symbol);
             let is_active = highlights.is_edge_active(*state_id, next, edge_label);
-            edges.push(GraphEdge::new(*state_id, next, label).with_active(is_active));
+            let key = (*state_id, next);
+            let entry = map.entry(key).or_insert_with(|| (Vec::new(), false));
+            entry.0.push(*symbol);
+            entry.1 = entry.1 || is_active;
         }
     }
+
+    // Build edges from grouped labels
+    let mut edges: Vec<GraphEdge> = map
+        .into_iter()
+        .map(|((from, to), (syms, is_active))| {
+            let mut syms = syms;
+            syms.sort_unstable();
+            syms.dedup();
+            let label = syms
+                .iter()
+                .map(|c| format!("'{}'", c))
+                .collect::<Vec<_>>()
+                .join(", ");
+            GraphEdge::new(from, to, label).with_active(is_active)
+        })
+        .collect();
+
     adjust_bidirectional_labels(&mut edges);
     edges
 }
@@ -103,12 +124,12 @@ fn adjust_bidirectional_labels(edges: &mut [GraphEdge]) {
 
         for idx in forward {
             if let Some(edge) = edges.get_mut(idx) {
-                edge.label_bias = LabelBias::Primary;
+                edge.curve = EdgeCurve::CurveDown;
             }
         }
         for idx in backward {
             if let Some(edge) = edges.get_mut(idx) {
-                edge.label_bias = LabelBias::Secondary;
+                edge.curve = EdgeCurve::CurveDown;
             }
         }
     }

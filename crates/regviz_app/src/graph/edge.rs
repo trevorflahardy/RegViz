@@ -44,15 +44,6 @@ pub enum EdgeCurve {
     CurveUp,
 }
 
-/// Orientation for labels relative to the edge line.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LabelBias {
-    /// Place the label on the primary (default) side of the edge.
-    Primary,
-    /// Place the label on the opposite side of the edge.
-    Secondary,
-}
-
 /// Renderable description of a transition between two states.
 #[derive(Debug, Clone)]
 pub struct GraphEdge {
@@ -66,8 +57,6 @@ pub struct GraphEdge {
     pub curve: EdgeCurve,
     /// Whether this edge was traversed in the current simulation step.
     pub is_active: bool,
-    /// Orientation bias for edge labels.
-    pub label_bias: LabelBias,
 }
 
 impl GraphEdge {
@@ -80,7 +69,6 @@ impl GraphEdge {
             label,
             curve: EdgeCurve::Straight,
             is_active: false,
-            label_bias: LabelBias::Primary,
         }
     }
 
@@ -93,7 +81,6 @@ impl GraphEdge {
             label,
             curve,
             is_active: false,
-            label_bias: LabelBias::Primary,
         }
     }
 
@@ -130,8 +117,7 @@ impl PositionedEdge {
     /// drawn from the edge of the source node to the edge of the destination node.
     #[must_use]
     pub fn new(data: GraphEdge, from: Point, to: Point) -> Self {
-        let bias = data.label_bias;
-        let label_position = compute_label_anchor(from, to, bias);
+        let label_position = compute_label_anchor(from, to);
         Self {
             data,
             from,
@@ -158,8 +144,7 @@ impl PositionedEdge {
         from_radius: f32,
         to_radius: f32,
     ) -> Self {
-        let bias = data.label_bias;
-        let label_position = compute_label_anchor(from, to, bias);
+        let label_position = compute_label_anchor(from, to);
         Self {
             data,
             from,
@@ -591,20 +576,17 @@ impl PositionedEdge {
     }
 }
 
-/// Calculates where to place the label text for an edge connecting two points.
+/// Calculates the anchor point for an edge label connecting two points.
 ///
 /// The label is positioned at the midpoint of the edge, offset perpendicular to the
-/// edge direction. For the primary orientation, the offset is placed "above" the edge
-/// (negative y direction in screen space). For the secondary orientation, the offset
-/// mirrors to the opposite side.
+/// edge direction. The offset is placed "above" the edge (negative y direction in screen space),
+/// unless the edge points downward, in which case the offset is flipped to keep the label above.
 ///
 /// # Algorithm
 /// 1. Find the midpoint between the two endpoints
 /// 2. Calculate the perpendicular (normal) vector to the edge direction
-/// 3. Flip the normal if it points downward (so primary labels appear above)
-/// 4. Optionally mirror the normal for the secondary orientation
-/// 5. Offset the midpoint by `LABEL_DISTANCE` in the normal direction
-fn compute_label_anchor(from: Point, to: Point, bias: LabelBias) -> Point {
+/// 3. Offset the midpoint by `LABEL_DISTANCE` in the normal direction
+fn compute_label_anchor(from: Point, to: Point) -> Point {
     // Calculate the midpoint of the edge
     let mid = Point::new((from.x + to.x) * 0.5, (from.y + to.y) * 0.5);
 
@@ -614,12 +596,7 @@ fn compute_label_anchor(from: Point, to: Point, bias: LabelBias) -> Point {
 
     // If the two points are basically the same, just place label above
     if length <= f32::EPSILON {
-        let offset = if matches!(bias, LabelBias::Secondary) {
-            LABEL_DISTANCE
-        } else {
-            -LABEL_DISTANCE
-        };
-        return Point::new(mid.x, mid.y + offset);
+        return Point::new(mid.x, mid.y + LABEL_DISTANCE);
     }
 
     // Get the perpendicular (normal) vector - rotated 90° from the edge direction
@@ -627,10 +604,6 @@ fn compute_label_anchor(from: Point, to: Point, bias: LabelBias) -> Point {
 
     // Flip the normal if it points downward (positive y) so labels always appear above
     if normal.y > 0.0 {
-        normal = Vector::new(-normal.x, -normal.y);
-    }
-
-    if matches!(bias, LabelBias::Secondary) {
         normal = Vector::new(-normal.x, -normal.y);
     }
 
