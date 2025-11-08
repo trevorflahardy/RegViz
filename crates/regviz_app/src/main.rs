@@ -58,8 +58,6 @@ fn main() -> iced::Result {
         .font(app::INTER_REGULAR)
         .font(app::INTER_MEDIUM)
         .font(app::INTER_SEMIBOLD)
-        .font(app::JETBRAINS_MONO_REGULAR)
-        .font(app::JETBRAINS_MONO_MEDIUM)
         .default_font(app::APP_FONT);
 
     app.run()

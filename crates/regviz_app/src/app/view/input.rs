@@ -5,7 +5,6 @@ use iced::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::{
-    MONOSPACE,
     message::{InputMessage, Message},
     state::App,
     theme::{ContainerClass, ElementType, TextClass, TextInputClass, TextSize},
@@ -70,13 +69,9 @@ fn error_box<'a>(input: &'a str, err: &'a BuildError) -> ElementType<'a> {
     let arrow_line = format!("{arrow_padding}^");
 
     let error_display = column![
-        text(input)
-            .size(TextSize::Small)
-            .font(MONOSPACE)
-            .class(TextClass::Primary),
+        text(input).size(TextSize::Small).class(TextClass::Primary),
         text(arrow_line)
             .size(TextSize::Small)
-            .font(MONOSPACE)
             .class(TextClass::Error),
         text(format!("Error: {err}"))
             .size(TextSize::Small)
