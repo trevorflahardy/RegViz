@@ -5,7 +5,7 @@ use iced::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::{
-    APP_FONT,
+    MONOSPACE,
     message::{InputMessage, Message},
     state::App,
     theme::{ContainerClass, ElementType, TextClass, TextInputClass, TextSize},
@@ -72,11 +72,11 @@ fn error_box<'a>(input: &'a str, err: &'a BuildError) -> ElementType<'a> {
     let error_display = column![
         text(input)
             .size(TextSize::Small)
-            .font(APP_FONT)
+            .font(MONOSPACE)
             .class(TextClass::Primary),
         text(arrow_line)
             .size(TextSize::Small)
-            .font(APP_FONT)
+            .font(MONOSPACE)
             .class(TextClass::Error),
         text(format!("Error: {err}"))
             .size(TextSize::Small)

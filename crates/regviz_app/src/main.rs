@@ -49,10 +49,18 @@ fn main() -> iced::Result {
         console_log::init_with_level(log::Level::Debug).expect("could not initialize logger");
     }
 
-    application(|| (App::default(), Task::none()), App::update, App::view)
+    let app = application(|| (App::default(), Task::none()), App::update, App::view)
         .theme(|state: &App| Some(state.theme))
         .antialiasing(true)
         .decorations(true)
         .title(|_: &App| String::from("RegViz - Regular Expression Visualizer"))
-        .run()
+        // Load embedded fonts for native builds (WASM loads via CSS)
+        .font(app::INTER_REGULAR)
+        .font(app::INTER_MEDIUM)
+        .font(app::INTER_SEMIBOLD)
+        .font(app::JETBRAINS_MONO_REGULAR)
+        .font(app::JETBRAINS_MONO_MEDIUM)
+        .default_font(app::APP_FONT);
+
+    app.run()
 }

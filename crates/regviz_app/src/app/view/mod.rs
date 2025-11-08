@@ -9,7 +9,6 @@ use iced::{
 };
 
 use crate::app::{
-    APP_FONT,
     message::InputMessage,
     theme::{ButtonClass, ContainerClass, ElementType, TextClass, TextSize},
 };
@@ -43,7 +42,7 @@ impl App {
 fn information_block() -> ElementType<'static> {
     column![
         text(
-            "\
+            "
 Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are supported:
 1. '\\e': epsilon
 2. '(', ')': for grouping
@@ -52,7 +51,6 @@ Alphanumeric characters (a-z, A-Z, 0-9) and the following special characters are
 5. '.': concatenation
 "
         )
-        .font(APP_FONT)
         .size(TextSize::Small)
         .class(TextClass::Secondary),
     ]
