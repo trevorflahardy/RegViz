@@ -1,5 +1,5 @@
 mod button;
-mod colors;
+pub mod colors;
 mod container;
 mod pane_grid;
 mod scrollable;
