@@ -39,4 +39,5 @@ pub enum RightPaneMode {
     Ast,
     Nfa,
     Dfa,
+    MinDfa,
 }

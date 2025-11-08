@@ -15,6 +15,8 @@ pub enum SimulationTarget {
     Nfa,
     /// Drive the simulation using the determinised DFA.
     Dfa,
+    /// Drive the simulation using the minimized DFA.
+    MinDfa,
 }
 
 /// Snapshot describing the automaton after consuming a prefix of the input.
