@@ -158,10 +158,10 @@ impl Ast {
             }
             Token::RParen => {
                 if open_paren {
-                    // Found empty parentheses '()'
+                    // Found parentheses with invalid expression inside
                     return Err(ParseError {
                         at: idx,
-                        kind: ParseErrorKind::EmptyParentheses,
+                        kind: ParseErrorKind::ParenthesesWithInvalidExp,
                     });
                 }
                 return Err(ParseError {
@@ -333,7 +333,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::EmptyParentheses,
+                kind: ParseErrorKind::ParenthesesWithInvalidExp,
                 at: 5,
             }))
         );
@@ -341,7 +341,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::EmptyParentheses,
+                kind: ParseErrorKind::ParenthesesWithInvalidExp,
                 at: 1,
             }))
         );
@@ -349,7 +349,7 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::EmptyParentheses,
+                kind: ParseErrorKind::ParenthesesWithInvalidExp,
                 at: 2,
             }))
         );
@@ -357,8 +357,16 @@ mod tests {
         assert_eq!(
             result,
             Err(BuildError::Parse(ParseError {
-                kind: ParseErrorKind::EmptyParentheses,
+                kind: ParseErrorKind::ParenthesesWithInvalidExp,
                 at: 5,
+            }))
+        );
+        let result = Ast::build("(a+)");
+        assert_eq!(
+            result,
+            Err(BuildError::Parse(ParseError {
+                kind: ParseErrorKind::ParenthesesWithInvalidExp,
+                at: 3,
             }))
         );
     }
