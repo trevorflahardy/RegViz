@@ -187,3 +187,302 @@ impl<'a> PartitionRefinement<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::dfa;
+    use crate::core::nfa::Nfa;
+    use crate::core::parser::Ast;
+    use crate::errors::BuildError;
+
+    fn build_minimized_dfa(regex: &str) -> Result<Dfa, BuildError> {
+        let ast = Ast::build(regex)?;
+        let nfa = Nfa::build(&ast);
+        let dfa = dfa::determinize(&nfa);
+        Ok(minimize(&dfa))
+    }
+
+    fn dfa_accepts(dfa: &Dfa, input: &str) -> bool {
+        let mut current = dfa.start;
+
+        for ch in input.chars() {
+            let symbol_idx = dfa.alphabet.iter().position(|&c| c == ch);
+            match symbol_idx {
+                Some(idx) => {
+                    match dfa.trans[current as usize][idx] {
+                        Some(next) => current = next,
+                        None => return false, // No transition, reject
+                    }
+                }
+                None => return false, // Symbol not in alphabet, reject
+            }
+        }
+
+        dfa.accepts.contains(&current)
+    }
+
+    #[test]
+    fn test_minimize_a_plus_a_star_equals_a_star() {
+        // a+a* should minimize to same as a*
+        let min1 = build_minimized_dfa("a+a*").unwrap();
+        let min2 = build_minimized_dfa("a*").unwrap();
+
+        // Both should have same number of states
+        assert_eq!(
+            min1.states.len(),
+            min2.states.len(),
+            "a+a* and a* should minimize to same number of states"
+        );
+        assert_eq!(
+            min1.accepts.len(),
+            min2.accepts.len(),
+            "a+a* and a* should have same number of accepting states"
+        );
+
+        // Both should accept same strings
+        let test_cases = vec!["", "a", "aa", "aaa", "aaaa"];
+        for test in test_cases {
+            assert_eq!(
+                dfa_accepts(&min1, test),
+                dfa_accepts(&min2, test),
+                "a+a* and a* should accept same strings for input: {}",
+                test
+            );
+        }
+    }
+
+    #[test]
+    fn test_minimize_aa_star_has_two_states() {
+        // aa* should have 2 states: non-accepting start, accepting with self-loop
+        let min = build_minimized_dfa("aa*").unwrap();
+
+        assert_eq!(min.states.len(), 2, "aa* should have exactly 2 states");
+        assert_eq!(min.accepts.len(), 1, "aa* should have 1 accepting state");
+        assert!(
+            !min.accepts.contains(&min.start),
+            "Start state should not be accepting (empty string not in aa*)"
+        );
+
+        // Verify behavior
+        assert!(!dfa_accepts(&min, ""), "Should reject empty string");
+        assert!(dfa_accepts(&min, "a"), "Should accept 'a'");
+        assert!(dfa_accepts(&min, "aaa"), "Should accept 'aaa'");
+        assert!(!dfa_accepts(&min, "b"), "Should reject 'b'");
+    }
+
+    #[test]
+    fn test_minimize_a_star_single_accepting_state() {
+        // a* should have 1 state that is both start and accepting
+        let min = build_minimized_dfa("a*").unwrap();
+
+        assert_eq!(min.states.len(), 1, "a* should minimize to single state");
+        assert!(
+            min.accepts.contains(&min.start),
+            "Single state should be accepting (empty string matches)"
+        );
+
+        // Verify behavior
+        assert!(dfa_accepts(&min, ""), "Should accept empty string");
+        assert!(dfa_accepts(&min, "a"), "Should accept 'a'");
+        assert!(dfa_accepts(&min, "aaaa"), "Should accept 'aaaa'");
+    }
+
+    #[test]
+    fn test_minimize_epsilon_single_state() {
+        // ε (epsilon) should be single accepting state
+        let min = build_minimized_dfa("\\e").unwrap();
+
+        assert_eq!(min.states.len(), 1, "epsilon should be single state");
+        assert!(min.accepts.contains(&min.start), "Should be accepting");
+
+        assert!(dfa_accepts(&min, ""), "Should accept empty string");
+        assert!(!dfa_accepts(&min, "a"), "Should reject non-empty strings");
+    }
+
+    #[test]
+    fn test_minimize_single_char() {
+        // Single character 'a' should have 2-3 states (start, accept, maybe dead)
+        let min = build_minimized_dfa("a").unwrap();
+
+        assert!(
+            min.states.len() <= 3,
+            "Single char should have at most 3 states"
+        );
+        assert_eq!(min.accepts.len(), 1, "Should have one accepting state");
+
+        assert!(!dfa_accepts(&min, ""), "Should reject empty string");
+        assert!(dfa_accepts(&min, "a"), "Should accept 'a'");
+        assert!(!dfa_accepts(&min, "aa"), "Should reject 'aa'");
+    }
+
+    #[test]
+    fn test_minimize_alternation_merges_equivalent() {
+        // (a+b)(a+b) - after first char, both branches are equivalent
+        let ast = Ast::build("(a+b)(a+b)").unwrap();
+        let nfa = Nfa::build(&ast);
+        let dfa = dfa::determinize(&nfa);
+        let original_size = dfa.states.len();
+
+        let min = minimize(&dfa);
+
+        // Minimized should be smaller or same
+        assert!(
+            min.states.len() <= original_size,
+            "Minimization should not increase states"
+        );
+
+        // Verify correctness
+        assert!(!dfa_accepts(&min, ""), "Should reject empty");
+        assert!(!dfa_accepts(&min, "a"), "Should reject single char");
+        assert!(dfa_accepts(&min, "aa"), "Should accept 'aa'");
+        assert!(dfa_accepts(&min, "ab"), "Should accept 'ab'");
+        assert!(dfa_accepts(&min, "ba"), "Should accept 'ba'");
+        assert!(dfa_accepts(&min, "bb"), "Should accept 'bb'");
+        assert!(!dfa_accepts(&min, "aaa"), "Should reject 'aaa'");
+    }
+
+    #[test]
+    fn test_minimize_a_star_b_star_two_branches() {
+        // a*b* should have accepting states for both branches
+        let min = build_minimized_dfa("a*b*").unwrap();
+
+        assert!(dfa_accepts(&min, ""), "Should accept empty");
+        assert!(dfa_accepts(&min, "a"), "Should accept 'a'");
+        assert!(dfa_accepts(&min, "aa"), "Should accept 'aa'");
+        assert!(dfa_accepts(&min, "b"), "Should accept 'b'");
+        assert!(dfa_accepts(&min, "bb"), "Should accept 'bb'");
+        assert!(dfa_accepts(&min, "ab"), "Should accept 'ab'");
+        assert!(dfa_accepts(&min, "aabb"), "Should accept 'aabb'");
+        assert!(!dfa_accepts(&min, "ba"), "Should reject 'ba' (b before a)");
+    }
+
+    #[test]
+    fn test_minimize_complex_redundant_pattern() {
+        // (a+aa)* should minimize to a* (both accept zero or more a's)
+        let min1 = build_minimized_dfa("(a+aa)*").unwrap();
+        let min2 = build_minimized_dfa("a*").unwrap();
+
+        // Should have same number of states after minimization
+        assert_eq!(
+            min1.states.len(),
+            min2.states.len(),
+            "(a+aa)* should minimize to same as a*"
+        );
+
+        let test_cases = vec!["", "a", "aa", "aaa", "aaaa"];
+        for test in test_cases {
+            assert_eq!(
+                dfa_accepts(&min1, test),
+                dfa_accepts(&min2, test),
+                "(a+aa)* and a* should accept same strings for input: {}",
+                test
+            );
+        }
+    }
+
+    #[test]
+    fn test_minimize_already_minimal() {
+        // Simple pattern that should already be minimal
+        let ast = Ast::build("ab").unwrap();
+        let nfa = Nfa::build(&ast);
+        let dfa = dfa::determinize(&nfa);
+        let original_size = dfa.states.len();
+
+        let min = minimize(&dfa);
+
+        // Size might be same or smaller, but behavior should match
+        assert!(min.states.len() <= original_size);
+
+        assert!(!dfa_accepts(&min, ""), "Should reject empty");
+        assert!(!dfa_accepts(&min, "a"), "Should reject 'a'");
+        assert!(dfa_accepts(&min, "ab"), "Should accept 'ab'");
+        assert!(!dfa_accepts(&min, "aba"), "Should reject 'aba'");
+    }
+
+    #[test]
+    fn test_minimize_optional_patterns() {
+        // a? should have 2 states (both accepting: empty and 'a')
+        let min = build_minimized_dfa("a?").unwrap();
+
+        assert!(min.states.len() <= 2, "a? should have at most 2 states");
+        assert!(
+            min.accepts.contains(&min.start),
+            "Start should be accepting (empty matches)"
+        );
+
+        assert!(dfa_accepts(&min, ""), "Should accept empty");
+        assert!(dfa_accepts(&min, "a"), "Should accept 'a'");
+        assert!(!dfa_accepts(&min, "aa"), "Should reject 'aa'");
+    }
+
+    #[test]
+    fn test_minimize_nested_stars() {
+        // (a*)* should minimize to a* (nested Kleene stars are redundant)
+        let min1 = build_minimized_dfa("(a*)*").unwrap();
+        let min2 = build_minimized_dfa("a*").unwrap();
+
+        assert_eq!(
+            min1.states.len(),
+            min2.states.len(),
+            "(a*)* should minimize to same as a*"
+        );
+
+        let test_cases = vec!["", "a", "aa", "aaa"];
+        for test in test_cases {
+            assert_eq!(
+                dfa_accepts(&min1, test),
+                dfa_accepts(&min2, test),
+                "(a*)* and a* should accept same strings for input: {}",
+                test
+            );
+        }
+    }
+
+    #[test]
+    fn test_minimize_preserves_correctness() {
+        // DFA should handle minimization without crashing
+        let ast = Ast::build("a").unwrap();
+        let nfa = Nfa::build(&ast);
+        let dfa = dfa::determinize(&nfa);
+
+        // Should handle small DFAs gracefully
+        let min = minimize(&dfa);
+        assert!(!min.states.is_empty(), "Should have at least one state");
+    }
+
+    #[test]
+    fn test_minimize_disjoint_accepting_states() {
+        // a+b should have structure: start -> {accept_a, accept_b}
+        let min = build_minimized_dfa("a+b").unwrap();
+
+        assert!(!dfa_accepts(&min, ""), "Should reject empty");
+        assert!(dfa_accepts(&min, "a"), "Should accept 'a'");
+        assert!(dfa_accepts(&min, "b"), "Should accept 'b'");
+        assert!(!dfa_accepts(&min, "ab"), "Should reject 'ab'");
+        assert!(!dfa_accepts(&min, "c"), "Should reject 'c'");
+    }
+
+    #[test]
+    fn test_minimize_multiple_equivalent_paths() {
+        // (aa+aa) should minimize to aa (duplicate branches)
+        let min1 = build_minimized_dfa("(aa+aa)").unwrap();
+        let min2 = build_minimized_dfa("aa").unwrap();
+
+        assert_eq!(
+            min1.states.len(),
+            min2.states.len(),
+            "Duplicate branches should minimize to single path"
+        );
+
+        let test_cases = vec!["", "a", "aa", "aaa"];
+        for test in test_cases {
+            assert_eq!(
+                dfa_accepts(&min1, test),
+                dfa_accepts(&min2, test),
+                "(aa+aa) and aa should accept same strings for input: {}",
+                test
+            );
+        }
+    }
+}
