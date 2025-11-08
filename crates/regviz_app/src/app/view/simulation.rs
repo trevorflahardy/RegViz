@@ -182,16 +182,20 @@ fn active_states_line(app: &App) -> Option<String> {
     let states_text = if states.is_empty() {
         "∅".to_string()
     } else {
-        states
-            .iter()
-            .map(|id| id.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
+        format!(
+            "{{{}}}",
+            states
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     };
 
     let target_label = match app.simulation.target {
         SimulationTarget::Nfa => "NFA",
         SimulationTarget::Dfa => "DFA",
+        SimulationTarget::MinDfa => "Min DFA",
     };
 
     Some(format!("Active {target_label} states: {states_text}"))

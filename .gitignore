@@ -28,3 +28,5 @@ target
 
 # Build output directory
 dist/
+
+*.pdf

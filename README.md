@@ -40,28 +40,24 @@ An optional web build is provided (WASM via Trunk) and deployed to GitHub Pages.
 
 ### Serve locally
 
-From the repository root:
+From `regviz_app/`:
 
 ```bash
-cd web
-trunk serve --release --open
+trunk serve --open
 ```
-
-Notes:
-- The app is compiled from `crates/regviz_app` and runs entirely in the browser.
-- The build output is emitted to `web/dist/` by Trunk.
 
 ### GitHub Pages deployment
 
 This repo includes a GitHub Actions workflow that builds the site and deploys it to GitHub Pages.
 
-1) In GitHub, go to Settings → Pages → Build and deployment and set “Source” to “GitHub Actions”.
-2) Push to a release or trigger manually:
+1. In GitHub, go to Settings → Pages → Build and deployment and set “Source” to “GitHub Actions”.
+2. Push to a release or trigger manually:
    - Publish a GitHub Release (the workflow runs on `release.published`).
    - Or trigger it manually under Actions → “Deploy to GitHub Pages” → “Run workflow”.
-3) The site will be published at `https://<your-user>.github.io/<repo>/`.
+3. The site will be published at `https://<your-user>.github.io/<repo>/`.
 
 The workflow lives at `.github/workflows/deploy-pages.yml` and uses:
+
 - Rust stable with `wasm32-unknown-unknown`
 - Trunk to build the app from `web/` (`trunk build --release`)
 - GitHub Pages `upload-pages-artifact` + `deploy-pages` actions

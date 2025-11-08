@@ -30,6 +30,7 @@ pub fn render<'a>(
         ViewMode::Nfa => match app.simulation.target {
             SimulationTarget::Nfa => "NFA Simulation",
             SimulationTarget::Dfa => "DFA Simulation",
+            SimulationTarget::MinDfa => "Minimized DFA Simulation",
         },
     };
 
@@ -97,8 +98,10 @@ fn bottom_controls(app: &App) -> ElementType<'_> {
     let is_ast = app.view_mode == ViewMode::Ast;
     let is_nfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Nfa;
     let is_dfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Dfa;
+    let is_min_dfa =
+        app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::MinDfa;
 
-    let selector = selector_buttons(is_nfa, is_dfa, is_ast);
+    let selector = selector_buttons(is_nfa, is_dfa, is_min_dfa, is_ast);
     let selector_elem: Element<'_, Message, AppTheme> = selector.into();
     let zoom_controls = controls::zoom(app);
 
@@ -117,11 +120,13 @@ fn bottom_controls(app: &App) -> ElementType<'_> {
 fn selector_buttons<'a>(
     is_nfa: bool,
     is_dfa: bool,
+    is_min_dfa: bool,
     is_ast: bool,
 ) -> iced::widget::Row<'a, Message, AppTheme> {
     row![
         tri_button("NFA", is_nfa, RightPaneMode::Nfa),
         tri_button("DFA", is_dfa, RightPaneMode::Dfa),
+        tri_button("Min DFA", is_min_dfa, RightPaneMode::MinDfa),
         tri_button("AST", is_ast, RightPaneMode::Ast),
     ]
     .spacing(12)
@@ -175,12 +180,49 @@ fn render_automaton_canvas<'a>(
                 .into()
         }
         SimulationTarget::Dfa => {
-            let Some(dfa) = artifacts.dfa.clone() else {
+            // Prefer the determinized DFA, fall back to minimized if only that exists.
+            let maybe_dfa = artifacts.dfa.clone().or_else(|| artifacts.min_dfa.clone());
+
+            let Some(dfa) = maybe_dfa else {
                 return text("Determinized DFA is not available")
                     .size(TextSize::Body)
                     .class(TextClass::Warning)
                     .into();
             };
+
+            let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
+            let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);
+            let mut canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
+                graph,
+                BoxVisibility::default(),
+                app.zoom_factor,
+                DfaLayoutStrategy,
+            );
+
+            // Apply pan state from app
+            canvas.set_pan_offset(app.pan_offset);
+            if app.dragging
+                && let Some(pos) = app.last_cursor_position
+            {
+                canvas.start_drag(pos);
+            }
+
+            Canvas::new(canvas)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into()
+        }
+        SimulationTarget::MinDfa => {
+            // Prefer the minimized DFA, fall back to determinized if only that exists.
+            let maybe_dfa = artifacts.min_dfa.clone().or_else(|| artifacts.dfa.clone());
+
+            let Some(dfa) = maybe_dfa else {
+                return text("Minimized DFA is not available")
+                    .size(TextSize::Body)
+                    .class(TextClass::Warning)
+                    .into();
+            };
+
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
             let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);
             let mut canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(

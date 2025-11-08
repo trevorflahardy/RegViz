@@ -7,7 +7,7 @@ use super::message::{
 use super::simulation::{SimulationTarget, build_dfa_trace, build_nfa_trace};
 use super::state::App;
 use iced::{Point, Task, Vector};
-use regviz_core::core::dfa;
+use regviz_core::core::{dfa, min};
 
 impl App {
     /// Handles incoming messages and updates application state accordingly.
@@ -121,6 +121,10 @@ impl App {
                 self.view_mode = ViewMode::Nfa;
                 self.handle_simulation_target_changed(SimulationTarget::Dfa);
             }
+            RightPaneMode::MinDfa => {
+                self.view_mode = ViewMode::Nfa;
+                self.handle_simulation_target_changed(SimulationTarget::MinDfa);
+            }
         }
     }
 
@@ -226,17 +230,46 @@ impl App {
                 self.simulation.set_trace(Some(trace));
             }
             SimulationTarget::Dfa => {
-                if artifacts.dfa.is_none() {
-                    let dfa = dfa::determinize(&artifacts.nfa);
-                    artifacts.dfa = Some(dfa);
-                }
-
-                let Some(dfa) = artifacts.dfa.as_ref() else {
-                    self.simulation.clear_trace();
-                    return;
+                // Ensure the determinized DFA exists
+                let taken_dfa = match artifacts.dfa.take() {
+                    Some(dfa_ref) => dfa_ref,
+                    None => dfa::determinize(&artifacts.nfa),
                 };
 
-                let trace = build_dfa_trace(dfa, &artifacts.alphabet, input);
+                let trace = build_dfa_trace(&taken_dfa, &artifacts.alphabet, input);
+                // Store back the taken DFA
+                artifacts.dfa = Some(taken_dfa);
+                self.simulation.set_trace(Some(trace));
+            }
+            SimulationTarget::MinDfa => {
+                // Ensure the minimized DFA exists. This may require determinization first.
+
+                let (taken_min_dfa, taken_dfa) =
+                    match (artifacts.min_dfa.take(), artifacts.dfa.take()) {
+                        (Some(min_dfa), Some(dfa)) => (min_dfa, dfa),
+                        (Some(_), None) => {
+                            // dfa is missing, compute from nfa
+                            let dfa = dfa::determinize(&artifacts.nfa);
+                            // compute min_dfa from dfa to ensure consistency
+                            let min_dfa = min::minimize(&dfa);
+                            (min_dfa, dfa)
+                        }
+                        (None, Some(dfa)) => {
+                            // min_dfa is missing, compute from dfa
+                            let min_dfa = min::minimize(&dfa);
+                            (min_dfa, dfa)
+                        }
+                        (None, None) => {
+                            // both missing, compute dfa from nfa, then min_dfa
+                            let dfa = dfa::determinize(&artifacts.nfa);
+                            let min_dfa = min::minimize(&dfa);
+                            (min_dfa, dfa)
+                        }
+                    };
+                let trace = build_dfa_trace(&taken_min_dfa, &artifacts.alphabet, input);
+                // Store back the taken DFAs
+                artifacts.dfa = Some(taken_dfa);
+                artifacts.min_dfa = Some(taken_min_dfa);
                 self.simulation.set_trace(Some(trace));
             }
         }
