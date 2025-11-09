@@ -104,7 +104,7 @@ fn build_edges(dfa: &Dfa, alphabet: &[char], highlights: &Highlights) -> Vec<Gra
             };
             let label = unique_syms
                 .iter()
-                .map(|c| format!("'{}'", c))
+                .map(|c| format!("'{c}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
 
