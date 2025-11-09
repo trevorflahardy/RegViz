@@ -49,16 +49,21 @@ fn main() -> iced::Result {
         console_log::init_with_level(log::Level::Debug).expect("could not initialize logger");
     }
 
-    let app = application(|| (App::default(), Task::none()), App::update, App::view)
+    #[cfg_attr(not(feature = "embed-fonts"), allow(unused_mut))]
+    let mut app = application(|| (App::default(), Task::none()), App::update, App::view)
         .theme(|state: &App| Some(state.theme))
         .antialiasing(true)
         .decorations(true)
         .title(|_: &App| String::from("RegViz - Regular Expression Visualizer"))
-        // Load embedded fonts for native builds (WASM loads via CSS)
-        .font(app::INTER_REGULAR)
-        .font(app::INTER_MEDIUM)
-        .font(app::INTER_SEMIBOLD)
         .default_font(app::APP_FONT);
+
+    #[cfg(feature = "embed-fonts")]
+    {
+        app = app
+            .font(app::INTER_REGULAR)
+            .font(app::INTER_MEDIUM)
+            .font(app::INTER_SEMIBOLD);
+    }
 
     app.run()
 }

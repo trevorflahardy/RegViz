@@ -3,6 +3,10 @@ name = "regviz_app"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["embed-fonts"]
+embed-fonts = []
+
 [dependencies]
 iced = { git = "https://github.com/iced-rs/iced", features = [
     "tokio",

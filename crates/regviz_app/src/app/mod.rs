@@ -12,12 +12,21 @@ pub use state::App;
 
 use iced::Font;
 
-/// Font used for all text rendered on the graph canvas and other parts of the app.
+macro_rules! define_font {
+    // Grab the byte path to the font and load it only if the embed-fonts
+    // field is passed. Otherwise, load an empty list
+    ($name:ident, $file:expr) => {
+        #[cfg(feature = "embed-fonts")]
+        pub const $name: &[u8] = include_bytes!(concat!("./../../public/fonts/", $file, ".ttf"));
+    };
+}
+
+#[cfg(feature = "embed-fonts")]
 pub const APP_FONT: Font = Font::with_name("Inter 28pt");
 
-// Embed fonts for native builds (not needed for WASM)
-pub const INTER_REGULAR: &[u8] = include_bytes!("../../public/fonts/Inter-Regular.ttf");
+#[cfg(not(feature = "embed-fonts"))]
+pub const APP_FONT: Font = Font::DEFAULT;
 
-pub const INTER_MEDIUM: &[u8] = include_bytes!("../../public/fonts/Inter-Medium.ttf");
-
-pub const INTER_SEMIBOLD: &[u8] = include_bytes!("../../public/fonts/Inter-SemiBold.ttf");
+define_font!(INTER_REGULAR, "Inter-Regular");
+define_font!(INTER_MEDIUM, "Inter-Medium");
+define_font!(INTER_SEMIBOLD, "Inter-Semibold");
