@@ -12,10 +12,7 @@ pub fn simulate_dfa(dfa: &Dfa, input: &str) -> bool {
             Some(i) => i,
             None => return false,
         };
-        match dfa.trans[state as usize][idx] {
-            Some(next) => state = next,
-            None => return false,
-        }
+        state = dfa.trans[state as usize][idx];
     }
     dfa.accepts.contains(&state)
 }

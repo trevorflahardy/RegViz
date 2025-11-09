@@ -13,10 +13,15 @@ pub fn minimize(dfa: &Dfa) -> Dfa {
 }
 
 struct PartitionRefinement<'a> {
+    /// The DFA being minimized.
     dfa: &'a Dfa,
+    /// Current partitions of states.
     partitions: Vec<Vec<usize>>,
+    /// Mapping from state to its partition class (index in `partitions`).
     state_class: Vec<usize>,
+    /// Worklist of (partition class, symbol index) pairs to process.
     worklist: VecDeque<(usize, usize)>,
+    /// Set of accepting states for quick lookup.
     accepting: HashSet<StateId>,
 }
 
@@ -81,9 +86,7 @@ impl<'a> PartitionRefinement<'a> {
     fn collect_involved(&self, class_idx: usize, symbol_idx: usize) -> HashSet<usize> {
         let mut involved = HashSet::new();
         for state in 0..self.dfa.trans.len() {
-            let Some(dst) = self.dfa.trans[state][symbol_idx] else {
-                continue;
-            };
+            let dst = self.dfa.trans[state][symbol_idx];
             if self.state_class[dst as usize] == class_idx {
                 involved.insert(state);
             }
@@ -151,18 +154,17 @@ impl<'a> PartitionRefinement<'a> {
     }
 
     fn build_minimized(self) -> Dfa {
-        let mut new_trans = vec![vec![None; self.dfa.alphabet.len()]; self.partitions.len()];
-        for (class_idx, block) in self.partitions.iter().enumerate() {
+        let mut new_trans_table = vec![];
+        for block in self.partitions.iter() {
             if block.is_empty() {
                 continue;
             }
+            let mut new_trans_row = vec![];
             let repr = block[0];
-            for (symbol_idx, dest) in self.dfa.trans[repr].iter().enumerate() {
-                if let Some(dst) = dest {
-                    new_trans[class_idx][symbol_idx] =
-                        Some(self.state_class[*dst as usize] as StateId);
-                }
+            for dest in self.dfa.trans[repr].iter() {
+                new_trans_row.push(self.state_class[*dest as usize] as StateId);
             }
+            new_trans_table.push(new_trans_row);
         }
 
         let mut new_accepts = Vec::new();
@@ -182,7 +184,7 @@ impl<'a> PartitionRefinement<'a> {
             states: new_states,
             start,
             accepts: new_accepts,
-            trans: new_trans,
+            trans: new_trans_table,
             alphabet: self.dfa.alphabet.to_vec(),
         }
     }
@@ -210,10 +212,7 @@ mod tests {
             let symbol_idx = dfa.alphabet.iter().position(|&c| c == ch);
             match symbol_idx {
                 Some(idx) => {
-                    match dfa.trans[current as usize][idx] {
-                        Some(next) => current = next,
-                        None => return false, // No transition, reject
-                    }
+                    current = dfa.trans[current as usize][idx];
                 }
                 None => return false, // Symbol not in alphabet, reject
             }
@@ -402,10 +401,10 @@ mod tests {
 
     #[test]
     fn test_minimize_optional_patterns() {
-        // a? should have 2 states (both accepting: empty and 'a')
+        // a? should have 3 states (2 accepting: empty and 'a', 1 dead state)
         let min = build_minimized_dfa("a?").unwrap();
 
-        assert!(min.states.len() <= 2, "a? should have at most 2 states");
+        assert!(min.states.len() <= 3, "a? should have at most 3 states");
         assert!(
             min.accepts.contains(&min.start),
             "Start should be accepting (empty matches)"

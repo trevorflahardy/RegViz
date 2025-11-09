@@ -293,12 +293,9 @@ pub fn build_dfa_trace(dfa: &Dfa, alphabet: &[char], input: &str) -> SimulationT
 
         if let Some(state) = current {
             if let Some(symbol_idx) = alphabet.iter().position(|&candidate| candidate == *symbol) {
-                if let Some(next) = dfa.trans[state as usize][symbol_idx] {
-                    traversed.insert(EdgeHighlight::new(state, next, EdgeLabel::Sym(*symbol)));
-                    current = Some(next);
-                } else {
-                    current = None;
-                }
+                let next = dfa.trans[state as usize][symbol_idx];
+                traversed.insert(EdgeHighlight::new(state, next, EdgeLabel::Sym(*symbol)));
+                current = Some(next);
             } else {
                 current = None;
             }

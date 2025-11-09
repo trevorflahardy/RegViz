@@ -63,9 +63,7 @@ fn build_edges(dfa: &Dfa, alphabet: &[char], highlights: &Highlights) -> Vec<Gra
     let mut map: HashMap<(StateId, StateId), (Vec<char>, bool)> = HashMap::new();
     for (state_idx, state_id) in dfa.states.iter().enumerate() {
         for (symbol_idx, symbol) in alphabet.iter().enumerate() {
-            let Some(next) = dfa.trans[state_idx][symbol_idx] else {
-                continue;
-            };
+            let next = dfa.trans[state_idx][symbol_idx];
             let edge_label = EdgeLabel::Sym(*symbol);
             let is_active = highlights.is_edge_active(*state_id, next, edge_label);
             let key = (*state_id, next);
@@ -76,61 +74,33 @@ fn build_edges(dfa: &Dfa, alphabet: &[char], highlights: &Highlights) -> Vec<Gra
     }
 
     // Build edges from grouped labels
-    let mut edges: Vec<GraphEdge> = map
-        .into_iter()
+    let edges: Vec<GraphEdge> = map
+        .iter()
         .map(|((from, to), (syms, is_active))| {
-            let mut syms = syms;
-            syms.sort_unstable();
-            syms.dedup();
-            let label = syms
+            // Create a sorted, deduplicated, comma-separated label
+            let unique_syms: Vec<char> = {
+                let mut s = syms.clone();
+                s.sort_unstable();
+                s.dedup();
+                s
+            };
+            let label = unique_syms
                 .iter()
                 .map(|c| format!("'{}'", c))
                 .collect::<Vec<_>>()
                 .join(", ");
-            GraphEdge::new(from, to, label).with_active(is_active)
+
+            // Consider edge curves based on from/to states
+            let curve = if from == to {
+                EdgeCurve::Loop
+            } else if map.contains_key(&(*to, *from)) {
+                EdgeCurve::CurveDown
+            } else {
+                EdgeCurve::Straight
+            };
+            GraphEdge::with_curve(*from, *to, label, curve).with_active(*is_active)
         })
         .collect();
 
-    adjust_bidirectional_labels(&mut edges);
     edges
-}
-
-fn adjust_bidirectional_labels(edges: &mut [GraphEdge]) {
-    let mut paired: HashMap<(StateId, StateId), (Vec<usize>, Vec<usize>)> = HashMap::new();
-
-    for (idx, edge) in edges.iter().enumerate() {
-        if edge.from == edge.to {
-            continue;
-        }
-        let (a, b) = if edge.from < edge.to {
-            (edge.from, edge.to)
-        } else {
-            (edge.to, edge.from)
-        };
-        let entry = paired
-            .entry((a, b))
-            .or_insert_with(|| (Vec::new(), Vec::new()));
-        if edge.from <= edge.to {
-            entry.0.push(idx);
-        } else {
-            entry.1.push(idx);
-        }
-    }
-
-    for (_, (forward, backward)) in paired {
-        if forward.is_empty() || backward.is_empty() {
-            continue;
-        }
-
-        for idx in forward {
-            if let Some(edge) = edges.get_mut(idx) {
-                edge.curve = EdgeCurve::CurveDown;
-            }
-        }
-        for idx in backward {
-            if let Some(edge) = edges.get_mut(idx) {
-                edge.curve = EdgeCurve::CurveDown;
-            }
-        }
-    }
 }

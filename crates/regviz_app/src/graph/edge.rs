@@ -42,6 +42,8 @@ pub enum EdgeCurve {
     CurveDown,
     /// Curved upward (for star closure loop-back: inner_accept → inner_start).
     CurveUp,
+    /// Loop back to the same node (not currently used).
+    Loop,
 }
 
 /// Renderable description of a transition between two states.
@@ -179,11 +181,6 @@ impl Drawable for PositionedEdge {
         let direction = Vector::new(to_center.x - from_center.x, to_center.y - from_center.y);
         let length = (direction.x * direction.x + direction.y * direction.y).sqrt();
 
-        // If nodes are at the same position, don't draw anything
-        if length <= f32::EPSILON {
-            return;
-        }
-
         // Normalize direction to unit vector
         let unit = Vector::new(direction.x / length, direction.y / length);
 
@@ -243,6 +240,16 @@ impl Drawable for PositionedEdge {
                     stroke_width,
                 );
             }
+            EdgeCurve::Loop => {
+                self.draw_self_loop(
+                    frame,
+                    from_center,
+                    from_radius,
+                    ctx,
+                    stroke_color,
+                    stroke_width,
+                );
+            }
         }
     }
 }
@@ -297,6 +304,58 @@ impl PositionedEdge {
 
         // Draw label
         self.draw_label(frame, ctx, stroke_color);
+    }
+
+    fn draw_self_loop<R: Renderer>(
+        &self,
+        frame: &mut Frame<R>,
+        center: Point,
+        radius: f32,
+        ctx: &DrawContext,
+        color: Color,
+        stroke_width: f32,
+    ) {
+        // Draw a circular arc above the node
+        let loop_radius = radius * 0.7;
+        let offset = Vector::new(0.0, -radius * 1.1);
+        let loop_center = Point::new(center.x + offset.x, center.y + offset.y);
+
+        let circle = Path::circle(loop_center, loop_radius);
+
+        frame.stroke(
+            &circle,
+            Stroke::default().with_width(stroke_width).with_color(color),
+        );
+
+        // Draw arrow head at end of arc
+        let tip_angle = std::f32::consts::PI * 1.5; // Top of the circle
+        let tip = Point::new(
+            loop_center.x + loop_radius * tip_angle.cos(),
+            loop_center.y + loop_radius * tip_angle.sin(),
+        );
+        let direction = Vector::new(-tip_angle.sin(), tip_angle.cos());
+        self.draw_arrow_head(frame, tip, direction, color, ctx);
+
+        // Draw label above the loop
+        let label_pos = Point::new(
+            loop_center.x,
+            loop_center.y - loop_radius - LABEL_DISTANCE * ctx.zoom,
+        );
+        let font_size = Pixels::from(
+            (EDGE_LABEL_BASE_SIZE * ctx.zoom).clamp(EDGE_LABEL_MIN_SIZE, EDGE_LABEL_MAX_SIZE),
+        );
+        if !self.data.label.is_empty() {
+            frame.fill_text(Text {
+                content: self.data.label.clone(),
+                position: label_pos,
+                color,
+                font: APP_FONT,
+                align_x: Horizontal::Center.into(),
+                align_y: Vertical::Center,
+                size: font_size,
+                ..Text::default()
+            });
+        }
     }
 
     /// Draws a curved edge using a quadratic Bezier curve.

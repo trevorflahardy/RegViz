@@ -16,8 +16,7 @@ pub struct Dfa {
     /// Accepting state identifiers.
     pub accepts: Vec<StateId>,
     /// Transition table indexed by state then alphabet symbol.
-    /// [`None`] indicates transition into a dead state.
-    pub trans: Vec<Vec<Option<StateId>>>,
+    pub trans: Vec<Vec<StateId>>,
     /// The alphabet of symbols used in the DFA.
     pub alphabet: Vec<char>,
 }
@@ -58,7 +57,7 @@ struct Determinizer<'a> {
     queue: VecDeque<Vec<StateId>>,
 
     /// Array of DFA transitions being built.
-    transitions: Vec<Vec<Option<StateId>>>,
+    transitions: Vec<Vec<StateId>>,
 }
 
 impl<'a> Determinizer<'a> {
@@ -97,13 +96,16 @@ impl<'a> Determinizer<'a> {
     fn run(mut self) -> Dfa {
         while let Some(key) = self.queue.pop_front() {
             let state_id = self.map[&key];
-            self.ensure_capacity(state_id as usize + 1);
+            // Ensure transitions vector is large enough
+            while self.transitions.len() < state_id as usize + 1 {
+                self.transitions.push(vec![]);
+            }
             let subset: HashSet<StateId> = key.iter().copied().collect();
 
             for symbol_idx in 0..self.alphabet.len() {
                 let symbol = self.alphabet[symbol_idx];
                 let next = self.advance_subset(&subset, symbol);
-                self.transitions[state_id as usize][symbol_idx] = next;
+                self.transitions[state_id as usize].push(next);
             }
         }
 
@@ -114,22 +116,7 @@ impl<'a> Determinizer<'a> {
             start: 0,
             accepts,
             trans: self.transitions,
-            alphabet: self.alphabet.clone(),
-        }
-    }
-
-    /// Ensures the transitions vector has at least `len` elements.
-    ///
-    /// # Arguments
-    ///
-    /// - `len` (`usize`) - The minimum length to ensure for the transitions vector.
-    ///
-    /// # Returns
-    ///
-    /// - `()` - This function does not return a value.
-    fn ensure_capacity(&mut self, len: usize) {
-        while self.transitions.len() < len {
-            self.transitions.push(vec![None; self.alphabet.len()]);
+            alphabet: self.alphabet,
         }
     }
 
@@ -143,14 +130,13 @@ impl<'a> Determinizer<'a> {
     /// # Returns
     ///
     /// - `Option<StateId>` - The next DFA state ID, or `None` if there is no transition.
-    fn advance_subset(&mut self, subset: &HashSet<StateId>, symbol: char) -> Option<StateId> {
+    fn advance_subset(&mut self, subset: &HashSet<StateId>, symbol: char) -> StateId {
         let moved = sim::move_on(subset, symbol, self.nfa);
-        if moved.is_empty() {
-            return None;
-        }
 
+        // NOTE: If moved is empty, the epsilon closure will also be empty,
+        // resulting in a dead state being created. This is the desired behavior.
         let closure = sim::epsilon_closure(&moved, self.nfa);
-        Some(self.lookup_or_insert(closure))
+        self.lookup_or_insert(closure)
     }
 
     /// Looks up or inserts a set of DFA states into the underlying map and queue.
@@ -217,13 +203,19 @@ mod tests {
         let dfa = determinize(&nfa);
         assert_eq!(dfa.alphabet, vec!['a']);
         assert_eq!(dfa.start, 0);
+        // With explicit dead-state handling the determinizer now creates a
+        // dedicated dead state for missing transitions. Expected layout:
+        // state 0 --a--> state 1
+        // state 1 --a--> dead (2)
+        // dead (2) --a--> dead (2)
         assert_eq!(dfa.accepts, vec![1]);
-        assert_eq!(dfa.states.len(), 2);
+        assert_eq!(dfa.states.len(), 3);
         assert_eq!(
             dfa.trans,
             vec![
-                vec![Some(1)], // state 0 --a--> state 1
-                vec![None],    // state 1 --a--> None
+                vec![1], // state 0 --a--> state 1
+                vec![2], // state 1 --a--> dead (2)
+                vec![2], // dead --a--> dead
             ]
         );
     }
@@ -234,14 +226,17 @@ mod tests {
         let dfa = determinize(&nfa);
         assert_eq!(dfa.alphabet, vec!['a', 'b']);
         assert_eq!(dfa.start, 0);
-        assert_eq!(dfa.accepts, vec![2]);
-        assert_eq!(dfa.states.len(), 3);
+        // Determinizer now materializes a dead state. Expected mapping:
+        // 0 -> start, 1 -> after 'a', 2 -> dead, 3 -> accepting after 'b'
+        assert_eq!(dfa.accepts, vec![3]);
+        assert_eq!(dfa.states.len(), 4);
         assert_eq!(
             dfa.trans,
             vec![
-                vec![Some(1), None], // state 0 --a--> state 1
-                vec![None, Some(2)], // state 1 --b--> state 2
-                vec![None, None],    // state 2 --a,b--> None
+                vec![1, 2], // state 0 --a--> 1, --b--> dead(2)
+                vec![2, 3], // state 1 --a--> dead, --b--> accept(3)
+                vec![2, 2], // dead loops to itself
+                vec![2, 2], // accept state transitions go to dead
             ]
         );
     }
@@ -252,14 +247,16 @@ mod tests {
         let dfa = determinize(&nfa);
         assert_eq!(dfa.alphabet, vec!['a', 'b']);
         assert_eq!(dfa.start, 0);
+        // With a dead state materialized the DFA will have an extra sink.
         assert_eq!(dfa.accepts, vec![1, 2]);
-        assert_eq!(dfa.states.len(), 3);
+        assert_eq!(dfa.states.len(), 4);
         assert_eq!(
             dfa.trans,
             vec![
-                vec![Some(1), Some(2)], // state 0 --a--> state 1, --b--> state 2
-                vec![None, None],       // state 1 --a,b--> None
-                vec![None, None],       // state 2 --a,b--> None
+                vec![1, 2], // start --a-->1, --b-->2
+                vec![3, 3], // state1 --a,b--> dead(3)
+                vec![3, 3], // state2 --a,b--> dead(3)
+                vec![3, 3], // dead loops to itself
             ]
         );
     }
@@ -270,13 +267,15 @@ mod tests {
         let dfa = determinize(&nfa);
         assert_eq!(dfa.alphabet, vec!['a']);
         assert_eq!(dfa.start, 0);
+        // Kleene star does not produce dead transitions for symbol 'a', so the
+        // DFA remains two states with a self-loop on state 1.
         assert_eq!(dfa.accepts, vec![0, 1]);
         assert_eq!(dfa.states.len(), 2);
         assert_eq!(
             dfa.trans,
             vec![
-                vec![Some(1)], // state 0 --a--> state 1
-                vec![Some(1)], // state 1 --a--> state 1
+                vec![1], // state 0 --a--> state 1
+                vec![1], // state 1 --a--> state 1
             ]
         );
     }

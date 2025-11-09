@@ -123,7 +123,7 @@ struct BoxHierarchy {
 }
 
 impl BoxHierarchy {
-    fn new(boxes: &[GraphBox]) -> Self {
+    fn new(boxes: Vec<GraphBox>) -> Self {
         let mut map: HashMap<BoxId, GraphBox> = HashMap::with_capacity(boxes.len());
         let mut children: HashMap<BoxId, Vec<BoxId>> = HashMap::new();
         let mut parents: HashMap<BoxId, Option<BoxId>> = HashMap::with_capacity(boxes.len());
@@ -133,7 +133,7 @@ impl BoxHierarchy {
                 children.entry(parent).or_default().push(bbox.id);
             }
             parents.insert(bbox.id, bbox.parent);
-            map.insert(bbox.id, bbox.clone());
+            map.insert(bbox.id, bbox);
         }
 
         for ids in children.values_mut() {
@@ -247,7 +247,7 @@ fn layout_graph<G: Graph>(graph: &G, visibility: &super::BoxVisibility) -> super
     let boxes = graph.boxes();
 
     // Step 1: Build a tree structure of all bounding boxes (who contains whom)
-    let hierarchy = BoxHierarchy::new(&boxes);
+    let hierarchy = BoxHierarchy::new(boxes);
     let mut state_positions: HashMap<StateId, Point> = HashMap::new();
 
     // Step 2: Recursively position all states within their bounding boxes
