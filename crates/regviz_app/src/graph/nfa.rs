@@ -1,4 +1,5 @@
-use regviz_core::core::automaton::{BoxKind, EdgeLabel};
+use iced::Point;
+use regviz_core::core::automaton::{BoxKind, EdgeLabel, StateId};
 use regviz_core::core::nfa::Nfa;
 use std::collections::HashMap;
 
@@ -7,7 +8,8 @@ use super::{Graph, GraphBox, GraphEdge, GraphNode, Highlights, edge::EdgeCurve};
 impl Graph for Nfa {
     fn nodes(&self) -> Vec<GraphNode> {
         let empty = Highlights::default();
-        build_nodes(self, &empty)
+        let pinned: HashMap<StateId, Point> = HashMap::new();
+        build_nodes(self, &empty, &pinned)
     }
 
     fn edges(&self) -> Vec<GraphEdge> {
@@ -25,19 +27,30 @@ impl Graph for Nfa {
 pub struct VisualNfa {
     nfa: Nfa,
     highlights: Highlights,
+    /// User-supplied manual positions for states (layout coordinates).
+    pinned_positions: HashMap<StateId, Point>,
 }
 
 impl VisualNfa {
-    /// Creates a new highlighted NFA ready for visualization.
+    /// Creates a new highlighted NFA ready for visualization. `pinned_positions`
+    /// allows the application to persist user-moved node coordinates.
     #[must_use]
-    pub fn new(nfa: Nfa, highlights: Highlights) -> Self {
-        Self { nfa, highlights }
+    pub fn new(
+        nfa: Nfa,
+        highlights: Highlights,
+        pinned_positions: HashMap<StateId, Point>,
+    ) -> Self {
+        Self {
+            nfa,
+            highlights,
+            pinned_positions,
+        }
     }
 }
 
 impl Graph for VisualNfa {
     fn nodes(&self) -> Vec<GraphNode> {
-        build_nodes(&self.nfa, &self.highlights)
+        build_nodes(&self.nfa, &self.highlights, &self.pinned_positions)
     }
 
     fn edges(&self) -> Vec<GraphEdge> {
@@ -49,19 +62,30 @@ impl Graph for VisualNfa {
     }
 }
 
-fn build_nodes(nfa: &Nfa, highlights: &Highlights) -> Vec<GraphNode> {
+fn build_nodes(
+    nfa: &Nfa,
+    highlights: &Highlights,
+    pinned: &HashMap<StateId, Point>,
+) -> Vec<GraphNode> {
     nfa.states
         .iter()
         .map(|state| {
             let highlight = highlights.state_style(state.id);
-            GraphNode::new(
+            let mut node = GraphNode::new(
                 state.id,
                 state.id.to_string(),
                 nfa.start == state.id,
                 nfa.accepts.contains(&state.id),
                 state.box_id,
             )
-            .with_highlight(highlight)
+            .with_highlight(highlight);
+
+            if let Some(pos) = pinned.get(&state.id) {
+                node.manual_position = Some(*pos);
+                node.is_pinned = true;
+            }
+
+            node
         })
         .collect()
 }

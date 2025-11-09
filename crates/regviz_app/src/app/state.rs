@@ -1,6 +1,8 @@
 use iced::widget::pane_grid::{self, Axis};
 use iced::{Point, Vector};
+use regviz_core::core::automaton::StateId;
 use regviz_core::{core::BuildArtifacts, errors::BuildError};
+use std::collections::HashMap;
 
 use super::constants::DEFAULT_ZOOM_FACTOR;
 use super::message::ViewMode;
@@ -56,6 +58,21 @@ pub struct App {
 
     /// Last cursor position during drag operation.
     pub last_cursor_position: Option<Point>,
+    /// Manual per-node positions for the AST view. Keys are numeric node ids
+    /// assigned when converting the AST to a graph.
+    pub pinned_positions_ast: HashMap<u32, iced::Point>,
+    /// Manual per-node positions for the NFA visualization (by state id).
+    pub pinned_positions_nfa: HashMap<StateId, iced::Point>,
+    /// Manual per-node positions for the DFA visualization (by state id).
+    pub pinned_positions_dfa: HashMap<StateId, iced::Point>,
+    /// Manual per-node positions for the Minimized DFA visualization (by state id).
+    pub pinned_positions_min_dfa: HashMap<StateId, iced::Point>,
+    /// If the user is currently dragging a node, this holds its StateId.
+    pub node_dragging: Option<StateId>,
+    /// Last cursor position during node drag (layout coordinates).
+    pub last_node_cursor_position: Option<Point>,
+    /// Selected node (single-click selection), if any.
+    pub selected_node: Option<StateId>,
 }
 
 impl Default for App {
@@ -82,6 +99,13 @@ impl Default for App {
             pan_offset: Vector::ZERO,
             dragging: false,
             last_cursor_position: None,
+            pinned_positions_ast: HashMap::new(),
+            pinned_positions_nfa: HashMap::new(),
+            pinned_positions_dfa: HashMap::new(),
+            pinned_positions_min_dfa: HashMap::new(),
+            node_dragging: None,
+            last_node_cursor_position: None,
+            selected_node: None,
         }
     }
 }

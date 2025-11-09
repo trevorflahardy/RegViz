@@ -12,23 +12,30 @@ pub struct VisualDfa {
     dfa: Dfa,
     alphabet: Vec<char>,
     highlights: Highlights,
+    pinned_positions: HashMap<StateId, iced::Point>,
 }
 
 impl VisualDfa {
     /// Creates a new highlighted DFA graph.
     #[must_use]
-    pub fn new(dfa: Dfa, alphabet: Vec<char>, highlights: Highlights) -> Self {
+    pub fn new(
+        dfa: Dfa,
+        alphabet: Vec<char>,
+        highlights: Highlights,
+        pinned_positions: HashMap<StateId, iced::Point>,
+    ) -> Self {
         Self {
             dfa,
             alphabet,
             highlights,
+            pinned_positions,
         }
     }
 }
 
 impl Graph for VisualDfa {
     fn nodes(&self) -> Vec<GraphNode> {
-        build_nodes(&self.dfa, &self.highlights)
+        build_nodes(&self.dfa, &self.highlights, &self.pinned_positions)
     }
 
     fn edges(&self) -> Vec<GraphEdge> {
@@ -40,19 +47,30 @@ impl Graph for VisualDfa {
     }
 }
 
-fn build_nodes(dfa: &Dfa, highlights: &Highlights) -> Vec<GraphNode> {
+fn build_nodes(
+    dfa: &Dfa,
+    highlights: &Highlights,
+    pinned: &HashMap<StateId, iced::Point>,
+) -> Vec<GraphNode> {
     dfa.states
         .iter()
         .map(|state_id| {
             let highlight = highlights.state_style(*state_id);
-            GraphNode::new(
+            let mut node = GraphNode::new(
                 *state_id,
                 state_id.to_string(),
                 dfa.start == *state_id,
                 dfa.accepts.contains(state_id),
                 None,
             )
-            .with_highlight(highlight)
+            .with_highlight(highlight);
+
+            if let Some(pos) = pinned.get(state_id) {
+                node.manual_position = Some(*pos);
+                node.is_pinned = true;
+            }
+
+            node
         })
         .collect()
 }

@@ -151,37 +151,69 @@ fn layout_tree<G: Graph>(graph: &G) -> super::GraphLayout {
         }
     }
 
-    // Step 4: Create positioned nodes
+    // Step 4: Create positioned nodes. Respect any manual positions supplied
+    // on `GraphNode` (these should override computed positions).
     let positioned_nodes: Vec<PositionedNode> = nodes
         .iter()
         .filter_map(|node| {
-            node_positions
-                .get(&node.id)
-                .map(|&pos| PositionedNode::new(node.clone(), pos, NODE_RADIUS))
+            let pos = node
+                .manual_position
+                .or_else(|| node_positions.get(&node.id).copied());
+            pos.map(|p| {
+                let mut pn = PositionedNode::new(node.clone(), p, NODE_RADIUS);
+                if node.is_pinned {
+                    pn.is_pinned = true;
+                    pn.manual_position = node.manual_position;
+                }
+                pn
+            })
         })
         .collect();
 
-    // Step 5: Create positioned edges
+    // Step 5: Create positioned edges. Use the final positions of the
+    // positioned nodes (which already respect manual/pinned overrides) so
+    // edges attach to the visible node centers.
+    let final_positions: HashMap<u32, Point> = positioned_nodes
+        .iter()
+        .map(|pn| (pn.data.id, pn.position))
+        .collect();
+
     let positioned_edges: Vec<PositionedEdge> = edges
         .iter()
         .filter_map(|edge| {
-            let from_pos = node_positions.get(&edge.from)?;
-            let to_pos = node_positions.get(&edge.to)?;
-            Some(PositionedEdge::new(edge.clone(), *from_pos, *to_pos))
+            let from_pos = final_positions.get(&edge.from)?;
+            let to_pos = final_positions.get(&edge.to)?;
+            // Use explicit node radii so the edge drawing logic can trim
+            // the segment to the node boundaries and draw with stroke().
+            Some(PositionedEdge::with_radii(
+                edge.clone(),
+                *from_pos,
+                *to_pos,
+                NODE_RADIUS,
+                NODE_RADIUS,
+            ))
         })
         .collect();
 
     // Step 6: Calculate bounds
-    let min_x = node_positions
+    let min_x = final_positions
         .values()
         .map(|p| p.x)
         .fold(f32::INFINITY, f32::min);
-    let max_x = node_positions
+    let max_x = final_positions
         .values()
         .map(|p| p.x)
         .fold(f32::NEG_INFINITY, f32::max);
-    let min_y = TREE_PADDING;
-    let max_y = TREE_PADDING + (max_depth as f32) * LEVEL_HEIGHT;
+    let min_y = final_positions
+        .values()
+        .map(|p| p.y)
+        .fold(f32::INFINITY, f32::min)
+        .min(TREE_PADDING);
+    let max_y = final_positions
+        .values()
+        .map(|p| p.y)
+        .fold(f32::NEG_INFINITY, f32::max)
+        .max(TREE_PADDING + (max_depth as f32) * LEVEL_HEIGHT);
 
     let bounds = Rectangle::new(
         Point::new(

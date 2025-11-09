@@ -52,6 +52,12 @@ pub struct GraphNode {
     pub box_id: Option<BoxId>,
     /// Optional highlight applied during simulation.
     pub highlight: Option<StateHighlight>,
+    /// If true the node's position has been manually set by the user and
+    /// should be respected by layout algorithms.
+    pub is_pinned: bool,
+    /// Optional manual position in layout coordinates. When present and
+    /// `is_pinned` is true this overrides any computed layout coordinate.
+    pub manual_position: Option<Point>,
 }
 
 impl GraphNode {
@@ -71,6 +77,8 @@ impl GraphNode {
             is_accept,
             box_id,
             highlight: None,
+            is_pinned: false,
+            manual_position: None,
         }
     }
 
@@ -91,6 +99,12 @@ pub struct PositionedNode {
     pub position: Point,
     /// Node radius.
     pub radius: f32,
+    /// If true the node's position should be treated as manually pinned and
+    /// respected by layout algorithms.
+    pub is_pinned: bool,
+    /// Optional manual position (in layout coordinates). When `is_pinned` is
+    /// true this overrides any computed layout position.
+    pub manual_position: Option<Point>,
 }
 
 impl PositionedNode {
@@ -101,6 +115,8 @@ impl PositionedNode {
             data,
             position,
             radius,
+            is_pinned: false,
+            manual_position: None,
         }
     }
 }

@@ -262,14 +262,27 @@ fn layout_graph<G: Graph>(graph: &G, visibility: &super::BoxVisibility) -> super
         vertical_offset + LEVEL_SPACING_Y,
     );
 
-    // Step 4: Convert state positions into renderable nodes with visual properties
+    // Step 4: Convert state positions into renderable nodes with visual properties.
+    // Merge any manual positions from the GraphNode objects so pinned nodes are
+    // respected by edges and rendering.
+    for node in &nodes {
+        if let Some(manual) = node.manual_position {
+            state_positions.insert(node.id, manual);
+        }
+    }
+
     let mut bounds = BoundsTracker::new();
     let mut positioned_nodes = Vec::with_capacity(nodes.len());
 
     for node in nodes {
         if let Some(position) = state_positions.get(&node.id).copied() {
             bounds.include_circle(position, NODE_RADIUS);
-            positioned_nodes.push(PositionedNode::new(node, position, NODE_RADIUS));
+            let mut pn = PositionedNode::new(node.clone(), position, NODE_RADIUS);
+            if node.is_pinned {
+                pn.is_pinned = true;
+                pn.manual_position = node.manual_position;
+            }
+            positioned_nodes.push(pn);
         }
     }
 

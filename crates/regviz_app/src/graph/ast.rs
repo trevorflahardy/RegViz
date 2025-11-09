@@ -42,13 +42,18 @@ use super::{Graph, GraphBox, GraphEdge, GraphNode};
 pub struct AstGraph {
     /// The abstract syntax tree to visualize.
     ast: Ast,
+    /// Optional pinned positions for specific AST nodes (by generated numeric id).
+    pinned_positions: std::collections::HashMap<u32, iced::Point>,
 }
 
 impl AstGraph {
     /// Creates a new AST graph wrapper.
     #[must_use]
-    pub fn new(ast: Ast) -> Self {
-        Self { ast }
+    pub fn new(ast: Ast, pinned_positions: std::collections::HashMap<u32, iced::Point>) -> Self {
+        Self {
+            ast,
+            pinned_positions,
+        }
     }
 }
 
@@ -56,7 +61,7 @@ impl Graph for AstGraph {
     fn nodes(&self) -> Vec<GraphNode> {
         let mut nodes = Vec::new();
         let mut next_id = 0;
-        collect_nodes(&self.ast, &mut nodes, &mut next_id);
+        collect_nodes(&self.ast, &mut nodes, &mut next_id, &self.pinned_positions);
         nodes
     }
 
@@ -84,7 +89,12 @@ impl Graph for AstGraph {
 /// - `ast`: The current AST node being processed
 /// - `nodes`: Accumulated list of graph nodes
 /// - `next_id`: Counter for generating unique node IDs
-fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
+fn collect_nodes(
+    ast: &Ast,
+    nodes: &mut Vec<GraphNode>,
+    next_id: &mut u32,
+    pinned: &std::collections::HashMap<u32, iced::Point>,
+) {
     let id = *next_id;
     *next_id += 1;
 
@@ -97,25 +107,34 @@ fn collect_nodes(ast: &Ast, nodes: &mut Vec<GraphNode>, next_id: &mut u32) {
         Ast::Opt(_) => "?".to_string(),
     };
 
-    nodes.push(GraphNode {
+    let mut node = GraphNode {
         id,
         label,
         is_start: false,
         is_accept: false,
         box_id: None,
         highlight: None,
-    });
+        is_pinned: false,
+        manual_position: None,
+    };
+
+    if let Some(pos) = pinned.get(&id) {
+        node.manual_position = Some(*pos);
+        node.is_pinned = true;
+    }
+
+    nodes.push(node);
 
     // Recursively process children
     match ast {
         Ast::Atom(_) => {} // Leaf node, no children
         Ast::Epsilon => {} // Leaf node, no children
         Ast::Concat(left, right) | Ast::Alt(left, right) => {
-            collect_nodes(left, nodes, next_id);
-            collect_nodes(right, nodes, next_id);
+            collect_nodes(left, nodes, next_id, pinned);
+            collect_nodes(right, nodes, next_id, pinned);
         }
         Ast::Star(inner) | Ast::Opt(inner) => {
-            collect_nodes(inner, nodes, next_id);
+            collect_nodes(inner, nodes, next_id, pinned);
         }
     }
 }

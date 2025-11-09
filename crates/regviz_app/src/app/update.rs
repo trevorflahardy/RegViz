@@ -61,6 +61,79 @@ impl App {
                     self.handle_start_pan(position);
                     ().into()
                 }
+                ViewMessage::NodeDragStart(id, position) => {
+                    // Start dragging immediately and persist the initial
+                    // manual position so click-and-drag works without a
+                    // second click.
+                    self.node_dragging = Some(id);
+                    self.last_node_cursor_position = Some(position);
+                    self.selected_node = Some(id);
+
+                    // Mark the node as pinned by inserting initial position
+                    // into the appropriate per-view pinned map.
+                    if self.view_mode == ViewMode::Ast {
+                        self.pinned_positions_ast.insert(id, position);
+                    } else {
+                        match self.simulation.target {
+                            SimulationTarget::Nfa => {
+                                self.pinned_positions_nfa.insert(id, position);
+                            }
+                            SimulationTarget::Dfa => {
+                                self.pinned_positions_dfa.insert(id, position);
+                            }
+                            SimulationTarget::MinDfa => {
+                                self.pinned_positions_min_dfa.insert(id, position);
+                            }
+                        }
+                    }
+
+                    ().into()
+                }
+                ViewMessage::NodeDrag(id, position) => {
+                    if self.node_dragging == Some(id) {
+                        // Update the appropriate pinned map depending on the
+                        // current view (AST vs automaton) and simulation target.
+                        if self.view_mode == ViewMode::Ast {
+                            self.pinned_positions_ast.insert(id, position);
+                        } else {
+                            match self.simulation.target {
+                                SimulationTarget::Nfa => {
+                                    self.pinned_positions_nfa.insert(id, position);
+                                }
+                                SimulationTarget::Dfa => {
+                                    self.pinned_positions_dfa.insert(id, position);
+                                }
+                                SimulationTarget::MinDfa => {
+                                    self.pinned_positions_min_dfa.insert(id, position);
+                                }
+                            }
+                        }
+                        self.last_node_cursor_position = Some(position);
+                    }
+                    ().into()
+                }
+                ViewMessage::NodeDragEnd(id, position) => {
+                    if self.node_dragging == Some(id) {
+                        if self.view_mode == ViewMode::Ast {
+                            self.pinned_positions_ast.insert(id, position);
+                        } else {
+                            match self.simulation.target {
+                                SimulationTarget::Nfa => {
+                                    self.pinned_positions_nfa.insert(id, position);
+                                }
+                                SimulationTarget::Dfa => {
+                                    self.pinned_positions_dfa.insert(id, position);
+                                }
+                                SimulationTarget::MinDfa => {
+                                    self.pinned_positions_min_dfa.insert(id, position);
+                                }
+                            }
+                        }
+                        self.node_dragging = None;
+                        self.last_node_cursor_position = None;
+                    }
+                    ().into()
+                }
                 ViewMessage::Pan(position) => {
                     self.handle_pan(position);
                     ().into()
@@ -304,5 +377,15 @@ impl App {
         self.zoom_factor = super::constants::DEFAULT_ZOOM_FACTOR;
         self.dragging = false;
         self.last_cursor_position = None;
+        // Clear any user-pinned/manual node positions so the layout
+        // reverts to its automatically computed positions.
+        self.pinned_positions_ast.clear();
+        self.pinned_positions_nfa.clear();
+        self.pinned_positions_dfa.clear();
+        self.pinned_positions_min_dfa.clear();
+        // Clear any node-drag/selection state.
+        self.node_dragging = None;
+        self.last_node_cursor_position = None;
+        self.selected_node = None;
     }
 }

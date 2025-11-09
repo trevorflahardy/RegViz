@@ -1,6 +1,7 @@
 use iced::widget::canvas::{self, Frame, Program};
 use iced::{Point, Rectangle, Size, Vector, mouse};
 use iced_graphics::geometry::Renderer;
+use regviz_core::core::automaton::StateId;
 
 use super::layout::LayoutStrategy;
 use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout};
@@ -23,6 +24,22 @@ pub struct GraphCanvas<G: Graph, S: LayoutStrategy> {
     dragging: bool,
     /// Last cursor position during drag
     last_cursor_position: Option<Point>,
+    /// If the user initiated a node drag (via a prior NodeDragStart message),
+    /// this stores the id of the node being dragged so cursor moves can emit
+    /// `NodeDrag` messages. This field is set by the application in response to
+    /// `ViewMessage::NodeDragStart` and cleared on `NodeDragEnd`.
+    node_dragging: Option<StateId>,
+    /// Last cursor position while dragging a node (screen coords)
+    last_node_cursor_position: Option<Point>,
+}
+
+/// Mutable runtime state for the canvas program.
+#[derive(Debug, Clone, Default)]
+pub struct CanvasState {
+    /// Currently dragged node, if any.
+    pub node_dragging: Option<StateId>,
+    /// Last cursor position while dragging a node (layout coordinates).
+    pub last_node_cursor_position: Option<Point>,
 }
 
 impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
@@ -44,6 +61,8 @@ impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
             pan_offset: Vector::ZERO,
             dragging: false,
             last_cursor_position: None,
+            node_dragging: None,
+            last_node_cursor_position: None,
         }
     }
 
@@ -57,6 +76,14 @@ impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
         self.dragging = true;
         self.last_cursor_position = Some(position);
     }
+
+    /// Called by the application when a node drag is started. The canvas will
+    /// then publish `NodeDrag` messages on cursor movement until `end_node_drag`
+    /// is called.
+    pub fn start_node_drag(&mut self, node: StateId, position: Point) {
+        self.node_dragging = Some(node);
+        self.last_node_cursor_position = Some(position);
+    }
 }
 
 impl<G, S, R> Program<Message, AppTheme, R> for GraphCanvas<G, S>
@@ -65,7 +92,7 @@ where
     S: LayoutStrategy,
     R: Renderer + iced_graphics::geometry::Renderer,
 {
-    type State = ();
+    type State = CanvasState;
 
     fn draw(
         &self,
@@ -102,23 +129,72 @@ where
 
     fn update(
         &self,
-        _state: &mut Self::State,
+        state: &mut Self::State,
         event: &canvas::Event,
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> Option<canvas::Action<Message>> {
+        // We'll need the computed layout and transform to translate cursor
+        // screen coordinates into layout coordinates for hit testing.
+        let layout = self.strategy.compute(&self.graph, &self.visibility);
+        let fit = fit_zoom(bounds.size(), &layout);
+        let zoom = fit * self.zoom_factor;
+        let translation = center_translation(bounds.size(), &layout, zoom) + self.pan_offset;
+
         if let canvas::Event::Mouse(mouse_event) = event {
             match mouse_event {
-                // Start dragging on left mouse button press
+                // Left mouse press: either start a node drag (if clicked a node)
+                // or start panning the canvas.
                 mouse::Event::ButtonPressed(mouse::Button::Left) => {
-                    if let Some(position) = cursor.position_in(bounds) {
+                    if let Some(screen_pos) = cursor.position_in(bounds) {
+                        // Convert to layout coordinates (inverse transform)
+                        let logical = Point::new(
+                            (screen_pos.x - translation.x) / zoom,
+                            (screen_pos.y - translation.y) / zoom,
+                        );
+
+                        // Hit-test nodes by radius in layout coordinates.
+                        if let Some(hit) = layout.nodes.iter().find(|n| {
+                            let dx = n.position.x - logical.x;
+                            let dy = n.position.y - logical.y;
+                            (dx * dx + dy * dy) <= (n.radius * n.radius)
+                        }) {
+                            // Start node-drag locally so subsequent cursor
+                            // moves will immediately emit NodeDrag messages
+                            // without waiting for the app->view roundtrip.
+                            state.node_dragging = Some(hit.data.id);
+                            state.last_node_cursor_position = Some(logical);
+
+                            // Tell the app about the initial drag (so it can
+                            // persist the pinned position and update selection).
+                            return Some(canvas::Action::publish(Message::View(
+                                ViewMessage::NodeDragStart(hit.data.id, logical),
+                            )));
+                        }
+
+                        // No node hit — start panning instead.
                         return Some(canvas::Action::publish(Message::View(
-                            ViewMessage::StartPan(position),
+                            ViewMessage::StartPan(screen_pos),
                         )));
                     }
                 }
-                // Pan while dragging
+
+                // Cursor movement: if a node drag is active, publish NodeDrag;
+                // otherwise publish Pan if we're currently panning.
                 mouse::Event::CursorMoved { .. } => {
+                    if let Some(node_id) = state.node_dragging
+                        && let Some(screen_pos) = cursor.position_in(bounds)
+                    {
+                        let logical = Point::new(
+                            (screen_pos.x - translation.x) / zoom,
+                            (screen_pos.y - translation.y) / zoom,
+                        );
+                        state.last_node_cursor_position = Some(logical);
+                        return Some(canvas::Action::publish(Message::View(
+                            ViewMessage::NodeDrag(node_id, logical),
+                        )));
+                    }
+
                     if self.dragging
                         && let Some(position) = cursor.position_in(bounds)
                     {
@@ -127,12 +203,29 @@ where
                         ))));
                     }
                 }
-                // End dragging on mouse release
+
+                // Mouse release: end node drag if active, otherwise end pan.
                 mouse::Event::ButtonReleased(mouse::Button::Left) => {
+                    if let Some(node_id) = state.node_dragging
+                        && let Some(screen_pos) = cursor.position_in(bounds)
+                    {
+                        let logical = Point::new(
+                            (screen_pos.x - translation.x) / zoom,
+                            (screen_pos.y - translation.y) / zoom,
+                        );
+                        // Notify app about final position
+                        state.node_dragging = None;
+                        state.last_node_cursor_position = None;
+                        return Some(canvas::Action::publish(Message::View(
+                            ViewMessage::NodeDragEnd(node_id, logical),
+                        )));
+                    }
+
                     if self.dragging {
                         return Some(canvas::Action::publish(Message::View(ViewMessage::EndPan)));
                     }
                 }
+
                 // Handle scroll wheel for zooming
                 mouse::Event::WheelScrolled { delta } => {
                     if cursor.is_over(bounds) {
@@ -146,6 +239,7 @@ where
                         ))));
                     }
                 }
+
                 _ => {}
             }
         }
@@ -155,11 +249,11 @@ where
 
     fn mouse_interaction(
         &self,
-        _state: &Self::State,
+        state: &Self::State,
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> mouse::Interaction {
-        if self.dragging {
+        if self.dragging || state.node_dragging.is_some() {
             mouse::Interaction::Grabbing
         } else if cursor.is_over(bounds) {
             mouse::Interaction::Grab

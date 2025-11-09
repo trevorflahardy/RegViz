@@ -38,7 +38,16 @@ fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
     let edges = graph.edges();
 
     let adjacency = build_adjacency(&edges);
-    let state_positions = compute_positions(&nodes, &adjacency);
+    let mut state_positions = compute_positions(&nodes, &adjacency);
+
+    // If any nodes carry manual positions (pinned by the user), merge those
+    // positions into the computed map so edges and positioned nodes use the
+    // manual coordinates instead of the automatically computed ones.
+    for node in &nodes {
+        if let Some(manual) = node.manual_position {
+            state_positions.insert(node.id, manual);
+        }
+    }
 
     let mut bounds = BoundsTracker::new();
     let mut positioned_nodes = Vec::with_capacity(nodes.len());
@@ -46,7 +55,12 @@ fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
     for node in nodes {
         if let Some(position) = state_positions.get(&node.id).copied() {
             bounds.include_circle(position, NODE_RADIUS);
-            positioned_nodes.push(PositionedNode::new(node, position, NODE_RADIUS));
+            let mut pnode = PositionedNode::new(node, position, NODE_RADIUS);
+            if pnode.data.is_pinned {
+                pnode.is_pinned = true;
+                pnode.manual_position = pnode.data.manual_position;
+            }
+            positioned_nodes.push(pnode);
         }
     }
 

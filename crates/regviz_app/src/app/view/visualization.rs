@@ -51,7 +51,7 @@ fn render_ast_canvas<'a>(
     app: &App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
 ) -> ElementType<'a> {
-    let ast_graph = AstGraph::new(artifacts.ast.clone());
+    let ast_graph = AstGraph::new(artifacts.ast.clone(), app.pinned_positions_ast.clone());
     let mut canvas: GraphCanvas<AstGraph, TreeLayoutStrategy> = GraphCanvas::new(
         ast_graph,
         BoxVisibility::default(),
@@ -65,6 +65,11 @@ fn render_ast_canvas<'a>(
         && let Some(pos) = app.last_cursor_position
     {
         canvas.start_drag(pos);
+    }
+    if let Some(node_id) = app.node_dragging
+        && let Some(pos) = app.last_node_cursor_position
+    {
+        canvas.start_node_drag(node_id, pos);
     }
 
     let canvas_elem: Element<'_, Message, AppTheme> = Canvas::new(canvas)
@@ -158,7 +163,11 @@ fn render_automaton_canvas<'a>(
     match app.simulation.target {
         SimulationTarget::Nfa => {
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
-            let graph = VisualNfa::new(artifacts.nfa.clone(), highlights);
+            let graph = VisualNfa::new(
+                artifacts.nfa.clone(),
+                highlights,
+                app.pinned_positions_nfa.clone(),
+            );
             let mut canvas: GraphCanvas<VisualNfa, NfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 app.box_visibility.clone(),
@@ -172,6 +181,11 @@ fn render_automaton_canvas<'a>(
                 && let Some(pos) = app.last_cursor_position
             {
                 canvas.start_drag(pos);
+            }
+            if let Some(node_id) = app.node_dragging
+                && let Some(pos) = app.last_node_cursor_position
+            {
+                canvas.start_node_drag(node_id, pos);
             }
 
             Canvas::new(canvas)
@@ -191,7 +205,12 @@ fn render_automaton_canvas<'a>(
             };
 
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
-            let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);
+            let graph = VisualDfa::new(
+                dfa,
+                artifacts.alphabet.clone(),
+                highlights,
+                app.pinned_positions_dfa.clone(),
+            );
             let mut canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 BoxVisibility::default(),
@@ -206,7 +225,6 @@ fn render_automaton_canvas<'a>(
             {
                 canvas.start_drag(pos);
             }
-
             Canvas::new(canvas)
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -224,7 +242,12 @@ fn render_automaton_canvas<'a>(
             };
 
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
-            let graph = VisualDfa::new(dfa, artifacts.alphabet.clone(), highlights);
+            let graph = VisualDfa::new(
+                dfa,
+                artifacts.alphabet.clone(),
+                highlights,
+                app.pinned_positions_min_dfa.clone(),
+            );
             let mut canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 BoxVisibility::default(),
