@@ -1,6 +1,6 @@
-# Regular Expression Visualizer
+![RegViz Github Banner](./crates/regviz_app/public/media/gh_banner.png)
 
-A Rust-based interactive tool for visualizing and understanding the equivalence between regular expressions and finite automata, developed as a final project for COT 4210 Automata Theory & Formal Languages at USF.
+Welcome to RegViz, a Rust-based interactive tool for visualizing and understanding the equivalence between regular expressions and finite automata, developed as a final project for COT 4210 Automata Theory & Formal Languages at USF.
 
 ## Overview
 
