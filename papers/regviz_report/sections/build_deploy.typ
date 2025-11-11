@@ -27,9 +27,8 @@ The repository also includes a WASM build driven by Trunk (`Trunk.toml`). After 
   cargo install trunk
   cd crates/regviz_app
   trunk serve --open
-  ```
-  ,
-  caption: [Launching the WASM preview (`crates/regviz_app/Trunk.toml`)] ,
+  ```,
+  caption: [Launching the WASM preview (`crates/regviz_app/Trunk.toml`)],
 ) <fig:build-trunk>
 
 == Continuous Deployment

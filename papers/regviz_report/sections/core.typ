@@ -518,19 +518,22 @@ The CLI supports the following features:
 
 Example session:
 
-```
-$ cargo run "a*"
-Pattern: a*
-AST: (* a)
-NFA: states=4 start=2 accepts=1 edges=5
-DFA: states=2 start=0 accepts=2 alphabet=['a']
+#figure(
+  ```bash
+  $ cargo run "a*"
+  Pattern: a*
+  AST: (* a)
+  NFA: states=4 start=2 accepts=1 edges=5
+  DFA: states=2 start=0 accepts=2 alphabet=['a']
 
-$ cargo run "a*" "aaa"
-Pattern: a*
-AST: (* a)
-NFA: states=4 start=2 accepts=1 edges=5
-DFA: states=2 start=0 accepts=2 alphabet=['a']
-Input: "aaa"
-NFA accepts: true
-DFA accepts: true
-```
+  $ cargo run "a*" "aaa"
+  Pattern: a*
+  AST: (* a)
+  NFA: states=4 start=2 accepts=1 edges=5
+  DFA: states=2 start=0 accepts=2 alphabet=['a']
+  Input: "aaa"
+  NFA accepts: true
+  DFA accepts: true
+  ```,
+  caption: [Example CLI session compiling and simulating the pattern `a*`],
+)

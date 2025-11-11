@@ -30,9 +30,9 @@
 
   // === Code blocks ===
   show raw.where(block: true): it => block(
-    fill: luma(95%),
-    inset: 6pt,
-    radius: 2pt,
+    fill: luma(97%),
+    inset: 10pt,
+    radius: 10pt,
     width: 100%,
   )[#it]
 
