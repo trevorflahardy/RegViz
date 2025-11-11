@@ -1,49 +1,44 @@
 // styles.typ — RegViz Project Report Styling
 
-// === Document layout ===
-#set page(
-  paper: "us-letter",
-  margin: (top: 1in, bottom: 1in, left: 1.25in, right: 1.25in),
-  numbering: "1.",
-)
+#let apply-styles(body) = {
+  // === Document layout ===
+  set page(
+    paper: "us-letter",
+    margin: 1in,
+    numbering: "1",
+    header: [
+      #set text(size: 8pt)
+      #align(right)[COT 4210 - Automata Theory and Formal Languages, Fall 2025]
+    ],
+  )
 
-// === Font & text defaults ===
-#set text(
-  font: "New Computer Modern",
-  size: 11pt,
-)
+  // === Font & text defaults ===
 
-// === Headings ===
-#set heading(numbering: "1.")
-#show heading.where(level: 1): it => block(spacing: 1em)[
-  #text(size: 16pt, weight: "bold")[#it]
-]
-#show heading.where(level: 2): it => block(spacing: 0.75em)[
-  #text(size: 13pt, weight: "semibold")[#it]
-]
-#show heading.where(level: 3): it => block(spacing: 0.5em)[
-  #text(size: 11pt, weight: "medium", style: "italic")[#it]
-]
+  set text(
+    font: "New Computer Modern",
+    size: 11pt,
+  )
 
-// === Paragraph spacing ===
-#set par(leading: 0.65em, justify: true, spacing: 0.8em)
+  // === Headings ===
+  set heading(numbering: "1.")
 
-// === Lists ===
-#set list(indent: 2em, spacing: 0.4em)
+  // === Paragraph spacing ===
+  set par(leading: 0.65em, justify: true, spacing: 1.2em)
 
-// === Figure & table captions ===
-#show figure.caption: it => [
-  #set text(size: 10pt, weight: "semibold", style: "italic")
-  #it
-]
+  // === Lists ===
+  set list(indent: 2em, spacing: 0.4em)
 
-// === Code blocks ===
-#show raw.where(block: true): it => block(
-  fill: luma(95%),
-  inset: 6pt,
-  radius: 2pt,
-  width: 100%,
-)[#it]
+  // === Code blocks ===
+  show raw.where(block: true): it => block(
+    fill: luma(95%),
+    inset: 6pt,
+    radius: 2pt,
+    width: 100%,
+  )[#it]
+
+  body
+}
+
 
 // === Metadata placeholders ===
 #let title-style(body) = text(size: 24pt, weight: "bold")[#body]
