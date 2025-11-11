@@ -41,7 +41,7 @@ pub enum ViewMode {
 
 impl ViewMode {}
 
-/// Bottom-right tri-toggle options (unifies AST view and NFA/DFA targets).
+/// Bottom-right toggle options (unifies AST view and NFA/DFA targets).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RightPaneMode {
     Ast,
