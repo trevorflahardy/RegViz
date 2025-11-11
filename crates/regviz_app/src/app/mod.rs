@@ -34,4 +34,4 @@ pub const APP_FONT: Font = Font::DEFAULT;
 
 define_font!(INTER_REGULAR, "Inter-Regular");
 define_font!(INTER_MEDIUM, "Inter-Medium");
-define_font!(INTER_SEMIBOLD, "Inter-Semibold");
+define_font!(INTER_SEMIBOLD, "Inter-SemiBold");
