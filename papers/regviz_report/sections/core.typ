@@ -134,7 +134,7 @@ Every parse error carries the character index where the problem occurred, enabli
 
 - `UnexpectedPrefixOperator` — reports operators like `+` or `.` appearing in prefix position
 - `MismatchedLeftParen` — detects unclosed parentheses, reporting the token found instead of `)`
-- `EmptyParentheses` — rejects patterns like `()` or `a+()`
+- `ParenthesesWithInvalidExp` — rejects patterns like `()`, `(a+)`, or `a+()`
 - `RightParenWithoutLeft` — catches stray closing parentheses
 - `UnexpectedEof` — identifies incomplete expressions like `a+` or `ab(`
 
@@ -257,7 +257,7 @@ Each test inspects the exact adjacency structure, verifying that edge labels and
 
 == DFA Determinization
 
-The determinization process transforms NFAs into equivalent DFAs through subset construction, eliminating nondeterminism by treating sets of NFA states as single DFA states. Implemented in `dfa.rs`, the algorithm produces a `Dfa` structure with an explicit transition table indexed by state and alphabet symbol.
+The determinization process transforms NFAs into equivalent DFAs through subset construction. Implemented in `dfa.rs`, the algorithm produces a `Dfa` structure with an explicit transition table indexed by state and alphabet symbol.
 
 === Subset Construction Algorithm
 
@@ -283,9 +283,7 @@ Every transition computation repeats this closure operation after the symbol-lab
 
 === Transition Table Materialization
 
-The `trans` field stores a two-dimensional structure: `Vec<Vec<Option<StateId>>>`, where `trans[s][i]` holds the destination state when DFA state `s` reads the `i`-th alphabet symbol. A `None` entry indicates a transition to an implicit dead state (no valid continuation).
-
-The `ensure_capacity` method grows this table on-demand as new DFA states are discovered, initializing each row with `None` values matching the alphabet size. This lazy allocation handles unpredictable state space growth during subset construction.
+The `trans` field stores a two-dimensional structure: `Vec<Vec<StateId>>`, where `trans[s][i]` holds the destination state when DFA state `s` reads the `i`-th alphabet symbol.
 
 === Accepting-State Detection
 
