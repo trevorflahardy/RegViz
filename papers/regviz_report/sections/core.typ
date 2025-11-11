@@ -26,15 +26,18 @@ At the heart of the module interface sits the `BuildArtifacts` container, define
 4. *DFA*: An optional deterministic finite automaton derived from the NFA via subset construction.
 5. *Minimized DFA*: An optional minimized version of the DFA using Hopcroft's algorithm.
 
-```rust
-pub struct BuildArtifacts {
-    pub ast: Ast,
-    pub nfa: Nfa,
-    pub alphabet: Vec<char>,
-    pub dfa: Option<Dfa>,
-    pub min_dfa: Option<Dfa>,
-}
-```
+
+#figure(
+  ```rust
+  pub struct BuildArtifacts {
+      pub ast: Ast,
+      pub nfa: Nfa,
+      pub alphabet: Vec<char>,
+      pub dfa: Option<Dfa>,
+      pub min_dfa: Option<Dfa>,
+  }
+  ```,
+)
 
 Notably, while defined in the core crate, `BuildArtifacts` serves purely as an interface boundary—the core crate's own modules do not consume it internally, instead passing individual AST/NFA/DFA structures directly between functions. This keeps the core library focused on transformation logic while `BuildArtifacts` acts as a convenient packaging mechanism for external consumers.
 
@@ -502,7 +505,6 @@ The following examples illustrate common lexer and parser diagnostics as they ap
 
 
 == Command-Line Interface
-Summarize the CLI entry point that builds AST/NFA/DFA, reports automaton statistics, and evaluates an optional input string for quick validation workflows.
 
 The CLI entry point, implemented in `main.rs`, provides a user-friendly interface for compiling regular expressions and inspecting their automaton representations. It accepts a regex pattern as input, constructs the corresponding AST, NFA, and optionally DFA and minimized DFA, and outputs relevant statistics about each stage.
 The CLI supports the following features:
