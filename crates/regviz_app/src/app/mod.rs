@@ -17,7 +17,12 @@ macro_rules! define_font {
     // field is passed. Otherwise, load an empty list
     ($name:ident, $file:expr) => {
         #[cfg(feature = "embed-fonts")]
-        pub const $name: &[u8] = include_bytes!(concat!("./../../public/fonts/", $file, ".ttf"));
+        pub const $name: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/public/fonts/",
+            $file,
+            ".ttf"
+        ));
     };
 }
 
