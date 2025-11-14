@@ -42,7 +42,7 @@ pub enum EdgeCurve {
     CurveDown,
     /// Curved upward (for star closure loop-back: inner_accept → inner_start).
     CurveUp,
-    /// Loop back to the same node (not currently used).
+    /// Loop back to the same node
     Loop,
 }
 
@@ -306,6 +306,16 @@ impl PositionedEdge {
         self.draw_label(frame, ctx, stroke_color);
     }
 
+    /// Draws a self-loop edge for transitions that start and end at the same node.
+    ///
+    /// The loop is drawn as a circular arc above the node with an arrow head.
+    /// The label is positioned above the loop.
+    ///
+    /// # Arguments
+    /// - `frame`: Canvas frame to draw on
+    /// - `center`: Center of the node (screen coordinates)
+    /// - `radius`: Radius of the node (scaled)
+    /// - `ctx`: Drawing context with zoom/pan information
     fn draw_self_loop<R: Renderer>(
         &self,
         frame: &mut Frame<R>,
@@ -330,7 +340,8 @@ impl PositionedEdge {
         // Draw arrow head at end of arc
         let tip_angle = std::f32::consts::PI * 1.5; // Top of the circle
         let tip = Point::new(
-            loop_center.x + loop_radius * tip_angle.cos(),
+            // Shift right slightly to position arrow head's center to the top of the loop
+            loop_center.x + loop_radius * tip_angle.cos() + ARROW_HEAD_BASE_LENGTH * 0.5,
             loop_center.y + loop_radius * tip_angle.sin(),
         );
         let direction = Vector::new(-tip_angle.sin(), tip_angle.cos());

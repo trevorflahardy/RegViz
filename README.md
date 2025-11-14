@@ -6,6 +6,10 @@ Welcome to RegViz, a Rust-based interactive tool for visualizing and understandi
 
 This project implements a complete pipeline for converting regular expressions into finite automata representations, demonstrating fundamental concepts from automata theory. Students and educators can use this tool to observe how regular expressions transform into NFAs and DFAs, test string membership, and explore automata behavior interactively.
 
+<img width="1502" height="861" alt="image" src="https://github.com/user-attachments/assets/71d9c561-d87f-480e-8eb9-7d2105a3ef2f" />
+<img width="1512" height="855" alt="image" src="https://github.com/user-attachments/assets/75fef991-ebf2-470d-bcb3-3847a4508f1a" />
+
+
 ### Problem Statement
 
 While tools for visualizing regular expressions and automata exist, most are outdated, proprietary, or limited in functionality. Students often learn the theoretical equivalence between regular expressions and finite automata without a modern, hands-on way to observe the transformation process. This project addresses that gap by providing a transparent, from-scratch implementation that reveals each step of the conversion.
@@ -46,24 +50,6 @@ From `regviz_app/`:
 trunk serve --open
 ```
 
-### GitHub Pages deployment
-
-This repo includes a GitHub Actions workflow that builds the site and deploys it to GitHub Pages.
-
-1. In GitHub, go to Settings → Pages → Build and deployment and set “Source” to “GitHub Actions”.
-2. Push to a release or trigger manually:
-   - Publish a GitHub Release (the workflow runs on `release.published`).
-   - Or trigger it manually under Actions → “Deploy to GitHub Pages” → “Run workflow”.
-3. The site will be published at `https://<your-user>.github.io/<repo>/`.
-
-The workflow lives at `.github/workflows/deploy-pages.yml` and uses:
-
-- Rust stable with `wasm32-unknown-unknown`
-- Trunk to build the app from `web/` (`trunk build --release`)
-- GitHub Pages `upload-pages-artifact` + `deploy-pages` actions
-
-Public URL base is set by CI with `--public-url "/<repo>/"`. Local `trunk serve` uses `/`.
-
 ## Running
 
 The project is split into two main components: a backend library and a frontend application.
@@ -93,8 +79,6 @@ Running tests:
 ```bash
 cargo test --package regviz_core
 ```
-
-#### Backend CLI Tool
 
 The backend also has a CLI binary tool for quick testing:
 ```bash
