@@ -341,7 +341,11 @@ impl PositionedEdge {
         let tip_angle = std::f32::consts::PI * 1.5; // Top of the circle
         let tip = Point::new(
             // Shift right slightly to position arrow head's center to the top of the loop
-            loop_center.x + loop_radius * tip_angle.cos() + ARROW_HEAD_BASE_LENGTH * 0.5,
+            loop_center.x
+                + loop_radius * tip_angle.cos()
+                + ctx.zoom.clamp(ARROW_HEAD_MIN_SCALE, ARROW_HEAD_MAX_SCALE)
+                    * 0.5
+                    * ARROW_HEAD_BASE_LENGTH,
             loop_center.y + loop_radius * tip_angle.sin(),
         );
         let direction = Vector::new(-tip_angle.sin(), tip_angle.cos());
