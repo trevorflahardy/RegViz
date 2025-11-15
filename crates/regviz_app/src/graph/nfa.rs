@@ -18,7 +18,7 @@ impl Graph for Nfa {
     }
 
     fn boxes(&self) -> Vec<GraphBox> {
-        self.boxes.iter().map(Into::into).collect()
+        self.boxes.iter().cloned().map(Into::into).collect()
     }
 }
 
@@ -58,7 +58,7 @@ impl<'a> Graph for VisualNfa<'a> {
     }
 
     fn boxes(&self) -> Vec<GraphBox> {
-        self.nfa.boxes.into_iter().map(Into::into).collect()
+        self.nfa.boxes.iter().cloned().map(Into::into).collect()
     }
 }
 

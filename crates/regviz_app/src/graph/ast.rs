@@ -64,14 +64,14 @@ impl<'a> Graph for AstGraph<'a> {
     fn nodes(&self) -> Vec<GraphNode> {
         let mut nodes = Vec::new();
         let mut next_id = 0;
-        collect_nodes(&self.ast, &mut nodes, &mut next_id, &self.pinned_positions);
+        collect_nodes(self.ast, &mut nodes, &mut next_id, self.pinned_positions);
         nodes
     }
 
     fn edges(&self) -> Vec<GraphEdge> {
         let mut edges = Vec::new();
         let mut next_id = 0;
-        collect_edges(&self.ast, &mut edges, &mut next_id);
+        collect_edges(self.ast, &mut edges, &mut next_id);
         edges
     }
 
