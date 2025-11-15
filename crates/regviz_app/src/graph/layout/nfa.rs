@@ -294,7 +294,7 @@ fn layout_graph<G: Graph>(graph: &G, visibility: &super::BoxVisibility) -> super
         .collect::<Vec<_>>();
 
     // Step 6: Compute rectangles for every bounding box that should be visible
-    let positioned_boxes = layout_boxes(&hierarchy, &state_positions, visibility);
+    let positioned_boxes = layout_boxes(hierarchy, state_positions, visibility);
     for bbox in &positioned_boxes {
         bounds.include_rect(bbox.rect);
     }
@@ -774,21 +774,21 @@ fn normalize_layout(layout: &mut BoxLayoutResult) {
 /// - Nested structures are visually clear
 /// - Overlapping boxes render correctly
 fn layout_boxes(
-    hierarchy: &BoxHierarchy,
-    state_positions: &HashMap<StateId, Point>,
+    hierarchy: BoxHierarchy,
+    state_positions: HashMap<StateId, Point>,
     visibility: &BoxVisibility,
 ) -> Vec<PositionedBox> {
     // Step 1: Compute rectangles for all boxes (with caching)
     let mut extents: HashMap<BoxId, Rectangle> = HashMap::new();
     for id in hierarchy.map.keys().copied().collect::<Vec<_>>() {
-        compute_extent(id, hierarchy, state_positions, &mut extents);
+        compute_extent(id, &hierarchy, &state_positions, &mut extents);
     }
 
     // Step 2: Filter to visible boxes and annotate with depth
     let mut depth_cache: HashMap<BoxId, usize> = HashMap::new();
     let mut positioned = Vec::new();
 
-    for (&id, data) in &hierarchy.map {
+    for (id, data) in hierarchy.map {
         // Skip boxes the user has hidden
         if !visibility.is_visible(data.kind) {
             continue;
@@ -796,7 +796,7 @@ fn layout_boxes(
 
         if let Some(rect) = extents.get(&id) {
             let depth = compute_depth(id, &hierarchy.parents, &mut depth_cache);
-            positioned.push((depth, id, PositionedBox::new(data.clone(), *rect)));
+            positioned.push((depth, id, PositionedBox::new(data, *rect)));
         }
     }
 

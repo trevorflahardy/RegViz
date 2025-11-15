@@ -60,13 +60,10 @@ where
 }
 
 fn render_ast_canvas<'a>(
-    app: &App,
+    app: &'a App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
 ) -> ElementType<'a> {
-    let ast_graph = AstGraph::new(
-        artifacts.ast.clone(),
-        app.view_data().pinned_node_positions.clone(),
-    );
+    let ast_graph = AstGraph::new(&artifacts.ast, &app.view_data().pinned_node_positions);
     let mut canvas: GraphCanvas<AstGraph, TreeLayoutStrategy> = GraphCanvas::new(
         ast_graph,
         BoxVisibility::default(),

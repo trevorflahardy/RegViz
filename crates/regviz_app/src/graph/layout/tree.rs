@@ -154,12 +154,12 @@ fn layout_tree<G: Graph>(graph: &G) -> super::GraphLayout {
     // Step 4: Create positioned nodes. Respect any manual positions supplied
     // on `GraphNode` (these should override computed positions).
     let positioned_nodes: Vec<PositionedNode> = nodes
-        .iter()
+        .into_iter()
         .filter_map(|node| {
             let pos = node
                 .manual_position
                 .or_else(|| node_positions.get(&node.id).copied());
-            pos.map(|p| PositionedNode::new(node.clone(), p, NODE_RADIUS))
+            pos.map(|p| PositionedNode::new(node, p, NODE_RADIUS))
         })
         .collect();
 
@@ -172,14 +172,14 @@ fn layout_tree<G: Graph>(graph: &G) -> super::GraphLayout {
         .collect();
 
     let positioned_edges: Vec<PositionedEdge> = edges
-        .iter()
+        .into_iter()
         .filter_map(|edge| {
             let from_pos = final_positions.get(&edge.from)?;
             let to_pos = final_positions.get(&edge.to)?;
             // Use explicit node radii so the edge drawing logic can trim
             // the segment to the node boundaries and draw with stroke().
             Some(PositionedEdge::with_radii(
-                edge.clone(),
+                edge,
                 *from_pos,
                 *to_pos,
                 NODE_RADIUS,

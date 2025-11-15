@@ -98,8 +98,8 @@ impl<'a> PartitionRefinement<'a> {
         let mut split_targets = Vec::new();
         let mut idx = 0;
         while idx < self.partitions.len() {
-            let block = self.partitions[idx].clone();
-            let (in_part, out_part) = self.partition_block(&block, involved);
+            let block = self.partitions[idx].as_slice();
+            let (in_part, out_part) = self.partition_block(block, involved);
             if in_part.is_empty() || out_part.is_empty() {
                 idx += 1;
                 continue;

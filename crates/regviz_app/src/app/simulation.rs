@@ -241,7 +241,7 @@ pub fn build_nfa_trace(nfa: &Nfa, input: &str) -> SimulationTrace {
 
         // Track epsilon transitions after move
         let mut next = moved.clone();
-        let mut stack: Vec<StateId> = moved.iter().copied().collect();
+        let mut stack: Vec<StateId> = moved.into_iter().collect();
         while let Some(state) = stack.pop() {
             for transition in nfa.transitions(state) {
                 if transition.label == EdgeLabel::Eps && next.insert(transition.to) {

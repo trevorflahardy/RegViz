@@ -109,7 +109,7 @@ pub struct App {
 
     pub view_state: ViewState,
 
-    /// Last cursor position during panning operation.
+    /// Last cursor position during panning operation. Kept to update pan offset.
     pub last_cursor_position: Option<Point>,
 }
 

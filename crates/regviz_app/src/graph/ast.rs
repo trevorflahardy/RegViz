@@ -39,17 +39,20 @@ use super::{Graph, GraphBox, GraphEdge, GraphNode};
 /// the `Graph` trait methods are called. The conversion assigns unique
 /// IDs to each AST node and creates edges for parent-child relationships.
 #[derive(Debug, Clone)]
-pub struct AstGraph {
+pub struct AstGraph<'a> {
     /// The abstract syntax tree to visualize.
-    ast: Ast,
+    ast: &'a Ast,
     /// Optional pinned positions for specific AST nodes (by generated numeric id).
-    pinned_positions: std::collections::HashMap<u32, iced::Point>,
+    pinned_positions: &'a std::collections::HashMap<u32, iced::Point>,
 }
 
-impl AstGraph {
+impl<'a> AstGraph<'a> {
     /// Creates a new AST graph wrapper.
     #[must_use]
-    pub fn new(ast: Ast, pinned_positions: std::collections::HashMap<u32, iced::Point>) -> Self {
+    pub fn new(
+        ast: &'a Ast,
+        pinned_positions: &'a std::collections::HashMap<u32, iced::Point>,
+    ) -> Self {
         Self {
             ast,
             pinned_positions,
@@ -57,7 +60,7 @@ impl AstGraph {
     }
 }
 
-impl Graph for AstGraph {
+impl<'a> Graph for AstGraph<'a> {
     fn nodes(&self) -> Vec<GraphNode> {
         let mut nodes = Vec::new();
         let mut next_id = 0;
