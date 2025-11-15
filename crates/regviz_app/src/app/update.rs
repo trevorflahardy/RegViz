@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+use crate::app::state::ViewState;
+
 use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR, ZOOM_STEP};
 use super::message::{
     InputMessage, Message, PaneGridMessage, RightPaneMode, SimulationMessage, ViewMessage, ViewMode,
@@ -100,33 +102,33 @@ impl App {
 
     /// Updates the zoom factor, clamping it to valid range.
     fn handle_zoom_changed(&mut self, value: f32) {
-        self.zoom_factor = value.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
+        self.view_data_mut().zoom_factor = value.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
     }
 
     /// Handles mouse wheel scroll zoom (delta > 0 = zoom in, delta < 0 = zoom out).
     fn handle_zoom(&mut self, delta: f32) {
         // Each scroll "tick" adjusts zoom by 10%
         let zoom_change = delta * ZOOM_STEP;
-        let new_zoom = self.zoom_factor + zoom_change;
-        self.zoom_factor = new_zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
+        let new_zoom = self.view_data().zoom_factor + zoom_change;
+        self.view_data_mut().zoom_factor = new_zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
     }
 
     /// Handles the combined bottom-right selection buttons.
     fn handle_right_pane_mode(&mut self, mode: RightPaneMode) {
         match mode {
             RightPaneMode::Ast => {
-                self.view_mode = ViewMode::Ast;
+                self.set_view_mode(ViewMode::Ast);
             }
             RightPaneMode::Nfa => {
-                self.view_mode = ViewMode::Nfa;
+                self.set_view_mode(ViewMode::Nfa);
                 self.handle_simulation_target_changed(SimulationTarget::Nfa);
             }
             RightPaneMode::Dfa => {
-                self.view_mode = ViewMode::Nfa;
+                self.set_view_mode(ViewMode::Dfa);
                 self.handle_simulation_target_changed(SimulationTarget::Dfa);
             }
             RightPaneMode::MinDfa => {
-                self.view_mode = ViewMode::Nfa;
+                self.set_view_mode(ViewMode::MinDfa);
                 self.handle_simulation_target_changed(SimulationTarget::MinDfa);
             }
         }
@@ -288,7 +290,7 @@ impl App {
     fn handle_pan(&mut self, position: Point) {
         if let Some(last_pos) = self.last_cursor_position {
             let delta = Vector::new(position.x - last_pos.x, position.y - last_pos.y);
-            self.pan_offset = self.pan_offset + delta;
+            self.view_data_mut().pan_offset = self.view_data().pan_offset + delta;
             self.last_cursor_position = Some(position);
         }
     }
@@ -300,33 +302,14 @@ impl App {
 
     /// Updates the pinned position of a node during a drag operation.
     fn handle_node_drag(&mut self, id: u32, position: Point) {
-        if self.view_mode == ViewMode::Ast {
-            self.pinned_positions_ast.insert(id, position);
-        } else {
-            match self.simulation.target {
-                SimulationTarget::Nfa => {
-                    self.pinned_positions_nfa.insert(id, position);
-                }
-                SimulationTarget::Dfa => {
-                    self.pinned_positions_dfa.insert(id, position);
-                }
-                SimulationTarget::MinDfa => {
-                    self.pinned_positions_min_dfa.insert(id, position);
-                }
-            }
-        }
+        self.view_data_mut()
+            .pinned_node_positions
+            .insert(id, position);
     }
 
     /// Resets the view to center with default zoom.
     fn handle_reset_view(&mut self) {
-        self.pan_offset = Vector::ZERO;
-        self.zoom_factor = super::constants::DEFAULT_ZOOM_FACTOR;
         self.last_cursor_position = None;
-        // Clear any user-pinned/manual node positions so the layout
-        // reverts to its automatically computed positions.
-        self.pinned_positions_ast.clear();
-        self.pinned_positions_nfa.clear();
-        self.pinned_positions_dfa.clear();
-        self.pinned_positions_min_dfa.clear();
+        self.view_state = ViewState::default();
     }
 }

@@ -8,21 +8,21 @@ use super::{Graph, GraphBox, GraphEdge, GraphNode, Highlights};
 
 /// Visual wrapper around a DFA with highlight metadata for simulation playback.
 #[derive(Debug, Clone)]
-pub struct VisualDfa {
-    dfa: Dfa,
-    alphabet: Vec<char>,
+pub struct VisualDfa<'a> {
+    dfa: &'a Dfa,
+    alphabet: &'a [char],
     highlights: Highlights,
-    pinned_positions: HashMap<StateId, iced::Point>,
+    pinned_positions: &'a HashMap<StateId, iced::Point>,
 }
 
-impl VisualDfa {
+impl<'a> VisualDfa<'a> {
     /// Creates a new highlighted DFA graph.
     #[must_use]
     pub fn new(
-        dfa: Dfa,
-        alphabet: Vec<char>,
+        dfa: &'a Dfa,
+        alphabet: &'a [char],
         highlights: Highlights,
-        pinned_positions: HashMap<StateId, iced::Point>,
+        pinned_positions: &'a HashMap<StateId, iced::Point>,
     ) -> Self {
         Self {
             dfa,
@@ -33,13 +33,13 @@ impl VisualDfa {
     }
 }
 
-impl Graph for VisualDfa {
+impl<'a> Graph for VisualDfa<'a> {
     fn nodes(&self) -> Vec<GraphNode> {
-        build_nodes(&self.dfa, &self.highlights, &self.pinned_positions)
+        build_nodes(self.dfa, &self.highlights, self.pinned_positions)
     }
 
     fn edges(&self) -> Vec<GraphEdge> {
-        build_edges(&self.dfa, &self.alphabet, &self.highlights)
+        build_edges(self.dfa, self.alphabet, &self.highlights)
     }
 
     fn boxes(&self) -> Vec<GraphBox> {

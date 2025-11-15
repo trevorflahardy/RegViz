@@ -24,21 +24,21 @@ impl Graph for Nfa {
 
 /// Visual wrapper that augments an NFA with highlight metadata for rendering.
 #[derive(Debug, Clone)]
-pub struct VisualNfa {
-    nfa: Nfa,
+pub struct VisualNfa<'a> {
+    nfa: &'a Nfa,
     highlights: Highlights,
     /// User-supplied manual positions for states (layout coordinates).
-    pinned_positions: HashMap<StateId, Point>,
+    pinned_positions: &'a HashMap<StateId, Point>,
 }
 
-impl VisualNfa {
+impl<'a> VisualNfa<'a> {
     /// Creates a new highlighted NFA ready for visualization. `pinned_positions`
     /// allows the application to persist user-moved node coordinates.
     #[must_use]
     pub fn new(
-        nfa: Nfa,
+        nfa: &'a Nfa,
         highlights: Highlights,
-        pinned_positions: HashMap<StateId, Point>,
+        pinned_positions: &'a HashMap<StateId, Point>,
     ) -> Self {
         Self {
             nfa,
@@ -48,13 +48,13 @@ impl VisualNfa {
     }
 }
 
-impl Graph for VisualNfa {
+impl<'a> Graph for VisualNfa<'a> {
     fn nodes(&self) -> Vec<GraphNode> {
-        build_nodes(&self.nfa, &self.highlights, &self.pinned_positions)
+        build_nodes(self.nfa, &self.highlights, self.pinned_positions)
     }
 
     fn edges(&self) -> Vec<GraphEdge> {
-        build_edges(&self.nfa, &self.highlights)
+        build_edges(self.nfa, &self.highlights)
     }
 
     fn boxes(&self) -> Vec<GraphBox> {

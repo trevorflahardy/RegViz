@@ -31,9 +31,11 @@ pub enum ViewMode {
     Ast,
     /// Show the Non-deterministic Finite Automaton.
     Nfa,
+    /// Show the Deterministic Finite Automaton.
+    Dfa,
+    /// Show the Minimized Deterministic Finite Automaton.
+    MinDfa,
 }
-
-impl ViewMode {}
 
 /// Bottom-right toggle options (unifies AST view and NFA/DFA targets).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

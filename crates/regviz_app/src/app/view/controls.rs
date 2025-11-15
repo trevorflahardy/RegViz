@@ -13,7 +13,7 @@ use crate::app::{
 
 /// Renders buttons for toggling bounding box visibility (NFA only).
 pub fn bounding_boxes(app: &App) -> ElementType<'_> {
-    let enabled = matches!(app.view_mode, ViewMode::Nfa);
+    let enabled = matches!(app.view_mode(), ViewMode::Nfa);
     let toggles = row![
         box_toggle_button(app, BoxKind::Literal, "Literal", enabled),
         box_toggle_button(app, BoxKind::Concat, "Concat", enabled),
@@ -37,14 +37,14 @@ pub fn bounding_boxes(app: &App) -> ElementType<'_> {
 
 /// Renders zoom controls with slider and percentage display.
 pub fn zoom(app: &App) -> ElementType<'_> {
-    let zoom_percentage = (app.zoom_factor * 100.0).round() as i32;
+    let zoom_percentage = (app.view_data().zoom_factor * 100.0).round() as i32;
     let zoom_display = text(format!("Zoom: {zoom_percentage}%"))
         .size(TextSize::Body)
         .class(TextClass::Secondary);
 
     let zoom_slider = slider(
         MIN_ZOOM_FACTOR..=MAX_ZOOM_FACTOR,
-        app.zoom_factor,
+        app.view_data().zoom_factor,
         |value| Message::View(ViewMessage::ZoomChanged(value)),
     )
     .step(0.05)

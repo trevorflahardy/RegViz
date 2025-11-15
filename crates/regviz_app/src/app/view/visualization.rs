@@ -23,18 +23,16 @@ pub fn render<'a>(
     app: &'a App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
 ) -> ElementType<'a> {
-    let canvas = match app.view_mode {
+    let canvas = match app.view_mode() {
         ViewMode::Ast => render_ast_canvas(app, artifacts),
-        ViewMode::Nfa => render_automaton_canvas(app, artifacts),
+        ViewMode::Nfa | ViewMode::Dfa | ViewMode::MinDfa => render_automaton_canvas(app, artifacts),
     };
 
-    let title_text = match app.view_mode {
+    let title_text = match app.view_mode() {
         ViewMode::Ast => "Parse Tree Visualization",
-        ViewMode::Nfa => match app.simulation.target {
-            SimulationTarget::Nfa => "NFA Simulation",
-            SimulationTarget::Dfa => "DFA Simulation",
-            SimulationTarget::MinDfa => "Minimized DFA Simulation",
-        },
+        ViewMode::Nfa => "NFA Simulation",
+        ViewMode::Dfa => "DFA Simulation",
+        ViewMode::MinDfa => "Minimized DFA Simulation",
     };
 
     let title = text(title_text)
@@ -57,7 +55,7 @@ where
     S: LayoutStrategy + 'a,
 {
     // Apply pan state from app
-    canvas.set_pan_offset(app.pan_offset);
+    canvas.set_pan_offset(app.view_data().pan_offset);
     if app.last_cursor_position.is_some() {
         canvas.start_drag();
     } else {
@@ -69,11 +67,14 @@ fn render_ast_canvas<'a>(
     app: &App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
 ) -> ElementType<'a> {
-    let ast_graph = AstGraph::new(artifacts.ast.clone(), app.pinned_positions_ast.clone());
+    let ast_graph = AstGraph::new(
+        artifacts.ast.clone(),
+        app.view_data().pinned_node_positions.clone(),
+    );
     let mut canvas: GraphCanvas<AstGraph, TreeLayoutStrategy> = GraphCanvas::new(
         ast_graph,
         BoxVisibility::default(),
-        app.zoom_factor,
+        app.view_data().zoom_factor,
         TreeLayoutStrategy,
     );
 
@@ -107,13 +108,7 @@ pub fn render_empty(app: &App) -> ElementType<'_> {
 }
 
 fn bottom_controls(app: &App) -> ElementType<'_> {
-    let is_ast = app.view_mode == ViewMode::Ast;
-    let is_nfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Nfa;
-    let is_dfa = app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::Dfa;
-    let is_min_dfa =
-        app.view_mode == ViewMode::Nfa && app.simulation.target == SimulationTarget::MinDfa;
-
-    let selector = selector_buttons(is_nfa, is_dfa, is_min_dfa, is_ast);
+    let selector = selector_buttons(app);
     let selector_elem: Element<'_, Message, AppTheme> = selector.into();
     let zoom_controls = controls::zoom(app);
 
@@ -129,12 +124,12 @@ fn bottom_controls(app: &App) -> ElementType<'_> {
         .into()
 }
 
-fn selector_buttons<'a>(
-    is_nfa: bool,
-    is_dfa: bool,
-    is_min_dfa: bool,
-    is_ast: bool,
-) -> iced::widget::Row<'a, Message, AppTheme> {
+fn selector_buttons<'a>(app: &App) -> iced::widget::Row<'a, Message, AppTheme> {
+    let curr_view_mode = app.view_mode();
+    let is_nfa = curr_view_mode == ViewMode::Nfa;
+    let is_dfa = curr_view_mode == ViewMode::Dfa;
+    let is_min_dfa = curr_view_mode == ViewMode::MinDfa;
+    let is_ast = curr_view_mode == ViewMode::Ast;
     row![
         tri_button("NFA", is_nfa, RightPaneMode::Nfa),
         tri_button("DFA", is_dfa, RightPaneMode::Dfa),
@@ -164,21 +159,20 @@ fn tri_button(label: &str, active: bool, mode: RightPaneMode) -> ElementType<'_>
 }
 
 fn render_automaton_canvas<'a>(
-    app: &App,
+    app: &'a App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
 ) -> ElementType<'a> {
+    let pinned_node_positions = &app.view_data().pinned_node_positions;
+    let zoom_factor = app.view_data().zoom_factor;
+
     match app.simulation.target {
         SimulationTarget::Nfa => {
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
-            let graph = VisualNfa::new(
-                artifacts.nfa.clone(),
-                highlights,
-                app.pinned_positions_nfa.clone(),
-            );
+            let graph = VisualNfa::new(&artifacts.nfa, highlights, pinned_node_positions);
             let mut canvas: GraphCanvas<VisualNfa, NfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 app.box_visibility.clone(),
-                app.zoom_factor,
+                zoom_factor,
                 NfaLayoutStrategy,
             );
             apply_pan_state(app, &mut canvas);
@@ -190,7 +184,7 @@ fn render_automaton_canvas<'a>(
         }
         SimulationTarget::Dfa => {
             // Prefer the determinized DFA, fall back to minimized if only that exists.
-            let maybe_dfa = artifacts.dfa.clone().or_else(|| artifacts.min_dfa.clone());
+            let maybe_dfa = artifacts.dfa.as_ref().or(artifacts.min_dfa.as_ref());
 
             let Some(dfa) = maybe_dfa else {
                 return text("Determinized DFA is not available")
@@ -200,16 +194,11 @@ fn render_automaton_canvas<'a>(
             };
 
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
-            let graph = VisualDfa::new(
-                dfa,
-                artifacts.alphabet.clone(),
-                highlights,
-                app.pinned_positions_dfa.clone(),
-            );
+            let graph = VisualDfa::new(dfa, &artifacts.alphabet, highlights, pinned_node_positions);
             let mut canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 BoxVisibility::default(),
-                app.zoom_factor,
+                zoom_factor,
                 DfaLayoutStrategy,
             );
 
@@ -222,7 +211,7 @@ fn render_automaton_canvas<'a>(
         }
         SimulationTarget::MinDfa => {
             // Prefer the minimized DFA, fall back to determinized if only that exists.
-            let maybe_dfa = artifacts.min_dfa.clone().or_else(|| artifacts.dfa.clone());
+            let maybe_dfa = artifacts.min_dfa.as_ref().or(artifacts.dfa.as_ref());
 
             let Some(dfa) = maybe_dfa else {
                 return text("Minimized DFA is not available")
@@ -232,16 +221,11 @@ fn render_automaton_canvas<'a>(
             };
 
             let highlights: Highlights = app.simulation.current_highlights().unwrap_or_default();
-            let graph = VisualDfa::new(
-                dfa,
-                artifacts.alphabet.clone(),
-                highlights,
-                app.pinned_positions_min_dfa.clone(),
-            );
+            let graph = VisualDfa::new(dfa, &artifacts.alphabet, highlights, pinned_node_positions);
             let mut canvas: GraphCanvas<VisualDfa, DfaLayoutStrategy> = GraphCanvas::new(
                 graph,
                 BoxVisibility::default(),
-                app.zoom_factor,
+                zoom_factor,
                 DfaLayoutStrategy,
             );
 

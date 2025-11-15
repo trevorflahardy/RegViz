@@ -19,6 +19,69 @@ pub enum PaneContent {
     Visualization,
 }
 
+/// Per-viewmode data for panning, zooming, and pinned node positions.
+pub struct ViewData {
+    /// Pan offset for dragging the canvas.
+    pub pan_offset: Vector,
+    /// Current zoom level for visualizations (1.0 = fit to screen).
+    pub zoom_factor: f32,
+    /// Manual per-node positions for the view
+    pub pinned_node_positions: HashMap<StateId, iced::Point>,
+}
+
+impl Default for ViewData {
+    fn default() -> Self {
+        Self {
+            pan_offset: Vector::ZERO,
+            zoom_factor: DEFAULT_ZOOM_FACTOR,
+            pinned_node_positions: HashMap::new(),
+        }
+    }
+}
+
+pub struct ViewState {
+    /// Currently active visualization mode.
+    pub mode: ViewMode,
+    /// Per-viewmode data.
+    data: [ViewData; 4], // One for each ViewMode
+}
+
+impl Default for ViewState {
+    fn default() -> Self {
+        Self {
+            mode: ViewMode::Nfa,
+            data: [
+                ViewData::default(),
+                ViewData::default(),
+                ViewData::default(),
+                ViewData::default(),
+            ],
+        }
+    }
+}
+
+impl ViewState {
+    /// Gets the index in the data array corresponding to the current view mode.
+    fn index(&self) -> usize {
+        match self.mode {
+            ViewMode::Ast => 0,
+            ViewMode::Nfa => 1,
+            ViewMode::Dfa => 2,
+            ViewMode::MinDfa => 3,
+        }
+    }
+
+    /// Gets a mutable reference to the current view's data.
+    pub fn data_mut(&mut self) -> &mut ViewData {
+        &mut self.data[self.index()]
+    }
+
+    /// Gets an immutable reference to the current view's data.
+    pub fn data(&self) -> &ViewData {
+        &self.data[self.index()]
+    }
+}
+
 /// Main application state.
 pub struct App {
     /// Current regex input from the user.
@@ -33,12 +96,6 @@ pub struct App {
     /// Controls which bounding boxes are visible in NFA view.
     pub box_visibility: BoxVisibility,
 
-    /// Current zoom level for visualizations (1.0 = fit to screen).
-    pub zoom_factor: f32,
-
-    /// Currently active visualization mode.
-    pub view_mode: ViewMode,
-
     /// Interactive simulation state for stepping through input strings.
     pub simulation: SimulationState,
 
@@ -50,20 +107,10 @@ pub struct App {
 
     pub(crate) theme: AppTheme,
 
-    /// Pan offset for dragging the canvas.
-    pub pan_offset: Vector,
+    pub view_state: ViewState,
 
     /// Last cursor position during panning operation.
     pub last_cursor_position: Option<Point>,
-    /// Manual per-node positions for the AST view. Keys are numeric node ids
-    /// assigned when converting the AST to a graph.
-    pub pinned_positions_ast: HashMap<u32, iced::Point>,
-    /// Manual per-node positions for the NFA visualization (by state id).
-    pub pinned_positions_nfa: HashMap<StateId, iced::Point>,
-    /// Manual per-node positions for the DFA visualization (by state id).
-    pub pinned_positions_dfa: HashMap<StateId, iced::Point>,
-    /// Manual per-node positions for the Minimized DFA visualization (by state id).
-    pub pinned_positions_min_dfa: HashMap<StateId, iced::Point>,
 }
 
 impl Default for App {
@@ -81,18 +128,34 @@ impl Default for App {
             error: None,
             build_artifacts: None,
             box_visibility: BoxVisibility::minimized(),
-            zoom_factor: DEFAULT_ZOOM_FACTOR,
-            view_mode: ViewMode::Nfa, // Default to NFA view
             simulation: SimulationState::default(),
             simulation_error: None,
             panes,
             theme: AppTheme::Dark,
-            pan_offset: Vector::ZERO,
+            view_state: ViewState::default(),
             last_cursor_position: None,
-            pinned_positions_ast: HashMap::new(),
-            pinned_positions_nfa: HashMap::new(),
-            pinned_positions_dfa: HashMap::new(),
-            pinned_positions_min_dfa: HashMap::new(),
         }
+    }
+}
+
+impl App {
+    /// Gets an immutable reference to the current view's data.
+    pub fn view_data(&self) -> &ViewData {
+        self.view_state.data()
+    }
+
+    /// Gets a mutable reference to the current view's data.
+    pub fn view_data_mut(&mut self) -> &mut ViewData {
+        self.view_state.data_mut()
+    }
+
+    /// Returns the current view mode.
+    pub fn view_mode(&self) -> ViewMode {
+        self.view_state.mode
+    }
+
+    /// Sets the current view mode.
+    pub fn set_view_mode(&mut self, view_mode: ViewMode) {
+        self.view_state.mode = view_mode;
     }
 }
