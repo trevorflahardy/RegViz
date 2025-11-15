@@ -277,11 +277,7 @@ fn layout_graph<G: Graph>(graph: &G, visibility: &super::BoxVisibility) -> super
     for node in nodes {
         if let Some(position) = state_positions.get(&node.id).copied() {
             bounds.include_circle(position, NODE_RADIUS);
-            let mut pn = PositionedNode::new(node.clone(), position, NODE_RADIUS);
-            if node.is_pinned {
-                pn.is_pinned = true;
-                pn.manual_position = node.manual_position;
-            }
+            let pn = PositionedNode::new(node, position, NODE_RADIUS);
             positioned_nodes.push(pn);
         }
     }

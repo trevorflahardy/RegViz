@@ -53,10 +53,7 @@ pub struct App {
     /// Pan offset for dragging the canvas.
     pub pan_offset: Vector,
 
-    /// Whether the canvas is currently being dragged.
-    pub dragging: bool,
-
-    /// Last cursor position during drag operation.
+    /// Last cursor position during panning operation.
     pub last_cursor_position: Option<Point>,
     /// Manual per-node positions for the AST view. Keys are numeric node ids
     /// assigned when converting the AST to a graph.
@@ -67,12 +64,6 @@ pub struct App {
     pub pinned_positions_dfa: HashMap<StateId, iced::Point>,
     /// Manual per-node positions for the Minimized DFA visualization (by state id).
     pub pinned_positions_min_dfa: HashMap<StateId, iced::Point>,
-    /// If the user is currently dragging a node, this holds its StateId.
-    pub node_dragging: Option<StateId>,
-    /// Last cursor position during node drag (layout coordinates).
-    pub last_node_cursor_position: Option<Point>,
-    /// Selected node (single-click selection), if any.
-    pub selected_node: Option<StateId>,
 }
 
 impl Default for App {
@@ -97,15 +88,11 @@ impl Default for App {
             panes,
             theme: AppTheme::Dark,
             pan_offset: Vector::ZERO,
-            dragging: false,
             last_cursor_position: None,
             pinned_positions_ast: HashMap::new(),
             pinned_positions_nfa: HashMap::new(),
             pinned_positions_dfa: HashMap::new(),
             pinned_positions_min_dfa: HashMap::new(),
-            node_dragging: None,
-            last_node_cursor_position: None,
-            selected_node: None,
         }
     }
 }

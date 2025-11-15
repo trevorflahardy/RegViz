@@ -4,7 +4,6 @@ use iced::{
     widget::{Canvas, button, column, container, row, text, themer},
 };
 
-use crate::app::state::App;
 use crate::app::{
     message::{Message, RightPaneMode, ViewMessage, ViewMode},
     theme::{ButtonClass, ElementType, TextClass, TextSize},
@@ -12,6 +11,10 @@ use crate::app::{
 use crate::app::{simulation::SimulationTarget, theme::AppTheme};
 use crate::graph::layout::{DfaLayoutStrategy, NfaLayoutStrategy, TreeLayoutStrategy};
 use crate::graph::{AstGraph, BoxVisibility, GraphCanvas, Highlights, VisualDfa, VisualNfa};
+use crate::{
+    app::state::App,
+    graph::{Graph, layout::LayoutStrategy},
+};
 
 use super::controls;
 
@@ -47,6 +50,21 @@ pub fn render<'a>(
     container(content).padding(20).height(Length::Fill).into()
 }
 
+/// Applies pan and drag state from the app to the given canvas.
+fn apply_pan_state<'a, G, S>(app: &App, canvas: &mut GraphCanvas<G, S>)
+where
+    G: Graph + 'a,
+    S: LayoutStrategy + 'a,
+{
+    // Apply pan state from app
+    canvas.set_pan_offset(app.pan_offset);
+    if app.last_cursor_position.is_some() {
+        canvas.start_drag();
+    } else {
+        canvas.end_drag();
+    }
+}
+
 fn render_ast_canvas<'a>(
     app: &App,
     artifacts: &'a regviz_core::core::BuildArtifacts,
@@ -59,18 +77,7 @@ fn render_ast_canvas<'a>(
         TreeLayoutStrategy,
     );
 
-    // Apply pan state from app
-    canvas.set_pan_offset(app.pan_offset);
-    if app.dragging
-        && let Some(pos) = app.last_cursor_position
-    {
-        canvas.start_drag(pos);
-    }
-    if let Some(node_id) = app.node_dragging
-        && let Some(pos) = app.last_node_cursor_position
-    {
-        canvas.start_node_drag(node_id, pos);
-    }
+    apply_pan_state(app, &mut canvas);
 
     let canvas_elem: Element<'_, Message, AppTheme> = Canvas::new(canvas)
         .width(Length::Fill)
@@ -174,19 +181,7 @@ fn render_automaton_canvas<'a>(
                 app.zoom_factor,
                 NfaLayoutStrategy,
             );
-
-            // Apply pan state from app
-            canvas.set_pan_offset(app.pan_offset);
-            if app.dragging
-                && let Some(pos) = app.last_cursor_position
-            {
-                canvas.start_drag(pos);
-            }
-            if let Some(node_id) = app.node_dragging
-                && let Some(pos) = app.last_node_cursor_position
-            {
-                canvas.start_node_drag(node_id, pos);
-            }
+            apply_pan_state(app, &mut canvas);
 
             Canvas::new(canvas)
                 .width(Length::Fill)
@@ -218,13 +213,8 @@ fn render_automaton_canvas<'a>(
                 DfaLayoutStrategy,
             );
 
-            // Apply pan state from app
-            canvas.set_pan_offset(app.pan_offset);
-            if app.dragging
-                && let Some(pos) = app.last_cursor_position
-            {
-                canvas.start_drag(pos);
-            }
+            apply_pan_state(app, &mut canvas);
+
             Canvas::new(canvas)
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -255,13 +245,7 @@ fn render_automaton_canvas<'a>(
                 DfaLayoutStrategy,
             );
 
-            // Apply pan state from app
-            canvas.set_pan_offset(app.pan_offset);
-            if app.dragging
-                && let Some(pos) = app.last_cursor_position
-            {
-                canvas.start_drag(pos);
-            }
+            apply_pan_state(app, &mut canvas);
 
             Canvas::new(canvas)
                 .width(Length::Fill)

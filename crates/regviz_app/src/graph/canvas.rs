@@ -20,26 +20,15 @@ pub struct GraphCanvas<G: Graph, S: LayoutStrategy> {
     strategy: S,
     /// Pan offset for dragging the canvas
     pan_offset: Vector,
-    /// Track if currently dragging
-    dragging: bool,
-    /// Last cursor position during drag
-    last_cursor_position: Option<Point>,
-    /// If the user initiated a node drag (via a prior NodeDragStart message),
-    /// this stores the id of the node being dragged so cursor moves can emit
-    /// `NodeDrag` messages. This field is set by the application in response to
-    /// `ViewMessage::NodeDragStart` and cleared on `NodeDragEnd`.
-    node_dragging: Option<StateId>,
-    /// Last cursor position while dragging a node (screen coords)
-    last_node_cursor_position: Option<Point>,
+    /// Track if currently panning
+    panning: bool,
 }
 
 /// Mutable runtime state for the canvas program.
 #[derive(Debug, Clone, Default)]
 pub struct CanvasState {
-    /// Currently dragged node, if any.
-    pub node_dragging: Option<StateId>,
-    /// Last cursor position while dragging a node (layout coordinates).
-    pub last_node_cursor_position: Option<Point>,
+    /// Currently dragged node id + position, if any.
+    node_dragging: Option<(StateId, Point)>,
 }
 
 impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
@@ -59,10 +48,7 @@ impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
             zoom_factor,
             strategy,
             pan_offset: Vector::ZERO,
-            dragging: false,
-            last_cursor_position: None,
-            node_dragging: None,
-            last_node_cursor_position: None,
+            panning: false,
         }
     }
 
@@ -71,18 +57,14 @@ impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
         self.pan_offset = offset;
     }
 
-    /// Starts a drag operation at the given cursor position.
-    pub fn start_drag(&mut self, position: Point) {
-        self.dragging = true;
-        self.last_cursor_position = Some(position);
+    /// Starts a drag operation for panning.
+    pub fn start_drag(&mut self) {
+        self.panning = true;
     }
 
-    /// Called by the application when a node drag is started. The canvas will
-    /// then publish `NodeDrag` messages on cursor movement until `end_node_drag`
-    /// is called.
-    pub fn start_node_drag(&mut self, node: StateId, position: Point) {
-        self.node_dragging = Some(node);
-        self.last_node_cursor_position = Some(position);
+    /// Ends a drag operation for panning.
+    pub fn end_drag(&mut self) {
+        self.panning = false;
     }
 }
 
@@ -162,17 +144,16 @@ where
                             // Start node-drag locally so subsequent cursor
                             // moves will immediately emit NodeDrag messages
                             // without waiting for the app->view roundtrip.
-                            state.node_dragging = Some(hit.data.id);
-                            state.last_node_cursor_position = Some(logical);
+                            state.node_dragging = Some((hit.data.id, logical));
 
-                            // Tell the app about the initial drag (so it can
-                            // persist the pinned position and update selection).
+                            // Tell the app about the initial drag
                             return Some(canvas::Action::publish(Message::View(
-                                ViewMessage::NodeDragStart(hit.data.id, logical),
+                                ViewMessage::NodeDrag(hit.data.id, logical),
                             )));
                         }
 
-                        // No node hit — start panning instead.
+                        // No node hit — start panning instead. This message will tell the app
+                        // to set canvas' panning state to true.
                         return Some(canvas::Action::publish(Message::View(
                             ViewMessage::StartPan(screen_pos),
                         )));
@@ -182,20 +163,23 @@ where
                 // Cursor movement: if a node drag is active, publish NodeDrag;
                 // otherwise publish Pan if we're currently panning.
                 mouse::Event::CursorMoved { .. } => {
-                    if let Some(node_id) = state.node_dragging
+                    if let Some((node_id, _)) = state.node_dragging
                         && let Some(screen_pos) = cursor.position_in(bounds)
                     {
                         let logical = Point::new(
                             (screen_pos.x - translation.x) / zoom,
                             (screen_pos.y - translation.y) / zoom,
                         );
-                        state.last_node_cursor_position = Some(logical);
+
+                        // Update last known position
+                        state.node_dragging = Some((node_id, logical));
+
                         return Some(canvas::Action::publish(Message::View(
                             ViewMessage::NodeDrag(node_id, logical),
                         )));
                     }
 
-                    if self.dragging
+                    if self.panning
                         && let Some(position) = cursor.position_in(bounds)
                     {
                         return Some(canvas::Action::publish(Message::View(ViewMessage::Pan(
@@ -206,22 +190,28 @@ where
 
                 // Mouse release: end node drag if active, otherwise end pan.
                 mouse::Event::ButtonReleased(mouse::Button::Left) => {
-                    if let Some(node_id) = state.node_dragging
-                        && let Some(screen_pos) = cursor.position_in(bounds)
-                    {
-                        let logical = Point::new(
-                            (screen_pos.x - translation.x) / zoom,
-                            (screen_pos.y - translation.y) / zoom,
-                        );
-                        // Notify app about final position
+                    if let Some((node_id, position)) = state.node_dragging {
+                        // Clear local drag state
                         state.node_dragging = None;
-                        state.last_node_cursor_position = None;
+
+                        let final_position = if let Some(screen_pos) = cursor.position_in(bounds) {
+                            Point::new(
+                                (screen_pos.x - translation.x) / zoom,
+                                (screen_pos.y - translation.y) / zoom,
+                            )
+                        } else {
+                            // Use last known if cursor is outside bounds
+                            position
+                        };
+
+                        // Notify app about final position
                         return Some(canvas::Action::publish(Message::View(
-                            ViewMessage::NodeDragEnd(node_id, logical),
+                            ViewMessage::NodeDrag(node_id, final_position),
                         )));
                     }
 
-                    if self.dragging {
+                    if self.panning {
+                        // Notify app that panning ended. The app will update its canvas' panning state to false.
                         return Some(canvas::Action::publish(Message::View(ViewMessage::EndPan)));
                     }
                 }
@@ -253,7 +243,7 @@ where
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> mouse::Interaction {
-        if self.dragging || state.node_dragging.is_some() {
+        if self.panning || state.node_dragging.is_some() {
             mouse::Interaction::Grabbing
         } else if cursor.is_over(bounds) {
             mouse::Interaction::Grab

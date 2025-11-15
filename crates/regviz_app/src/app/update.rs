@@ -61,85 +61,16 @@ impl App {
                     self.handle_start_pan(position);
                     ().into()
                 }
-                ViewMessage::NodeDragStart(id, position) => {
-                    // Start dragging immediately and persist the initial
-                    // manual position so click-and-drag works without a
-                    // second click.
-                    self.node_dragging = Some(id);
-                    self.last_node_cursor_position = Some(position);
-                    self.selected_node = Some(id);
-
-                    // Mark the node as pinned by inserting initial position
-                    // into the appropriate per-view pinned map.
-                    if self.view_mode == ViewMode::Ast {
-                        self.pinned_positions_ast.insert(id, position);
-                    } else {
-                        match self.simulation.target {
-                            SimulationTarget::Nfa => {
-                                self.pinned_positions_nfa.insert(id, position);
-                            }
-                            SimulationTarget::Dfa => {
-                                self.pinned_positions_dfa.insert(id, position);
-                            }
-                            SimulationTarget::MinDfa => {
-                                self.pinned_positions_min_dfa.insert(id, position);
-                            }
-                        }
-                    }
-
-                    ().into()
-                }
-                ViewMessage::NodeDrag(id, position) => {
-                    if self.node_dragging == Some(id) {
-                        // Update the appropriate pinned map depending on the
-                        // current view (AST vs automaton) and simulation target.
-                        if self.view_mode == ViewMode::Ast {
-                            self.pinned_positions_ast.insert(id, position);
-                        } else {
-                            match self.simulation.target {
-                                SimulationTarget::Nfa => {
-                                    self.pinned_positions_nfa.insert(id, position);
-                                }
-                                SimulationTarget::Dfa => {
-                                    self.pinned_positions_dfa.insert(id, position);
-                                }
-                                SimulationTarget::MinDfa => {
-                                    self.pinned_positions_min_dfa.insert(id, position);
-                                }
-                            }
-                        }
-                        self.last_node_cursor_position = Some(position);
-                    }
-                    ().into()
-                }
-                ViewMessage::NodeDragEnd(id, position) => {
-                    if self.node_dragging == Some(id) {
-                        if self.view_mode == ViewMode::Ast {
-                            self.pinned_positions_ast.insert(id, position);
-                        } else {
-                            match self.simulation.target {
-                                SimulationTarget::Nfa => {
-                                    self.pinned_positions_nfa.insert(id, position);
-                                }
-                                SimulationTarget::Dfa => {
-                                    self.pinned_positions_dfa.insert(id, position);
-                                }
-                                SimulationTarget::MinDfa => {
-                                    self.pinned_positions_min_dfa.insert(id, position);
-                                }
-                            }
-                        }
-                        self.node_dragging = None;
-                        self.last_node_cursor_position = None;
-                    }
-                    ().into()
-                }
                 ViewMessage::Pan(position) => {
                     self.handle_pan(position);
                     ().into()
                 }
                 ViewMessage::EndPan => {
                     self.handle_end_pan();
+                    ().into()
+                }
+                ViewMessage::NodeDrag(id, position) => {
+                    self.handle_node_drag(id, position);
                     ().into()
                 }
                 ViewMessage::ResetView => {
@@ -350,15 +281,12 @@ impl App {
 
     /// Starts a pan operation at the given cursor position.
     fn handle_start_pan(&mut self, position: Point) {
-        self.dragging = true;
         self.last_cursor_position = Some(position);
     }
 
     /// Updates the pan offset based on cursor movement.
     fn handle_pan(&mut self, position: Point) {
-        if self.dragging
-            && let Some(last_pos) = self.last_cursor_position
-        {
+        if let Some(last_pos) = self.last_cursor_position {
             let delta = Vector::new(position.x - last_pos.x, position.y - last_pos.y);
             self.pan_offset = self.pan_offset + delta;
             self.last_cursor_position = Some(position);
@@ -367,15 +295,32 @@ impl App {
 
     /// Ends the current pan operation.
     fn handle_end_pan(&mut self) {
-        self.dragging = false;
         self.last_cursor_position = None;
+    }
+
+    /// Updates the pinned position of a node during a drag operation.
+    fn handle_node_drag(&mut self, id: u32, position: Point) {
+        if self.view_mode == ViewMode::Ast {
+            self.pinned_positions_ast.insert(id, position);
+        } else {
+            match self.simulation.target {
+                SimulationTarget::Nfa => {
+                    self.pinned_positions_nfa.insert(id, position);
+                }
+                SimulationTarget::Dfa => {
+                    self.pinned_positions_dfa.insert(id, position);
+                }
+                SimulationTarget::MinDfa => {
+                    self.pinned_positions_min_dfa.insert(id, position);
+                }
+            }
+        }
     }
 
     /// Resets the view to center with default zoom.
     fn handle_reset_view(&mut self) {
         self.pan_offset = Vector::ZERO;
         self.zoom_factor = super::constants::DEFAULT_ZOOM_FACTOR;
-        self.dragging = false;
         self.last_cursor_position = None;
         // Clear any user-pinned/manual node positions so the layout
         // reverts to its automatically computed positions.
@@ -383,9 +328,5 @@ impl App {
         self.pinned_positions_nfa.clear();
         self.pinned_positions_dfa.clear();
         self.pinned_positions_min_dfa.clear();
-        // Clear any node-drag/selection state.
-        self.node_dragging = None;
-        self.last_node_cursor_position = None;
-        self.selected_node = None;
     }
 }

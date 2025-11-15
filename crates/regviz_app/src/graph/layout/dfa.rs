@@ -55,11 +55,7 @@ fn layout_graph<G: Graph>(graph: &G) -> GraphLayout {
     for node in nodes {
         if let Some(position) = state_positions.get(&node.id).copied() {
             bounds.include_circle(position, NODE_RADIUS);
-            let mut pnode = PositionedNode::new(node, position, NODE_RADIUS);
-            if pnode.data.is_pinned {
-                pnode.is_pinned = true;
-                pnode.manual_position = pnode.data.manual_position;
-            }
+            let pnode = PositionedNode::new(node, position, NODE_RADIUS);
             positioned_nodes.push(pnode);
         }
     }

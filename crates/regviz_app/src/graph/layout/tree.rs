@@ -159,14 +159,7 @@ fn layout_tree<G: Graph>(graph: &G) -> super::GraphLayout {
             let pos = node
                 .manual_position
                 .or_else(|| node_positions.get(&node.id).copied());
-            pos.map(|p| {
-                let mut pn = PositionedNode::new(node.clone(), p, NODE_RADIUS);
-                if node.is_pinned {
-                    pn.is_pinned = true;
-                    pn.manual_position = node.manual_position;
-                }
-                pn
-            })
+            pos.map(|p| PositionedNode::new(node.clone(), p, NODE_RADIUS))
         })
         .collect();
 

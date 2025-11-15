@@ -99,12 +99,6 @@ pub struct PositionedNode {
     pub position: Point,
     /// Node radius.
     pub radius: f32,
-    /// If true the node's position should be treated as manually pinned and
-    /// respected by layout algorithms.
-    pub is_pinned: bool,
-    /// Optional manual position (in layout coordinates). When `is_pinned` is
-    /// true this overrides any computed layout position.
-    pub manual_position: Option<Point>,
 }
 
 impl PositionedNode {
@@ -115,8 +109,6 @@ impl PositionedNode {
             data,
             position,
             radius,
-            is_pinned: false,
-            manual_position: None,
         }
     }
 }

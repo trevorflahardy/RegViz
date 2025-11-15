@@ -20,14 +20,8 @@ pub enum ViewMessage {
     EndPan,
     /// User clicked reset view button to center and restore default zoom.
     ResetView,
-    /// User requested a node-drag (click+drag) so the handler can
-    /// both start dragging and apply the initial pinned position in one message.
-    /// Point is in layout coordinates (pre-zoom/pan).
-    NodeDragStart(StateId, Point),
     /// User is dragging a node; update its manual position. Point is in layout coordinates.
     NodeDrag(StateId, Point),
-    /// User finished dragging a node; final position is provided in layout coordinates.
-    NodeDragEnd(StateId, Point),
 }
 
 /// Available visualization modes.
