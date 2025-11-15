@@ -55,12 +55,8 @@ where
     S: LayoutStrategy + 'a,
 {
     // Apply pan state from app
-    canvas.set_pan_offset(app.view_data().pan_offset);
-    if app.last_cursor_position.is_some() {
-        canvas.start_drag();
-    } else {
-        canvas.end_drag();
-    }
+    canvas.pan_offset = app.view_data().pan_offset;
+    canvas.panning = app.last_cursor_position.is_some();
 }
 
 fn render_ast_canvas<'a>(

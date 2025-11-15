@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::app::state::ViewState;
+use crate::app::state::ViewData;
 
 use super::constants::{MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR, ZOOM_STEP};
 use super::message::{
@@ -307,9 +307,9 @@ impl App {
             .insert(id, position);
     }
 
-    /// Resets the view to center with default zoom.
+    /// Resets the current view to center with default zoom and no pinned nodes.
     fn handle_reset_view(&mut self) {
         self.last_cursor_position = None;
-        self.view_state = ViewState::default();
+        *self.view_state.data_mut() = ViewData::default();
     }
 }

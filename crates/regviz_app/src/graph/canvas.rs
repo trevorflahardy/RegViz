@@ -19,9 +19,9 @@ pub struct GraphCanvas<G: Graph, S: LayoutStrategy> {
     zoom_factor: f32,
     strategy: S,
     /// Pan offset for dragging the canvas
-    pan_offset: Vector,
+    pub pan_offset: Vector,
     /// Track if currently panning
-    panning: bool,
+    pub panning: bool,
 }
 
 /// Mutable runtime state for the canvas program.
@@ -50,21 +50,6 @@ impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
             pan_offset: Vector::ZERO,
             panning: false,
         }
-    }
-
-    /// Sets the pan offset for this canvas.
-    pub fn set_pan_offset(&mut self, offset: Vector) {
-        self.pan_offset = offset;
-    }
-
-    /// Starts a drag operation for panning.
-    pub fn start_drag(&mut self) {
-        self.panning = true;
-    }
-
-    /// Ends a drag operation for panning.
-    pub fn end_drag(&mut self) {
-        self.panning = false;
     }
 }
 
