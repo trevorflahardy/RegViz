@@ -177,10 +177,10 @@ impl App {
         if let Some(error) = self.validate_simulation_input() {
             self.simulation_error = Some(error);
             self.simulation.clear_trace();
-            return;
+        } else {
+            self.simulation_error = None;
         }
 
-        self.simulation_error = None;
         self.rebuild_simulation_trace();
     }
 
@@ -219,10 +219,6 @@ impl App {
 
     /// Recomputes the simulation trace for the current target automaton.
     pub(crate) fn rebuild_simulation_trace(&mut self) {
-        if self.simulation_error.is_some() {
-            return;
-        }
-
         let Some(artifacts) = self.build_artifacts.as_mut() else {
             self.simulation.clear_trace();
             return;
