@@ -29,6 +29,10 @@ pub struct GraphCanvas<G: Graph, S: LayoutStrategy> {
 pub struct CanvasState {
     /// Currently dragged node id + position, if any.
     node_dragging: Option<(StateId, Point)>,
+    /// Snapshot of layout bounds taken when a node-drag started. While present
+    /// the canvas will use these bounds to compute the fit zoom and centering so
+    /// that dragging nodes doesn't change the fit coefficient.
+    original_bounds: Option<Rectangle>,
 }
 
 impl<G: Graph, S: LayoutStrategy> GraphCanvas<G, S> {
@@ -63,7 +67,7 @@ where
 
     fn draw(
         &self,
-        _state: &Self::State,
+        state: &Self::State,
         renderer: &R,
         theme: &AppTheme,
         bounds: Rectangle,
@@ -71,10 +75,13 @@ where
     ) -> Vec<canvas::Geometry<R>> {
         // Use the configured layout strategy
         let layout = self.strategy.compute(&self.graph, &self.visibility);
-        let fit_zoom = fit_zoom(bounds.size(), &layout);
+        // If a node drag snapshot exists, use its bounds for fit/centering so
+        // the fit zoom doesn't change during a drag. Otherwise use computed layout.
+        let bounds_for_fit = state.original_bounds.unwrap_or(layout.bounds);
+        let fit_zoom = fit_zoom(bounds.size(), bounds_for_fit);
         let zoom = fit_zoom * self.zoom_factor;
 
-        let translation = center_translation(bounds.size(), &layout, zoom);
+        let translation = center_translation(bounds.size(), bounds_for_fit, zoom);
         // Apply pan offset to translation
         let translation = translation + self.pan_offset;
         let ctx = DrawContext { zoom, translation };
@@ -104,9 +111,13 @@ where
         // We'll need the computed layout and transform to translate cursor
         // screen coordinates into layout coordinates for hit testing.
         let layout = self.strategy.compute(&self.graph, &self.visibility);
-        let fit = fit_zoom(bounds.size(), &layout);
+        // Use snapshot bounds if present so hit-testing / coordinate transforms
+        // remain consistent during an active node drag.
+        let original_bounds = state.original_bounds.unwrap_or(layout.bounds);
+        let fit = fit_zoom(bounds.size(), original_bounds);
         let zoom = fit * self.zoom_factor;
-        let translation = center_translation(bounds.size(), &layout, zoom) + self.pan_offset;
+        let translation =
+            center_translation(bounds.size(), original_bounds, zoom) + self.pan_offset;
 
         if let canvas::Event::Mouse(mouse_event) = event {
             match mouse_event {
@@ -130,6 +141,9 @@ where
                             // moves will immediately emit NodeDrag messages
                             // without waiting for the app->view roundtrip.
                             state.node_dragging = Some((hit.data.id, logical));
+                            // Snapshot layout bounds so the fit coefficient remains
+                            // fixed for the duration of the drag.
+                            state.original_bounds = Some(layout.bounds);
 
                             // Tell the app about the initial drag
                             return Some(canvas::Action::publish(Message::View(
@@ -178,6 +192,8 @@ where
                     if let Some((node_id, position)) = state.node_dragging {
                         // Clear local drag state
                         state.node_dragging = None;
+                        // Clear snapshot so future layout updates affect fit again
+                        state.original_bounds = None;
 
                         let final_position = if let Some(screen_pos) = cursor.position_in(bounds) {
                             Point::new(
@@ -238,18 +254,18 @@ where
     }
 }
 
-fn fit_zoom(size: Size, layout: &GraphLayout) -> f32 {
-    if layout.bounds.width <= 0.0 || layout.bounds.height <= 0.0 {
+fn fit_zoom(size: Size, bounds: Rectangle) -> f32 {
+    if bounds.width <= 0.0 || bounds.height <= 0.0 {
         return 1.0;
     }
-    let zoom_x = size.width / layout.bounds.width;
-    let zoom_y = size.height / layout.bounds.height;
+    let zoom_x = size.width / bounds.width;
+    let zoom_y = size.height / bounds.height;
     zoom_x.min(zoom_y).max(0.01)
 }
 
-fn center_translation(size: Size, layout: &GraphLayout, zoom: f32) -> Vector {
-    let center_x = layout.bounds.x + layout.bounds.width / 2.0;
-    let center_y = layout.bounds.y + layout.bounds.height / 2.0;
+fn center_translation(size: Size, bounds: Rectangle, zoom: f32) -> Vector {
+    let center_x = bounds.x + bounds.width / 2.0;
+    let center_y = bounds.y + bounds.height / 2.0;
 
     Vector::new(
         size.width / 2.0 - center_x * zoom,
