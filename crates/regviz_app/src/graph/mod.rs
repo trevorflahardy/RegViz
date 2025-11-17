@@ -17,7 +17,7 @@ pub use dfa::VisualDfa;
 pub use draw::{DrawContext, Drawable};
 pub use edge::GraphEdge;
 pub use highlight::{EdgeHighlight, Highlights, StateHighlight};
-pub use layout::{BoxVisibility, GraphLayout};
+pub use layout::BoxVisibility;
 pub use nfa::VisualNfa;
 pub use node::GraphNode;
 pub use style::color_for_box;

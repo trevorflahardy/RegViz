@@ -4,7 +4,7 @@ use iced_graphics::geometry::Renderer;
 use regviz_core::core::automaton::StateId;
 
 use super::layout::LayoutStrategy;
-use super::{BoxVisibility, DrawContext, Drawable, Graph, GraphLayout};
+use super::{BoxVisibility, DrawContext, Drawable, Graph};
 use crate::app::message::{Message, ViewMessage};
 use crate::app::theme::AppTheme;
 
