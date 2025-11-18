@@ -2,3 +2,8 @@
 members = ["crates/regviz_core", "crates/regviz_app"]
 resolver = "3"
 default-members = ["crates/regviz_app"]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
