@@ -2491,7 +2491,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "regviz_app"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
@@ -2506,7 +2506,7 @@ dependencies = [
 
 [[package]]
 name = "regviz_core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "indexmap",
  "thiserror 2.0.17",
