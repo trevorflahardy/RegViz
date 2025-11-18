@@ -17,9 +17,10 @@ struct PartitionRefinement<'a> {
     dfa: &'a Dfa,
     /// Current partitions of states.
     partitions: Vec<Vec<usize>>,
-    /// Mapping from state to its partition class (index in `partitions`).
-    state_class: Vec<usize>,
-    /// Worklist of (partition class, symbol index) pairs to process.
+    /// Mapping from state to its partition index
+    /// Index is state id, and value is partition index.
+    state_partition_map: Vec<usize>,
+    /// Queue of (partition index, symbol index) pairs to process.
     worklist: VecDeque<(usize, usize)>,
     /// Set of accepting states for quick lookup.
     accepting: HashSet<StateId>,
@@ -45,72 +46,95 @@ impl<'a> PartitionRefinement<'a> {
             partitions.push(rejecting_block);
         }
 
-        let mut state_class = vec![0; dfa.trans.len()];
-        for (class, block) in partitions.iter().enumerate() {
-            for &state in block {
-                state_class[state] = class;
+        let mut state_partition_map = vec![0; dfa.trans.len()];
+        for (partition_idx, partition) in partitions.iter().enumerate() {
+            for &state in partition {
+                state_partition_map[state] = partition_idx;
             }
         }
 
         let mut worklist = VecDeque::new();
-        for (class_idx, block) in partitions.iter().enumerate() {
-            if block.is_empty() {
+        // Collect all (partition index, symbol) pairs to initialize the worklist
+        for (partition_idx, partition) in partitions.iter().enumerate() {
+            if partition.is_empty() {
                 continue;
             }
             for symbol_idx in 0..dfa.alphabet.len() {
-                worklist.push_back((class_idx, symbol_idx));
+                worklist.push_back((partition_idx, symbol_idx));
             }
         }
 
         Self {
             dfa,
             partitions,
-            state_class,
+            state_partition_map,
             worklist,
             accepting,
         }
     }
 
+    /// Runs the partition refinement algorithm to minimize the DFA.
     fn run(mut self) -> Dfa {
-        while let Some((class_idx, symbol_idx)) = self.worklist.pop_front() {
-            let involved = self.collect_involved(class_idx, symbol_idx);
+        // Consider one (partition, symbol) pair at a time and add gradually build up the partitions.
+        while let Some((partition_idx, symbol_idx)) = self.worklist.pop_front() {
+            // Find all states that transition to this partition on this symbol
+            let involved = self.collect_involved(partition_idx, symbol_idx);
             if involved.is_empty() {
+                // No states transition to this partition on this symbol, skip
                 continue;
             }
-            let splits = self.split_partitions(&involved);
-            self.enqueue_splits(splits);
+            let to_be_enqueued = self.split_partitions(&involved);
+            self.enqueue_partitions(to_be_enqueued);
         }
+        // After this while loop, partitions cannot be split further, which means
+        // all states in each partition behave equivalently for all symbols.
+        // That is, for any input symbol, transitions from states in the same partition
+        // lead to states in the same partition.
+
+        // Build the minimized DFA from the finalized partitions
         self.build_minimized()
     }
 
-    fn collect_involved(&self, class_idx: usize, symbol_idx: usize) -> HashSet<usize> {
+    /// Collects all states that transition to states in the given partition on the given symbol.
+    /// These states are considered "involved" in the splitting process.
+    fn collect_involved(&self, partition_idx: usize, symbol_idx: usize) -> HashSet<usize> {
         let mut involved = HashSet::new();
         for state in 0..self.dfa.trans.len() {
             let dst = self.dfa.trans[state][symbol_idx];
-            if self.state_class[dst as usize] == class_idx {
+            if self.state_partition_map[dst as usize] == partition_idx {
                 involved.insert(state);
             }
         }
         involved
     }
 
+    /// Goes through all partitions and split them based on the set of involved states.
+    /// See [`PartitionRefinement::collect_involved`] for definition of involved states.
+    /// Returns the indices of the partitions to be added to the worklist.
+    /// The returned vec is empty when no partitions were split.
     fn split_partitions(&mut self, involved: &HashSet<usize>) -> Vec<usize> {
         let mut split_targets = Vec::new();
         let mut idx = 0;
         while idx < self.partitions.len() {
-            let block = self.partitions[idx].as_slice();
-            let (in_part, out_part) = self.partition_block(block, involved);
+            let partition = self.partitions[idx].as_slice();
+            let (in_part, out_part) = self.split_partition(partition, involved);
             if in_part.is_empty() || out_part.is_empty() {
+                // All or none of the states are involved, don't split
                 idx += 1;
                 continue;
             }
 
+            // The in-part replaces the current partition,
+            // and the out-part is added as a new partition.
             self.partitions[idx] = in_part;
+            // Get new index for the out-part before pushing
             let new_idx = self.partitions.len();
             self.partitions.push(out_part);
-            self.relabel_block(idx);
-            self.relabel_block(new_idx);
+            // Update state-to-partition mapping for both partitions
+            self.relabel_states(idx);
+            self.relabel_states(new_idx);
 
+            // Choose the smaller partition to add to the worklist. Optimization trick.
             let push_idx = if self.partitions[idx].len() < self.partitions[new_idx].len() {
                 idx
             } else {
@@ -122,15 +146,17 @@ impl<'a> PartitionRefinement<'a> {
         split_targets
     }
 
-    fn partition_block(
+    /// Given a partition and a set of states,
+    /// splits the partition into those in the set and those not.
+    fn split_partition(
         &self,
         block: &[usize],
-        involved: &HashSet<usize>,
+        states: &HashSet<usize>,
     ) -> (Vec<usize>, Vec<usize>) {
         let mut in_part = Vec::new();
         let mut out_part = Vec::new();
         for &state in block {
-            if involved.contains(&state) {
+            if states.contains(&state) {
                 in_part.push(state);
             } else {
                 out_part.push(state);
@@ -139,34 +165,39 @@ impl<'a> PartitionRefinement<'a> {
         (in_part, out_part)
     }
 
-    fn relabel_block(&mut self, block_idx: usize) {
-        for &state in &self.partitions[block_idx] {
-            self.state_class[state] = block_idx;
+    /// Updates the state-to-partition mapping for all states in the given partition.
+    fn relabel_states(&mut self, partition_idx: usize) {
+        for &state in &self.partitions[partition_idx] {
+            self.state_partition_map[state] = partition_idx;
         }
     }
 
-    fn enqueue_splits(&mut self, splits: Vec<usize>) {
-        for idx in splits {
+    /// Enqueues all (partition, symbol) pairs for the given partitions into the worklist.
+    fn enqueue_partitions(&mut self, partitions: Vec<usize>) {
+        for idx in partitions {
             for symbol_idx in 0..self.dfa.alphabet.len() {
                 self.worklist.push_back((idx, symbol_idx));
             }
         }
     }
 
+    /// Builds the minimized DFA from the finalized partitions.
     fn build_minimized(self) -> Dfa {
+        // Build the new transition table
         let mut new_trans_table = vec![];
-        for block in self.partitions.iter() {
-            if block.is_empty() {
+        for partition in self.partitions.iter() {
+            if partition.is_empty() {
                 continue;
             }
             let mut new_trans_row = vec![];
-            let repr = block[0];
+            let repr = partition[0];
             for dest in self.dfa.trans[repr].iter() {
-                new_trans_row.push(self.state_class[*dest as usize] as StateId);
+                new_trans_row.push(self.state_partition_map[*dest as usize] as StateId);
             }
             new_trans_table.push(new_trans_row);
         }
 
+        // Build the new accepting states
         let mut new_accepts = Vec::new();
         for (idx, block) in self.partitions.iter().enumerate() {
             if block
@@ -176,9 +207,10 @@ impl<'a> PartitionRefinement<'a> {
                 new_accepts.push(idx as StateId);
             }
         }
-
         let new_states: Vec<StateId> = (0..self.partitions.len()).map(|i| i as StateId).collect();
-        let start = self.state_class[self.dfa.start as usize] as StateId;
+
+        // Determine the new start state
+        let start = self.state_partition_map[self.dfa.start as usize] as StateId;
 
         Dfa {
             states: new_states,
