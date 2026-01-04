@@ -95,8 +95,8 @@ impl Ast {
     /// Builds an AST from the input regular expression string.
     /// Returns a [`BuildError`] if lexing or parsing fails.
     pub fn build(input: &str) -> Result<Ast, BuildError> {
-        let mut lexer = Lexer::new(input)?;
-        if let Token::Eof = lexer.peek().0 {
+        let mut lexer = Lexer::new(input);
+        if let Token::Eof = lexer.peek()?.0 {
             // Empty input, interpreted as epsilon AST
             return Ok(Ast::Epsilon);
         }
@@ -113,8 +113,8 @@ impl Ast {
     ///   causing the parser to return the current left-hand side. This is used to impose operator precedence.
     /// * `open_paren` - Whether we're currently inside a parenthesized sub-expression.
     ///
-    /// Returns a [`ParseError`] if parsing fails.
-    fn parse(lexer: &mut Lexer, min_bp: u8, open_paren: bool) -> Result<Ast, ParseError> {
+    /// Returns a [`BuildError`] if parsing or lexing fails.
+    fn parse(lexer: &mut Lexer, min_bp: u8, open_paren: bool) -> Result<Ast, BuildError> {
         // Phase 1: parse primary
         //
         // Read the next token and convert it into the initial `lhs`.
@@ -124,7 +124,7 @@ impl Ast {
         //  - left parenthesis (recursively parse sub-expression)
         //
         // We capture the token index `idx` (char index) for error reporting.
-        let (token, idx) = lexer.advance();
+        let (token, idx) = lexer.advance()?;
         let mut lhs = match token {
             Token::Epsilon => Ast::Epsilon,
             Token::Literal(c) => Ast::Atom(c),
@@ -134,10 +134,10 @@ impl Ast {
                     let rhs = Ast::parse(lexer, prefix_op.bp, open_paren)?;
                     (prefix_op.build)(rhs)
                 } else {
-                    return Err(ParseError {
+                    return Err(BuildError::Parse(ParseError {
                         at: idx,
                         kind: ParseErrorKind::UnexpectedPrefixOperator(op_token),
-                    });
+                    }));
                 }
             }
             Token::LParen => {
@@ -145,35 +145,35 @@ impl Ast {
                 let sub_expr = Ast::parse(lexer, 0, true)?;
 
                 // Expect closing parenthesis
-                let (token, idx) = lexer.advance();
+                let (token, idx) = lexer.advance()?;
                 match token {
                     Token::RParen => sub_expr,
                     other => {
-                        return Err(ParseError {
+                        return Err(BuildError::Parse(ParseError {
                             at: idx,
                             kind: ParseErrorKind::MismatchedLeftParen { other },
-                        });
+                        }));
                     }
                 }
             }
             Token::RParen => {
                 if open_paren {
                     // Found parentheses with invalid expression inside
-                    return Err(ParseError {
+                    return Err(BuildError::Parse(ParseError {
                         at: idx,
                         kind: ParseErrorKind::ParenthesesWithInvalidExp,
-                    });
+                    }));
                 }
-                return Err(ParseError {
+                return Err(BuildError::Parse(ParseError {
                     at: idx,
                     kind: ParseErrorKind::RightParenWithoutLeft,
-                });
+                }));
             }
             Token::Eof => {
-                return Err(ParseError {
+                return Err(BuildError::Parse(ParseError {
                     at: idx,
                     kind: ParseErrorKind::UnexpectedEof,
-                });
+                }));
             }
         };
 
@@ -188,7 +188,7 @@ impl Ast {
         // does not advance the lexer before we build the AST (we synthesize OpToken::Dot),
         // while explicit operators require consuming the token with `advance()`.
         loop {
-            let (token, idx) = lexer.peek();
+            let (token, idx) = lexer.peek()?;
             let (op_token, is_explicit) = match token {
                 Token::Literal(_) | Token::Epsilon | Token::LParen => {
                     // Implicit concatenation
@@ -208,10 +208,10 @@ impl Ast {
                         // Reached the end of a parenthesized expression
                         break;
                     } else {
-                        return Err(ParseError {
+                        return Err(BuildError::Parse(ParseError {
                             at: idx,
                             kind: ParseErrorKind::RightParenWithoutLeft,
-                        });
+                        }));
                     }
                 }
                 Token::Eof => break,
@@ -227,7 +227,7 @@ impl Ast {
 
                 // Consume the postfix operator if it was explicit
                 if is_explicit {
-                    lexer.advance();
+                    lexer.advance()?;
                 }
 
                 lhs = (postfix_op.build)(lhs);
@@ -240,7 +240,7 @@ impl Ast {
 
                 // Consume the infix operator if it was explicit
                 if is_explicit {
-                    lexer.advance();
+                    lexer.advance()?;
                 }
 
                 let rhs = Ast::parse(lexer, infix_op.right_bp, open_paren)?;
